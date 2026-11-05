@@ -29,11 +29,13 @@ const MIME_TYPES = {
 // Built-in Multiplayer Server (10 tagacha o'yinchi xonalari va ID bo'yicha ulanish)
 // ============================================================================
 const MAX_PLAYERS = 10;
-const PLAYER_TTL_MS = 8000;
+const PLAYER_TTL_MS = 22000;
 // rooms: Map<roomId, Map<playerId, playerState>>
 const rooms = new Map();
 // playerRoom: Map<playerId, roomId>
 const playerRoom = new Map();
+// roomEvents: Map<roomId, Array<{ id, type, fromId, fromName, text, target, ts }>>
+const roomEvents = new Map();
 
 function cleanStalePlayers() {
   const now = Date.now();
@@ -142,8 +144,39 @@ async function handleApi(req, res, urlPath) {
     playerRoom.set(id, targetRoom);
     const state = body.state || {};
     const prevP = roomMap.get(id);
-    const chat = state.chat ? String(state.chat).slice(0, 48) : (prevP && Date.now() - (prevP.chatTs || 0) < 7000 ? prevP.chat : '');
+    const chat = state.chat ? String(state.chat).slice(0, 56) : (prevP && Date.now() - (prevP.chatTs || 0) < 8000 ? prevP.chat : '');
     const chatTs = state.chat ? Number(state.chatTs) || Date.now() : (prevP?.chatTs || 0);
+
+    // Yangi xabar yoki online poyga chaqiruvini xona tarixiga qo'shish
+    let evList = roomEvents.get(targetRoom);
+    if (!evList) {
+      evList = [];
+      roomEvents.set(targetRoom, evList);
+    }
+    if (state.chat && chatTs && chatTs !== prevP?.chatTs) {
+      evList.push({
+        eid: `${id}_${chatTs}`,
+        type: 'chat',
+        fromId: id,
+        fromName: String(state.name || 'Haydovchi').slice(0, 18),
+        text: chat,
+        ts: Date.now(),
+      });
+      if (evList.length > 20) evList.shift();
+    }
+    if (body.event && body.event.type) {
+      evList.push({
+        eid: `${id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        type: String(body.event.type),
+        fromId: id,
+        fromName: String(state.name || 'Haydovchi').slice(0, 18),
+        text: String(body.event.text || '').slice(0, 64),
+        target: body.event.target || null,
+        ts: Date.now(),
+      });
+      if (evList.length > 20) evList.shift();
+    }
+
     roomMap.set(id, {
       id,
       name: String(state.name || 'Haydovchi').slice(0, 18),
@@ -162,6 +195,14 @@ async function handleApi(req, res, urlPath) {
       braking: !!state.braking,
       lights: state.lights !== undefined ? !!state.lights : true,
       drifting: !!state.drifting,
+      onFoot: !!state.onFoot,
+      px: Number(state.px) || 0,
+      py: Number(state.py) || 0,
+      pz: Number(state.pz) || 0,
+      ph: Number(state.ph) || 0,
+      pv: Number(state.pv) || 0,
+      emote: String(state.emote || '').slice(0, 12),
+      ridingWith: String(state.ridingWith || '').slice(0, 12),
       chat,
       chatTs,
       updatedAt: Date.now(),
@@ -188,11 +229,21 @@ async function handleApi(req, res, urlPath) {
           braking: p.braking,
           lights: p.lights,
           drifting: p.drifting,
-          chat: Date.now() - (p.chatTs || 0) < 7000 ? p.chat : '',
+          onFoot: p.onFoot,
+          px: p.px,
+          py: p.py,
+          pz: p.pz,
+          ph: p.ph,
+          pv: p.pv,
+          emote: p.emote,
+          ridingWith: p.ridingWith,
+          chat: Date.now() - (p.chatTs || 0) < 8000 ? p.chat : '',
           chatTs: p.chatTs || 0,
         });
       }
     }
+
+    const recentEvents = evList.filter((e) => Date.now() - e.ts < 15000);
 
     sendJson(res, 200, {
       ok: true,
@@ -200,6 +251,7 @@ async function handleApi(req, res, urlPath) {
       count: roomMap.size,
       max: MAX_PLAYERS,
       players,
+      events: recentEvents,
     });
     return;
   }

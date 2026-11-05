@@ -31,6 +31,8 @@ let syncBusy = false;
 const conns = new Map();   // P2P host: id -> conn
 const players = new Map(); // Boshqa o'yinchilar: id -> state
 const listeners = new Set();
+const seenEventIds = new Set();
+export const chatHistory = []; // [{ fromName, text, ts }]
 
 const emit = (ev = {}) => listeners.forEach((f) => f(ev));
 export const onOnline = (f) => { listeners.add(f); return () => listeners.delete(f); };
@@ -303,26 +305,57 @@ export async function joinFriend(raw) {
   });
 }
 
-function applyList(l) {
+function applyList(l, events = []) {
   const now = performance.now();
   const seen = new Set();
   let changed = false;
+
+  // Xona voqealari (chat, online poyga chaqiruvi va h.k.)
+  for (const ev of events) {
+    if (!ev.eid || seenEventIds.has(ev.eid)) continue;
+    seenEventIds.add(ev.eid);
+    if (ev.type === 'chat') {
+      chatHistory.push({ fromName: ev.fromName, text: ev.text, ts: ev.ts });
+      if (chatHistory.length > 25) chatHistory.shift();
+      if (ev.fromId !== (myId || playerId())) {
+        emit({ chat: { name: ev.fromName || 'Haydovchi', text: ev.text } });
+      } else {
+        emit({ chatUpdated: true });
+      }
+    } else if (ev.type === 'race') {
+      emit({ raceEvent: ev });
+    }
+  }
+
   for (const p of l) {
     seen.add(p.id);
     const prev = players.get(p.id);
     if (!prev) {
       changed = true;
       emit({ join: p.name });
-    } else if (p.chat && p.chatTs && p.chatTs !== prev.chatTs) {
-      emit({ chat: { name: p.name || 'Haydovchi', text: p.chat } });
+    } else {
+      // P2P rejimda events bo'lmagani uchun p.chatTs orqali tekshiramiz
+      if (mode !== 'server' && p.chat && p.chatTs && p.chatTs !== prev.chatTs) {
+        chatHistory.push({ fromName: p.name || 'Haydovchi', text: p.chat, ts: Date.now() });
+        if (chatHistory.length > 25) chatHistory.shift();
+        emit({ chat: { name: p.name || 'Haydovchi', text: p.chat } });
+      }
+      // Do'st bizning mashinamizga o'tirganini bildirish
+      if (p.ridingWith && p.ridingWith !== prev.ridingWith && p.ridingWith === (myId || playerId())) {
+        emit({ passengerJoin: p.name || 'Haydovchi' });
+      }
     }
-    players.set(p.id, { ...p, t: now });
+    players.set(p.id, { ...p, t: now, missingCount: 0 });
   }
   for (const [id, p] of players) {
     if (!seen.has(id)) {
-      players.delete(id);
-      changed = true;
-      emit({ leave: p.name });
+      p.missingCount = (p.missingCount || 0) + 1;
+      // Kamida 8 marta ketma-ket ko'rinmasa va 4 soniyadan oshsa o'chiramiz (yolg'on "o'yindan chiqdi" chiqmasligi uchun)
+      if (p.missingCount > 8 && now - p.t > 4500) {
+        players.delete(id);
+        changed = true;
+        emit({ leave: p.name });
+      }
     }
   }
   if (changed) emit();
@@ -360,25 +393,41 @@ export function leave() {
 let lastLocalState = null;
 let myChat = '';
 let myChatTs = 0;
+let pendingEvent = null;
 
-export function sendChat(text) {
-  myChat = String(text || '').trim().slice(0, 48);
+export function sendChat(text, myName = 'Siz') {
+  myChat = String(text || '').trim().slice(0, 56);
+  if (!myChat) return;
   myChatTs = Date.now();
+  acc = 999; // Darhol yuborish
+  if (lastLocalState) {
+    tick(0.1, { ...lastLocalState, name: myName });
+  }
 }
 
-// Har kadrda chaqiriladi; holat sekundiga ~15 marta (har 65 ms da) real vaqtda yuboriladi
+export function sendOnlineEvent(ev) {
+  pendingEvent = ev;
+  acc = 999;
+  if (lastLocalState) {
+    tick(0.1, lastLocalState);
+  }
+}
+
+// Har kadrda chaqiriladi; holat sekundiga ~16 marta (har 60 ms da) real vaqtda yuboriladi
 export function tick(dt, local) {
-  const activeChat = myChat && Date.now() - myChatTs < 7000 ? myChat : '';
+  const activeChat = myChat && Date.now() - myChatTs < 8000 ? myChat : '';
   const payload = { ...local, chat: activeChat, chatTs: activeChat ? myChatTs : 0 };
   lastLocalState = payload;
   if (status === 'off' || status === 'connecting') return;
   acc += dt;
-  if (acc < 0.065) return;
+  if (acc < 0.06) return;
   acc = 0;
 
   if (mode === 'server') {
-    if (syncBusy) return;
+    if (syncBusy && !pendingEvent && acc < 500) return;
     syncBusy = true;
+    const evToSend = pendingEvent;
+    pendingEvent = null;
     fetch('/api/online/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -386,13 +435,14 @@ export function tick(dt, local) {
         id: myId || playerId(),
         room: hostId || 'LOBBY',
         state: payload,
+        event: evToSend,
       }),
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data && data.ok) {
           hostId = data.room || hostId;
-          applyList(data.players || []);
+          applyList(data.players || [], data.events || []);
         }
       })
       .catch(() => {})
@@ -407,19 +457,19 @@ export function tick(dt, local) {
   const now = performance.now();
   if (role === 'client') {
     if (hostConn?.open) hostConn.send({ t: 's', s: payload });
-    if (now - lastHostMsg > 9000) {
+    if (now - lastHostMsg > 22000) {
       resetRoom();
       emit({ left: 'host' });
     }
     return;
   }
   for (const [id, p] of players) {
-    if (now - p.t > 8000) {
+    if (now - p.t > 22000) {
       try { conns.get(id)?.close(); } catch { /* */ }
       dropClient(id);
     }
   }
-  const all = [{ ...payload }, ...[...players.values()].map(({ t, ...p }) => p)];
+  const all = [{ ...payload }, ...[...players.values()].map(({ t, missingCount, ...p }) => p)];
   for (const [id, c] of conns) {
     if (c.open) c.send({ t: 'p', list: all.filter((p) => p.id !== id) });
   }

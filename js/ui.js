@@ -7,7 +7,8 @@ import { beep, setVolume } from './audio.js';
 import { openGarage } from './ui-garage.js';
 import { stopGarage } from './garage3d.js';
 import { applyControl } from './input.js';
-import { goOnline, joinFriend, leave, info as onlineInfo, list as onlineList, displayId, onOnline, sendChat, MAX_PLAYERS } from './online.js';
+import { goOnline, joinFriend, leave, info as onlineInfo, list as onlineList, displayId, onOnline, sendChat, sendOnlineEvent, chatHistory, MAX_PLAYERS } from './online.js';
+import { blockC } from './world/layout.js';
 
 const $ = (s) => document.querySelector(s);
 let game; // main.js beradigan API
@@ -238,32 +239,43 @@ function online() {
       </section>
     </div>
 
-    <div class="section-title">💬 Tezkor xabar va chaqiruv (3D mashina ustida ko'rinadi)</div>
+    <div class="section-title">💬 Real-vaqt suhbat va Online Poyga chaqiruvi</div>
     <div class="card" style="margin-bottom:12px">
       <div class="opts" style="margin:0">
-        ${['👋 Salom!', '🏁 Poyga o\'ynaymiz!', '🔥 Driftga qarang!', '📍 Yonimga keling!', '👍 Zo\'r mashina!'].map((q) => `<button class="btn sm-btn" data-qchat="${q}">${q}</button>`).join('')}
+        ${['👋 Salom!', '💺 Mashinamga o\'tiring!', '🏁 Poyga o\'ynaymiz!', '🔥 Driftga qarang!', '📍 Yonimga keling!', '👍 Zo\'r mashina!'].map((q) => `<button class="btn sm-btn" data-qchat="${q}">${q}</button>`).join('')}
       </div>
       <div class="row" style="margin-top:6px">
-        <input id="chatInput" maxlength="42" placeholder="Do'stlarga qisqa xabar yozing..." style="margin:0" />
+        <input id="chatInput" maxlength="48" placeholder="Do'stlarga xabar yozing (3D mashina ustida ko'rinadi)..." style="margin:0" />
         <button class="btn primary" id="sendChatBtn" style="flex:0 0 auto">💬 Yuborish</button>
+      </div>
+      <div id="onlineChatLog" class="list" style="margin-top:8px;max-height:110px;overflow-y:auto">
+        ${chatHistory.length === 0 ? '<div style="color:var(--muted);justify-content:center">Suhbat tarixi shu yerda ko\'rinadi</div>' : chatHistory.slice(-8).map((m) => `<div><span>💬 <b>${m.fromName}:</b> ${m.text}</span><small style="color:var(--muted)">${new Date(m.ts).toLocaleTimeString('uz').slice(0, 5)}</small></div>`).join('')}
+      </div>
+      <div class="section-title" style="margin-top:8px">🏁 Do'stlar bilan Online Poyga (Barchaga umumiy GPS marra yuborish)</div>
+      <div class="opts" style="margin:0">
+        <button class="btn sm-btn gold" data-orace="Tashkent City" data-rx="${blockC(5)}" data-rz="${blockC(7)}">🏙️ Tashkent City gacha!</button>
+        <button class="btn sm-btn gold" data-orace="Chorsu Bozori" data-rx="${blockC(3)}" data-rz="${blockC(5)}">🏛️ Chorsu bozorigacha!</button>
+        <button class="btn sm-btn gold" data-orace="Teleminora" data-rx="${blockC(8)}" data-rz="${blockC(2)}">🗼 Teleminoragacha!</button>
+        <button class="btn sm-btn gold" data-orace="Minor Masjidi" data-rx="${blockC(7)}" data-rz="${blockC(4)}">🕌 Minor masjidigacha!</button>
       </div>
     </div>
 
     <div class="section-title">Xonadagi o'yinchilar (${inf.count} / ${MAX_PLAYERS})</div>
-    <div class="list">
+    <div class="list" id="onlinePeersList">
       <div>
-        <span>🟢 <b>${state.name}</b> <small style="color:var(--cyan)">(${myCode} · Siz)</small></span>
+        <span>🟢 <b>${state.name || 'Siz'}</b> <small style="color:var(--cyan)">(${myCode} · Siz)</small></span>
         <b>${myCar.name}</b>
       </div>
-      ${peers.length === 0 ? `<div style="color:var(--muted);justify-content:center">Hozircha xonada boshqa o'yinchi yo'q — ID kodingizni do'stlaringizga yuboring yoki Umumiy zalga kiring!</div>` : peers.map((p) => {
+      ${peers.length === 0 ? `<div style="color:var(--muted);justify-content:center">Hozircha xonada boshqa o'yinchi yo'q — do'stingiz o'yinga kirsa avtomatik shu yerda paydo bo'ladi!</div>` : peers.map((p) => {
         const c = carById(p.car);
         const spd = Math.round(Math.abs(p.v || 0) * 3.6);
         return `<div>
-          <span>🟢 <b>${p.name || 'Haydovchi'}</b> <small style="color:var(--cyan)">(${displayId(p.id)})</small>${p.chat ? ` · <b style="color:var(--gold)">«${p.chat}»</b>` : ''}</span>
-          <span style="display:flex;align-items:center;gap:8px">
+          <span>🟢 <b>${p.name || 'Haydovchi'}</b> <small style="color:var(--cyan)">(${displayId(p.id)})</small> ${p.onFoot ? '<small style="color:var(--gold)">🚶 Piyoda</small>' : ''}${p.chat ? ` · <b style="color:var(--gold)">«${p.chat}»</b>` : ''}</span>
+          <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <small style="color:var(--muted)">${spd} km/s</small>
             <b>${c.name}</b>
             <button class="btn sm-btn" data-tp="${p.id}">📍 Yoniga borish</button>
+            <button class="btn sm-btn primary" data-sit="${p.id}">💺 Mashinasiga o'tirish</button>
           </span>
         </div>`;
       }).join('')}
@@ -313,12 +325,35 @@ function online() {
     toast(`${p.name} yoniga o'tdingiz!`, 'ok');
   }));
 
+  body.querySelectorAll('[data-sit]').forEach((b) => (b.onclick = () => {
+    const p = peers.find((x) => x.id === b.dataset.sit);
+    if (!p) return;
+    game.sitInFriendCar?.(p.id);
+    closeModal();
+  }));
+
+  body.querySelectorAll('[data-orace]').forEach((b) => (b.onclick = () => {
+    const place = b.dataset.orace;
+    const x = Number(b.dataset.rx) || 0;
+    const z = Number(b.dataset.rz) || 0;
+    sendOnlineEvent({
+      type: 'race',
+      text: `🏁 ${state.name || 'Haydovchi'} barchani «${place}» gacha poygaga chaqirdi!`,
+      target: { x, z, name: place },
+    });
+    game.setWaypoint?.({ x, z });
+    beep('go');
+    toast(`🏁 Online poyga marrasi belgilandi: ${place}!`, 'cash');
+    closeModal();
+  }));
+
   const doChat = (txt) => {
     const t = String(txt || '').trim();
     if (!t) return;
-    sendChat(t);
+    sendChat(t, state.name || 'Haydovchi');
     beep('ok');
     toast(`💬 Siz: ${t}`, 'ok');
+    renderModalChatLog();
   };
   body.querySelectorAll('[data-qchat]').forEach((b) => (b.onclick = () => doChat(b.dataset.qchat)));
   body.querySelector('#sendChatBtn').onclick = () => {
@@ -429,18 +464,51 @@ function ideas() {
     </div>`);
 }
 function help() {
-  const keys = [['W / ↑', 'Oldinga'], ['S / ↓', 'Tormoz / orqaga'], ['A / ←', 'Chapga'], ['D / →', "O'ngga"], ['Shift', 'Nitro (tezlashtirish)'], ['Space', "Qo'l tormozi / drift"], ['E', 'Xizmat paneli / zapravka'], ['F', 'Garaj va avtosalon'], ['M', 'Katta xarita'], ['R', 'Poygalar'], ['T', 'Yetkazib berish, taksi, ijara'], ['L', 'Faralar'], ['H', 'Signal'], ['C', "Kamera ko'rinishi"], ['ESC', 'Pauza'], ['Sichqoncha', 'Kamerani 360° aylantirish, g\'ildirak — masofa']];
+  const keys = [['W / ↑', 'Oldinga (haydash / yurish)'], ['S / ↓', 'Tormoz / orqaga'], ['A / ←', 'Chapga'], ['D / →', "O'ngga"], ['G', "Mashinadan tushish / Do'st mashinasiga o'tirish"], ['Shift', 'Nitro / Yugurish'], ['Space', "Qo'l tormozi / drift"], ['E', 'Xizmat paneli / zapravka'], ['F', 'Garaj va avtosalon'], ['M', 'Katta xarita'], ['R', 'Poygalar'], ['T', 'Yetkazib berish, taksi, ijara'], ['O', 'Online xona va suhbat'], ['L', 'Faralar'], ['H', 'Signal'], ['C', "Kamera ko'rinishi"], ['ESC', 'Pauza'], ['Sichqoncha', 'Kamerani 360° aylantirish, g\'ildirak — masofa']];
   showModal('help', '⌨ Boshqaruv', `<div class="keys">${keys.map(([k, d]) => `<div><span class="key">${k}</span>${d}</div>`).join('')}</div>`);
 }
 
 const PANELS = { gas: gasStation, service, garage: () => openGarage({ showModal, toast, closeModal, game }), map: bigMap, race: races, jobs, pause, online, settings, help, about, ideas };
 
+function renderModalChatLog() {
+  const logEl = document.getElementById('onlineChatLog');
+  if (!logEl) return;
+  if (chatHistory.length === 0) {
+    logEl.innerHTML = '<div style="color:var(--muted);justify-content:center">Suhbat tarixi shu yerda ko\'rinadi</div>';
+    return;
+  }
+  logEl.innerHTML = chatHistory.slice(-8).map((m) => `<div><span>💬 <b>${m.fromName}:</b> ${m.text}</span><small style="color:var(--muted)">${new Date(m.ts).toLocaleTimeString('uz').slice(0, 5)}</small></div>`).join('');
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
 onOnline((ev) => {
   if (ev.join) toast(`🌐 ${ev.join} o'yinga qo'shildi!`, 'ok');
   if (ev.leave) toast(`🌐 ${ev.leave} o'yindan chiqdi`, 'err');
   if (ev.left === 'host') toast("🌐 Xona egasi chiqib ketdi", 'err');
-  if (ev.chat) { beep('ok'); toast(`💬 ${ev.chat.name}: ${ev.chat.text}`, 'ok'); }
-  if (current === 'online') online();
+  if (ev.passengerJoin) {
+    beep('ok');
+    toast(`💺 ${ev.passengerJoin} sizning mashinangizga o'tirdi!`, 'cash');
+  }
+  if (ev.raceEvent) {
+    beep('go');
+    toast(ev.raceEvent.text || '🏁 Online Poyga boshlandi!', 'cash');
+    if (ev.raceEvent.target) game?.setWaypoint?.({ x: ev.raceEvent.target.x, z: ev.raceEvent.target.z });
+  }
+  if (ev.chat) {
+    beep('ok');
+    toast(`💬 ${ev.chat.name}: ${ev.chat.text}`, 'ok');
+    renderModalChatLog();
+    return;
+  }
+  if (ev.chatUpdated) {
+    renderModalChatLog();
+    return;
+  }
+  if (current === 'online') {
+    const inp = document.getElementById('chatInput');
+    const fi = document.getElementById('friendIdInput');
+    if (document.activeElement !== inp && document.activeElement !== fi) online();
+  }
 });
 
 

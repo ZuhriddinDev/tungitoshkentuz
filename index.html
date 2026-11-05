@@ -119,6 +119,26 @@
     <!-- Real-vaqtda online o'yinchilar radari (do'stlar ulanganda ko'rinadi) -->
     <div id="onlinePeersHud" class="online-peers-hud hidden"></div>
 
+    <!-- Real-vaqtda HUD Tezkor Suhbat (modalni ochmasdan yozish va o'qish uchun) -->
+    <div id="hudChatWidget" class="hud-chat-widget">
+      <div id="hudChatLog" class="hud-chat-log"></div>
+      <div class="hud-chat-bar">
+        <button type="button" class="q-emo" data-hud-chat="👋 Salom!">👋</button>
+        <button type="button" class="q-emo" data-hud-chat="💺 Mashinamga o'tiring!">💺</button>
+        <button type="button" class="q-emo" data-hud-chat="🏁 Poyga o'ynaymiz!">🏁</button>
+        <button type="button" class="q-emo" data-hud-chat="🔥 Driftga qarang!">🔥</button>
+        <input id="hudChatInput" maxlength="42" placeholder="Chat..." autocomplete="off" />
+        <button type="button" id="hudChatSend" title="Yuborish">➤</button>
+      </div>
+    </div>
+
+    <!-- Personaj (Piyoda) rejimida harakatlar paneli -->
+    <div id="footActions" class="foot-actions hidden">
+      <button type="button" data-emote="wave">👋 Salom</button>
+      <button type="button" data-emote="dance">💃 Raqs</button>
+      <button type="button" id="summonCarBtn">🔑 Mashinamni chaqirish</button>
+    </div>
+
     <canvas id="minimap" width="200" height="200"></canvas>
     <div id="missionHud" class="mission hidden"></div>
 
@@ -141,6 +161,7 @@
     <div id="prompt" class="prompt hidden"></div>
 
     <div class="hotbar">
+      <button data-hotkey="KeyG" id="hbExitBtn" class="hb-action">🚶<small id="hbExitTxt">Tushish (G)</small></button>
       <button data-hotkey="KeyF" class="hb-garage">🚗<small>Garaj (F)</small></button>
       <button data-hotkey="KeyE">🛠<small>Xizmat (E)</small></button>
       <button data-hotkey="KeyM">🗺<small>Xarita (M)</small></button>
@@ -154,6 +175,7 @@
     <div class="touch">
       <div class="touch-col left-col">
         <div class="touch-mini">
+          <button type="button" data-hotkey="KeyG" id="touchExitBtn" title="Mashinadan tushish / O'tirish">🚶</button>
           <button type="button" data-hotkey="KeyC" title="Kamera">🎥</button>
           <button type="button" data-hotkey="KeyL" title="Fara">💡</button>
           <button type="button" data-hotkey="KeyH" title="Signal">📯</button>

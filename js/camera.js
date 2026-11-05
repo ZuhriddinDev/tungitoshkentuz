@@ -46,6 +46,40 @@ export function updateCamera(camera, v, boost, dt) {
   camera.lookAt(look);
 }
 
+// Personaj (piyoda) rejimida 3-shaxs kamerasi
+export function updateCharCamera(camera, ch, dt) {
+  if (followH === null) followH = ch.heading;
+  let dh = ch.heading - followH;
+  dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+  followH += dh * Math.min(1, dt * 6);
+
+  fov += (60 - fov) * Math.min(1, dt * 4);
+  camera.fov = fov;
+  camera.updateProjectionMatrix();
+
+  if (performance.now() - cam.lastMove > 2200) cam.yaw *= Math.pow(0.05, dt);
+
+  let dist = 4.2;
+  const yaw = followH + Math.PI + cam.yaw;
+  const pitch = Math.max(0.08, Math.min(0.85, cam.pitch));
+  const horiz = Math.cos(pitch);
+  const dx = Math.sin(yaw) * horiz, dz = Math.cos(yaw) * horiz;
+  for (const t of [0.4, 0.7, 1]) {
+    if (blocked(ch.x + dx * dist * t, ch.z + dz * dist * t)) {
+      dist *= Math.max(0.35, t - 0.15);
+      break;
+    }
+  }
+  curDist += (dist - curDist) * Math.min(1, dt * 10);
+  camera.position.set(
+    ch.x + dx * curDist,
+    ch.y + 1.35 + Math.sin(pitch) * curDist,
+    ch.z + dz * curDist
+  );
+  look.set(ch.x, ch.y + 1.45, ch.z);
+  camera.lookAt(look);
+}
+
 // Bosh menyu fonida AAA o'yinlar uslubidagi kinematik 3D kamera
 export function menuCamera(camera, v, t) {
   const targetFov = 50;

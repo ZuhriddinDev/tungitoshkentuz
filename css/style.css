@@ -265,7 +265,7 @@ input:focus { box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.25); }
    HUD VA REAL-VAQT ONLINE DO'STLAR RADARI
    ============================================================ */
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
-#hud button, #hud .touch, #hud .online-peers-hud { pointer-events: auto; }
+#hud button, #hud .touch, #hud .online-peers-hud, #hud .hud-chat-widget, #hud .foot-actions { pointer-events: auto; }
 .top { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; gap: 8px; align-items: stretch; }
 .chip { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 12px; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(8px); }
 .chip small { color: var(--muted); font-size: 11px; }
@@ -308,6 +308,102 @@ input:focus { box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.25); }
   border: 1px solid var(--cyan);
   font-size: 11px;
   font-weight: 800;
+}
+
+/* HUD ustidagi tezkor suhbat (Quick Chat) vidjeti */
+.hud-chat-widget {
+  position: absolute;
+  left: 14px;
+  bottom: 218px;
+  width: min(290px, 44vw);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 12;
+}
+.hud-chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 82px;
+  overflow-y: auto;
+  pointer-events: none;
+  font-size: 11.5px;
+}
+.hud-chat-msg {
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(6, 10, 26, 0.76);
+  border-left: 3px solid var(--cyan);
+  color: #e9f1ff;
+  backdrop-filter: blur(6px);
+  width: fit-content;
+  max-width: 100%;
+  word-break: break-word;
+}
+.hud-chat-msg b { color: var(--gold); }
+.hud-chat-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 12px;
+  background: rgba(8, 12, 28, 0.82);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  backdrop-filter: blur(8px);
+}
+.hud-chat-bar .q-emo {
+  padding: 3px 5px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 13px;
+}
+.hud-chat-bar .q-emo:hover { background: rgba(0, 229, 255, 0.25); }
+.hud-chat-bar input {
+  flex: 1;
+  min-width: 55px;
+  margin: 0;
+  padding: 4px 7px;
+  font-size: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.45);
+}
+.hud-chat-bar #hudChatSend {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--cyan);
+  color: #050816;
+  font-weight: 900;
+  font-size: 12px;
+}
+
+/* Piyoda (Personaj) harakat tugmalari */
+.foot-actions {
+  position: absolute;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 14;
+}
+.foot-actions button {
+  padding: 7px 13px;
+  border-radius: 12px;
+  background: rgba(10, 14, 34, 0.88);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-size: 12.5px;
+  font-weight: 800;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+}
+.foot-actions button:active { transform: scale(0.94); }
+
+.hotbar button.hb-action {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(255, 215, 64, 0.22), rgba(8, 10, 24, 0.88));
 }
 
 #minimap { position: absolute; left: 14px; bottom: 16px; width: 190px; height: 190px; border-radius: 50%; box-shadow: 0 0 30px rgba(0, 229, 255, 0.25); }
@@ -564,6 +660,15 @@ body.phone [data-touch].on {
 /* Telefon HUD: ixcham minimap, spidometr + yoqilg'i/holat ko'rsatkichi */
 body.phone #minimap { width: 98px; height: 98px; top: 58px; bottom: auto; left: 10px; }
 body.phone .online-peers-hud { top: 164px; left: 10px; max-width: 175px; }
+body.phone .hud-chat-widget {
+  top: 108px;
+  bottom: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(320px, calc(100vw - 235px));
+}
+body.phone .hud-chat-log { max-height: 44px; font-size: 10.5px; }
+body.phone .foot-actions { bottom: 150px; }
 body.phone .dash { bottom: auto; top: 56px; right: 10px; grid-template-columns: 104px; gap: 4px; }
 body.phone .speedo { width: 104px; height: 104px; grid-column: 1; grid-row: 2; }
 body.phone .carname { grid-column: 1; font-size: 10.5px; }
@@ -594,6 +699,8 @@ body.phone .mission { top: 112px; bottom: auto; right: auto; left: 50%; transfor
   .chip.clock span { font-size: 13.5px; }
   body.phone #minimap { width: 86px; height: 86px; top: 44px; left: 10px; }
   body.phone .online-peers-hud { top: 136px; left: 10px; }
+  body.phone .hud-chat-widget { top: 90px; width: min(300px, calc(100vw - 210px)); }
+  body.phone .foot-actions { bottom: 102px; }
   body.phone .dash { top: 44px; right: 10px; grid-template-columns: 92px; }
   body.phone .speedo { width: 92px; height: 92px; }
   body.phone .gauges { width: 92px; }
