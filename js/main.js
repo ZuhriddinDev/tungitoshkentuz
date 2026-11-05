@@ -570,7 +570,7 @@ function step(dt, t, sub = 1) {
   for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * night;
   waterMat.emissiveIntensity = 0.3 + night;
   updateProps(t, night);
-  updateCitySectors(player.x, player.z, R.preset.shadows ? 1150 : 780);
+  updateCitySectors(player.x, player.z, R.preset.shadows ? 1050 : 620);
   traffic.setNight(night); traffic.update(dt, t, player);
   peds.update(dt, t, player);
   updateMission(dt);
@@ -664,7 +664,8 @@ function loop() {
   requestAnimationFrame(loop);
   const raw = clock.getDelta(), t = clock.elapsedTime;
   frames++; fpsT += raw; if (fpsT > 0.5) { fps = Math.round(frames / fpsT); frames = 0; fpsT = 0; }
-  const dt = Math.min(raw, 0.2), sub = Math.ceil(dt / (1 / 30));
+  // FPS past bo'lsa (masalan telefonda 20 FPS bo'lib qolsa), fizika sekinlashib qolmasligi uchun ko'pi bilan 2 sub-step qilamiz
+  const dt = Math.min(raw, 0.1), sub = Math.min(2, Math.ceil(dt / (1 / 30)));
 
   // Online sinxronizatsiya har doim (hatto modal oyna yoki lobby ochiqligida ham!) uzluksiz ishlaydi
   syncOnlineNow(dt);

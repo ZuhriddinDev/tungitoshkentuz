@@ -7,10 +7,10 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 export const PRESETS = {
-  low:    { pr: 1.25, shadows: false, map: 512,  bloom: false, traffic: 5,  peds: 26 },
-  medium: { pr: 1.5,  shadows: true,  map: 1024, bloom: true,  traffic: 8,  peds: 42 },
-  high:   { pr: 1.85, shadows: true,  map: 2048, bloom: true,  traffic: 12, peds: 68 },
-  ultra:  { pr: 2.25, shadows: true,  map: 4096, bloom: true,  traffic: 18, peds: 110 },
+  low:    { pr: 1.0,  shadows: false, map: 512,  bloom: false, traffic: 4,  peds: 16 },
+  medium: { pr: 1.15, shadows: false, map: 1024, bloom: false, traffic: 6,  peds: 24 },
+  high:   { pr: 1.75, shadows: true,  map: 2048, bloom: true,  traffic: 10, peds: 50 },
+  ultra:  { pr: 2.1,  shadows: true,  map: 4096, bloom: true,  traffic: 16, peds: 90 },
 };
 
 export const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
@@ -64,9 +64,18 @@ export function createRenderer(canvas, quality) {
       R.apply(quality);
     },
     apply(q) {
-      preset = PRESETS[q] || PRESETS.high;
-      // Telefon: GPU xotirasi kam — piksel zichligi, soya va trafikni cheklaymiz (brauzer yopilib qolmasligi uchun)
-      if (IS_MOBILE) preset = { ...preset, pr: Math.min(preset.pr, 1.35), map: Math.min(preset.map, 1024), traffic: Math.min(preset.traffic, 6), peds: Math.min(preset.peds, 24) };
+      preset = PRESETS[q] || (IS_MOBILE ? PRESETS.medium : PRESETS.high);
+      // Telefon: GPU xotirasi va batareyani tejash, 60 FPS silliq ishlashi uchun Bloom va og'ir soyalarni o'chirish
+      if (IS_MOBILE) {
+        preset = {
+          ...preset,
+          pr: Math.min(preset.pr, 1.15),
+          shadows: false, // Mobil qurilmada og'ir PC soyalar o'chiriladi -> FPS 2-3 barobar oshadi!
+          bloom: false,   // UnrealBloom telefonda sekundiga 20-30 FPS yo'qotadi
+          traffic: Math.min(preset.traffic, 6),
+          peds: Math.min(preset.peds, 20),
+        };
+      }
       const pr = Math.min(devicePixelRatio || 1, preset.pr);
       renderer.setPixelRatio(pr);
       renderer.shadowMap.enabled = preset.shadows;
