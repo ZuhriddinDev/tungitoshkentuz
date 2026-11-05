@@ -41,6 +41,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 
 /* Ekranlar va 3D ochilish animatsiyasi */
 .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 20; perspective: 1200px; pointer-events: none; opacity: 0; transition: opacity .3s; }
+.screen:not(.show) { display: none !important; }
 .screen.show { opacity: 1; pointer-events: auto; }
 .screen > .panel3d { transform: rotateX(12deg) translateY(24px) scale(.95); opacity: 0; transition: transform .38s cubic-bezier(.2, .9, .25, 1.12), opacity .28s; }
 .screen.show > .panel3d { transform: none; opacity: 1; }
@@ -61,6 +62,9 @@ input:focus { box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.25); }
     linear-gradient(90deg, rgba(4, 6, 18, 0.82) 0%, rgba(4, 6, 18, 0.04) 26%, rgba(4, 6, 18, 0.04) 74%, rgba(4, 6, 18, 0.84) 100%);
   overflow: hidden;
   pointer-events: none;
+}
+#menu.lobby-screen:not(.show) {
+  display: none !important;
 }
 #menu.lobby-screen.show {
   pointer-events: none; /* Markaziy 3D sahnani 360° aylantirish uchun */
