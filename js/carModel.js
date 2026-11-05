@@ -216,7 +216,77 @@ function instantiateGlb(cached, spec) {
     }
   });
 
-  return { root, paintMats, rimMats, headMats, tailMats, radius: cached.radius, rearTop: cached.rearTop };
+  // ============================================================
+  // REAL 3D GLB G'ILDIRAKLAR VA BALLONLARNING HAQIQIY AYLANISHI (WHEEL RIG)
+  // ============================================================
+  const glbWheels = setupGlbWheels(root);
+
+  return { root, paintMats, rimMats, headMats, tailMats, wheels: glbWheels, radius: cached.radius, rearTop: cached.rearTop };
+}
+
+/**
+ * 3D GLB modelidagi barcha g'ildirak (tire, rim, disc) qismlarini topib,
+ * markaziy pivotlariga o'rnatish: mashina yurganda g'ildiraklar oldinga
+ * tabiiy aylanadi, burilganda esa old g'ildiraklar silliq buriladi!
+ */
+function setupGlbWheels(root) {
+  root.updateMatrixWorld(true);
+  const wheelMeshes = [];
+  const isWheelPattern = /tire|tyre|wheel|rim|felge|reifen/i;
+
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    const name = o.name || '';
+    const matName = o.material ? (Array.isArray(o.material) ? o.material.map((m) => m.name).join(' ') : o.material.name) : '';
+    if (isWheelPattern.test(name + ' ' + matName) && !/steering/i.test(name)) {
+      const box = new THREE.Box3().setFromObject(o);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      // Mashina rulini yoki butun kuzovni noto'g'ri tanlab olmaslik uchun tekshiruv
+      if (Math.max(size.x, size.y, size.z) < 2.5 && Math.abs(center.x) > 0.35) {
+        wheelMeshes.push({ mesh: o, center, size });
+      }
+    }
+  });
+
+  if (wheelMeshes.length === 0) return null;
+
+  // 4 ta g'ildirak klasteriga ajratish (Old-Chap, Old-O'ng, Orqa-Chap, Orqa-O'ng)
+  const clusters = { FL: [], FR: [], RL: [], RR: [] };
+  for (const item of wheelMeshes) {
+    const isFwd = item.center.z > 0;
+    const isLeft = item.center.x < 0;
+    const key = (isFwd ? 'F' : 'R') + (isLeft ? 'L' : 'R');
+    clusters[key].push(item);
+  }
+
+  const glbWheels = [];
+  for (const [key, items] of Object.entries(clusters)) {
+    if (items.length === 0) continue;
+    // Klaster markazini hisoblash
+    const avgCenter = new THREE.Vector3();
+    for (const it of items) avgCenter.add(it.center);
+    avgCenter.divideScalar(items.length);
+
+    const pivot = new THREE.Group();
+    pivot.position.copy(avgCenter);
+    const spin = new THREE.Group();
+    pivot.add(spin);
+
+    root.add(pivot);
+
+    for (const it of items) {
+      spin.attach(it.mesh);
+    }
+
+    glbWheels.push({
+      pivot,
+      spin,
+      front: key.startsWith('F'),
+    });
+  }
+
+  return glbWheels.length > 0 ? glbWheels : null;
 }
 
 function loadGlb(id, cfg, priority = false) {
@@ -434,6 +504,12 @@ export function buildCar(cfg, look = {}, opts = {}) {
         w.spin.rotation.x += dist / r;
         if (w.front) w.pivot.rotation.y = steer;
       }
+      if (api._glbWheels) {
+        for (const w of api._glbWheels) {
+          w.spin.rotation.x += dist / r;
+          if (w.front) w.pivot.rotation.y = steer;
+        }
+      }
       if (pitch || roll || steer) {
         api.setTilt(pitch, roll, steer);
       } else {
@@ -450,6 +526,7 @@ export function buildCar(cfg, look = {}, opts = {}) {
       api._glbRimMats = inst.rimMats;
       api._glbHeadMats = inst.headMats;
       api._glbTailMats = inst.tailMats;
+      api._glbWheels = inst.wheels;
       api.radius = inst.radius;
       api.rearTop = inst.rearTop;
       api.setTuning(currentLook);
