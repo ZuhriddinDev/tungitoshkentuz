@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: rgba(8, 10, 24, 0.72);
   --line: rgba(0, 229, 255, 0.35);
   --cyan: #00e5ff;
@@ -115,7 +115,9 @@ input:focus { box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.25); }
 .modal-head h2 { font-size: 22px; letter-spacing: 1px; background: linear-gradient(90deg, var(--cyan), var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .close { width: 36px; height: 36px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); font-size: 18px; }
 .close:hover { background: rgba(255, 23, 68, 0.3); }
-#modalBody { padding: 18px 22px 22px; overflow-y: auto; }
+#modalBody { padding: 18px 22px 22px; overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+#modalBody * { touch-action: manipulation; }
+.modal-card { touch-action: pan-y; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .card { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px; transition: transform .2s, border-color .2s, box-shadow .2s; }
 .card:hover { transform: translateY(-3px) rotateX(4deg); border-color: var(--line); box-shadow: 0 10px 30px rgba(0, 229, 255, 0.12); }
@@ -145,31 +147,91 @@ input:focus { box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.25); }
 .fuel-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 input[type=range] { padding: 0; accent-color: var(--cyan); }
 .keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; font-size: 14px; }
-/* Sensorli boshqaruv (faqat telefon/planshetda) */
+/* Sensorli boshqaruv (telefon/planshet va Telefon rejimi) */
 .touch { display: none; }
-body.phone .touch { display: flex; position: absolute; left: 0; right: 0; bottom: 14px; justify-content: space-between; padding: 0 14px; }
-body.phone .pad { display: flex; gap: 10px; align-items: flex-end; }
-body.phone .pad button { width: 70px; height: 70px; border-radius: 50%; background: rgba(8, 10, 24, 0.55); border: 2px solid var(--line); font-size: 24px; }
-body.phone .pad button.sm { width: 58px; height: 58px; font-size: 11px; font-weight: 800; }
-body.phone .pad button.gas { width: 84px; height: 84px; border-color: var(--green); }
-body.phone .pad button.on { background: rgba(0, 229, 255, 0.35); }
-body.phone #minimap { width: 120px; height: 120px; top: 74px; bottom: auto; left: 12px; }
-body.phone .dash { bottom: auto; top: 74px; right: 12px; grid-template-columns: 130px; }
+body.phone .touch {
+  display: flex; position: absolute; left: 0; right: 0;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  justify-content: space-between; align-items: flex-end;
+  padding: 0 max(14px, env(safe-area-inset-left)) 0 max(14px, env(safe-area-inset-right));
+  pointer-events: none;
+}
+body.phone .touch-col { display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+body.phone .left-col { align-items: flex-start; }
+body.phone .right-col { align-items: flex-end; }
+body.phone .touch-mini { display: flex; gap: 8px; }
+body.phone .touch-mini button {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: rgba(8, 10, 24, 0.72); border: 1px solid var(--line);
+  font-size: 18px; backdrop-filter: blur(8px); box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
+body.phone .touch-mini button:active { transform: scale(0.92); background: rgba(0, 229, 255, 0.28); }
+body.phone .pad { display: flex; gap: 12px; align-items: flex-end; }
+body.phone #steerPad {
+  background: rgba(8, 10, 24, 0.45); padding: 6px; border-radius: 48px;
+  border: 1px solid rgba(0, 229, 255, 0.25); backdrop-filter: blur(6px);
+}
+body.phone #steerPad button {
+  width: 78px; height: 78px; border-radius: 50%;
+  background: rgba(14, 18, 40, 0.78); border: 2px solid var(--line);
+  font-size: 28px; box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+  transition: transform 0.08s, background 0.1s;
+}
+body.phone .touch-sub { display: flex; gap: 10px; }
+body.phone .touch-sub button.sm {
+  width: 68px; height: 52px; border-radius: 14px;
+  background: rgba(12, 16, 36, 0.78); border: 2px solid var(--line);
+  font-size: 15px; font-weight: 800; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; line-height: 1.1; backdrop-filter: blur(6px);
+}
+body.phone .touch-sub button.sm span { font-size: 10px; letter-spacing: 0.5px; }
+body.phone .touch-sub .nitro-btn { border-color: var(--gold); color: var(--gold); }
+body.phone .touch-sub .drift-btn { border-color: var(--pink); color: #ff80e5; }
+body.phone .pedal {
+  width: 74px; height: 92px; border-radius: 18px;
+  background: rgba(12, 16, 36, 0.8); border: 2px solid var(--line);
+  font-size: 24px; font-weight: 900; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5); transition: transform 0.08s, background 0.1s;
+}
+body.phone .pedal small { font-size: 10px; font-weight: 800; letter-spacing: 0.5px; color: var(--muted); }
+body.phone .pedal.brake-pedal { height: 78px; border-color: rgba(255, 23, 68, 0.65); }
+body.phone .pedal.gas {
+  width: 86px; height: 106px; border-color: var(--green);
+  background: linear-gradient(180deg, rgba(0, 230, 118, 0.22), rgba(8, 10, 24, 0.85));
+}
+body.phone [data-touch].on {
+  background: rgba(0, 229, 255, 0.42) !important; border-color: #fff !important;
+  transform: scale(0.94); box-shadow: 0 0 22px rgba(0, 229, 255, 0.55);
+}
+body.phone #minimap { width: 106px; height: 106px; top: 64px; bottom: auto; left: 10px; }
+body.phone .dash { bottom: auto; top: 64px; right: 10px; grid-template-columns: 112px; }
 body.phone .gauges { display: none; }
-body.phone .speedo { width: 130px; height: 130px; grid-column: 1; }
-body.phone .carname { grid-column: 1; font-size: 12px; }
-body.phone .kmh b { font-size: 28px; }
-body.phone .hotbar { bottom: auto; top: 214px; left: auto; right: 12px; transform: none; flex-direction: column; }
-body.phone .hotbar button { width: 46px; font-size: 13px; padding: 4px 0; }
-body.phone .prompt { bottom: 110px; }
-body.phone .mission { top: auto; bottom: 110px; right: auto; left: 50%; transform: translateX(-50%); }
+body.phone .speedo { width: 112px; height: 112px; grid-column: 1; }
+body.phone .carname { grid-column: 1; font-size: 11px; }
+body.phone .kmh b { font-size: 24px; }
+body.phone .hotbar {
+  bottom: auto; top: 64px; left: 50%; right: auto; transform: translateX(-50%);
+  display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center;
+  max-width: calc(100vw - 244px); gap: 5px;
+}
+body.phone .hotbar button[data-hotkey="KeyL"],
+body.phone .hotbar button[data-hotkey="KeyH"] { display: none; }
+body.phone .hotbar button { width: 46px; font-size: 12px; padding: 5px 2px; border-radius: 10px; }
+body.phone .hotbar button small { font-size: 9px; }
+body.phone .prompt { bottom: 195px; font-size: 13px; padding: 8px 14px; }
+body.phone .mission { top: 124px; bottom: auto; right: auto; left: 50%; transform: translateX(-50%); min-width: 190px; padding: 8px 12px; font-size: 12px; }
 @media (max-width: 760px) {
+  .top { gap: 6px; padding: 8px 10px; flex-wrap: wrap; }
+  .chip { padding: 5px 10px; border-radius: 10px; }
   .garage { grid-template-columns: 1fr; }
   .chip.clock small { display: none; }
-  .chip.money { font-size: 15px; }
+  .chip.money { font-size: 14px; }
   .fuel-types { grid-template-columns: 1fr; }
+  .modal-card { width: 96vw; max-height: 92vh; }
+  .modal-head { padding: 12px 16px; }
+  #modalBody { padding: 12px 14px 18px; }
 }
-
 /* ---- Zamonaviy sozlamalar menyusi ---- */
 .set-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; padding: 4px 2px 8px; overflow-y: auto; }
 .set-card { background: linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02)); border: 1px solid rgba(255,255,255,.09); border-radius: 18px; padding: 16px; backdrop-filter: blur(10px); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
@@ -250,3 +312,4 @@ body.phone .mission { top: auto; bottom: 110px; right: auto; left: 50%; transfor
 .id-box small { display: block; color: var(--muted); font-size: 11px; margin-bottom: 2px; }
 .id-box strong { font-size: 22px; letter-spacing: 1.5px; color: var(--cyan); }
 .online-lbl { display: block; font-size: 13px; color: var(--muted); margin-top: 8px; }
+

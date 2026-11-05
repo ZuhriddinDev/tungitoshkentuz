@@ -92,8 +92,28 @@
       <button data-hotkey="KeyH">H<small>Signal</small></button>
     </div>
     <div class="touch">
-      <div class="pad left"><button data-touch="left">◀</button><button data-touch="right">▶</button></div>
-      <div class="pad right"><button data-touch="boost" class="sm">NITRO</button><button data-touch="brake" class="sm">DRIFT</button><button data-touch="down">▼</button><button data-touch="up" class="gas">▲</button></div>
+      <div class="touch-col left-col">
+        <div class="touch-mini">
+          <button type="button" data-hotkey="KeyC" title="Kamera">🎥</button>
+          <button type="button" data-hotkey="KeyL" title="Fara">💡</button>
+          <button type="button" data-hotkey="KeyH" title="Signal">📯</button>
+          <button type="button" data-fullscreen="1" title="To'liq ekran">⛶</button>
+        </div>
+        <div class="pad left" id="steerPad">
+          <button type="button" data-touch="left">◀</button>
+          <button type="button" data-touch="right">▶</button>
+        </div>
+      </div>
+      <div class="touch-col right-col">
+        <div class="touch-sub">
+          <button type="button" data-touch="boost" class="sm nitro-btn">⚡<span>NITRO</span></button>
+          <button type="button" data-touch="brake" class="sm drift-btn">💨<span>DRIFT</span></button>
+        </div>
+        <div class="pad right">
+          <button type="button" data-touch="down" class="pedal brake-pedal">▼<small>TORMOZ</small></button>
+          <button type="button" data-touch="up" class="pedal gas">▲<small>GAZ</small></button>
+        </div>
+      </div>
     </div>
   </div>
 

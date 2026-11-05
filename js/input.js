@@ -1,4 +1,4 @@
-﻿// Klaviatura, sichqoncha (360° kamera) va sensorli ekran boshqaruvi
+// Klaviatura, sichqoncha (360° kamera) va qulay mobil sensorli ekran boshqaruvi
 const keys = new Set();
 const touch = { up: 0, down: 0, left: 0, right: 0, boost: 0, brake: 0 };
 const hot = new Map();
@@ -6,7 +6,14 @@ export const cam = { yaw: 0, pitch: 0.25, dist: 9, lastMove: 0 };
 let enabled = true;
 
 export function onKey(code, fn) { hot.set(code, fn); }
-export function setEnabled(v) { enabled = v; if (!v) keys.clear(); }
+export function setEnabled(v) {
+  enabled = v;
+  if (!v) {
+    keys.clear();
+    for (const k of Object.keys(touch)) touch[k] = 0;
+    document.querySelectorAll('[data-touch].on').forEach((b) => b.classList.remove('on'));
+  }
+}
 
 export function initInput(canvas) {
   addEventListener('keydown', (e) => {
@@ -16,11 +23,18 @@ export function initInput(canvas) {
     if (enabled) keys.add(e.code);
   });
   addEventListener('keyup', (e) => keys.delete(e.code));
-  addEventListener('blur', () => keys.clear());
+  addEventListener('blur', () => {
+    keys.clear();
+    for (const k of Object.keys(touch)) touch[k] = 0;
+  });
 
-  // Sichqoncha: bosib turib sudrash — kamerani 360° aylantirish, g'ildirak — masofa
+  // Sichqoncha / barmoq: bo'sh joyni bosib sudrash — kamerani 360° aylantirish
   let drag = null;
-  canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('pointerdown', (e) => {
+    if (drag) return;
+    drag = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* */ }
+  });
   canvas.addEventListener('pointermove', (e) => {
     if (!drag || drag.id !== e.pointerId) return;
     const s = (window.__sens || 1) * 0.005;
@@ -28,19 +42,94 @@ export function initInput(canvas) {
     cam.pitch = Math.max(-0.05, Math.min(1.2, cam.pitch + (e.clientY - drag.y) * s));
     drag.x = e.clientX; drag.y = e.clientY; cam.lastMove = performance.now();
   });
-  const end = () => { drag = null; };
-  canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
+  const end = (e) => { if (drag && drag.id === e.pointerId) drag = null; };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
   canvas.addEventListener('wheel', (e) => { cam.dist = Math.max(5, Math.min(22, cam.dist + e.deltaY * 0.01)); }, { passive: true });
 
-  // Sensorli tugmalar
+  // Sensorli tugmalar (multi-touch qo'llab-quvvatlanadi)
+  const activePointers = new Map(); // pointerId -> key
   document.querySelectorAll('[data-touch]').forEach((b) => {
     const k = b.dataset.touch;
-    const on = (e) => { e.preventDefault(); touch[k] = 1; b.classList.add('on'); };
-    const off = (e) => { e.preventDefault(); touch[k] = 0; b.classList.remove('on'); };
-    b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off);
-    b.addEventListener('pointerleave', off); b.addEventListener('pointercancel', off);
+    const on = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try { b.setPointerCapture(e.pointerId); } catch { /* */ }
+      activePointers.set(e.pointerId, { k, el: b });
+      touch[k] = 1;
+      b.classList.add('on');
+    };
+    const off = (e) => {
+      e.preventDefault();
+      const prev = activePointers.get(e.pointerId);
+      if (prev) {
+        activePointers.delete(e.pointerId);
+        // Agar boshqa barmoq shu tugmani bosib turmagan bo'lsa, o'chiramiz
+        const stillHeld = [...activePointers.values()].some((x) => x.k === prev.k);
+        if (!stillHeld) {
+          touch[prev.k] = 0;
+          prev.el.classList.remove('on');
+        }
+      } else {
+        touch[k] = 0;
+        b.classList.remove('on');
+      }
+    };
+    b.addEventListener('pointerdown', on);
+    b.addEventListener('pointerup', off);
+    b.addEventListener('pointercancel', off);
+    b.addEventListener('lostpointercapture', off);
   });
-  document.querySelectorAll('[data-hotkey]').forEach((b) => b.addEventListener('click', () => hot.get(b.dataset.hotkey)?.()));
+
+  // Rulda barmoqni uzmasdan chapga-o'ngga surish (Slide-to-steer)
+  const steerPad = document.getElementById('steerPad');
+  if (steerPad) {
+    const leftBtn = steerPad.querySelector('[data-touch="left"]');
+    const rightBtn = steerPad.querySelector('[data-touch="right"]');
+    steerPad.addEventListener('pointermove', (e) => {
+      const entry = activePointers.get(e.pointerId);
+      if (!entry || (entry.k !== 'left' && entry.k !== 'right')) return;
+      const rect = steerPad.getBoundingClientRect();
+      const mid = rect.left + rect.width / 2;
+      const wantKey = e.clientX < mid ? 'left' : 'right';
+      if (wantKey !== entry.k) {
+        touch[entry.k] = 0;
+        entry.el.classList.remove('on');
+        entry.k = wantKey;
+        entry.el = wantKey === 'left' ? leftBtn : rightBtn;
+        touch[wantKey] = 1;
+        entry.el.classList.add('on');
+      }
+    });
+  }
+
+  document.querySelectorAll('[data-hotkey]').forEach((b) =>
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hot.get(b.dataset.hotkey)?.();
+    })
+  );
+
+  // Minimap bosilganda katta xaritani ochish (telefonda juda qulay)
+  const mm = document.getElementById('minimap');
+  if (mm) {
+    mm.style.pointerEvents = 'auto';
+    mm.style.cursor = 'pointer';
+    mm.addEventListener('click', () => hot.get('KeyM')?.());
+  }
+
+  // To'liq ekran tugmasi
+  document.querySelectorAll('[data-fullscreen]').forEach((b) =>
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+        screen.orientation?.lock?.('landscape').catch(() => {});
+      } else {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    })
+  );
 }
 
 export function readDrive() {
@@ -50,7 +139,7 @@ export function readDrive() {
   const left = k('KeyA') || k('ArrowLeft') || touch.left, right = k('KeyD') || k('ArrowRight') || touch.right;
   return {
     throttle: up ? 1 : 0, reverse: down ? 1 : 0,
-    steer: (left ? 1 : 0) - (right ? 1 : 0), // musbat = chapga (heading oshadi)
+    steer: (left ? 1 : 0) - (right ? 1 : 0),
     boost: !!(k('ShiftLeft') || k('ShiftRight') || touch.boost),
     handbrake: !!(k('Space') || touch.brake),
   };
@@ -64,4 +153,3 @@ export function applyControl(mode = 'auto') {
   document.body.classList.toggle('pc', !phone);
   return phone ? 'phone' : 'pc';
 }
-

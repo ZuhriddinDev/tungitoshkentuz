@@ -1,7 +1,8 @@
-﻿// 3D avtomobil modellari: /car/ papkasidagi GLB modellarni xatosiz va tez yuklash,
+// 3D avtomobil modellari: /car/ papkasidagi GLB modellarni xatosiz va tez yuklash,
 // rang, diska, spoyler, neon va faralarni boshqarish
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { TUNING } from './config.js';
 
 // /car/ papkasidagi barcha 8 ta GLB model uchun aniq konfiguratsiya
@@ -31,7 +32,7 @@ export const GLB_SPECS = {
     tailMats: ['red_sq', 'red_metal'],
   },
   m4gts: {
-    file: '2016_bmw_m4_gts.glb',
+    file: 'opt/2016_bmw_m4_gts.glb',
     rotY: 0,
     paintMats: ['carpaint'],
     rimMats: ['rims'],
@@ -39,7 +40,7 @@ export const GLB_SPECS = {
     tailMats: [],
   },
   m4comp: {
-    file: '2021_bmw_m4_competition.glb',
+    file: 'opt/2021_bmw_m4_competition.glb',
     rotY: 0,
     paintMats: ['Material_692'],
     rimMats: ['Material_753'],
@@ -47,7 +48,7 @@ export const GLB_SPECS = {
     tailMats: ['Material_739', 'Material_738', 'Material_740'],
   },
   bmw: {
-    file: '2022_bmw_m5_cs.glb',
+    file: 'opt/2022_bmw_m5_cs.glb',
     rotY: 0,
     paintMats: ['BMW_M5CSRewardRecycled_2022Paint_Material'],
     rimMats: ['BMW_M5CSRewardRecycled_2022_Wheel1A_3D_3DWheel1A_Material'],
@@ -55,7 +56,7 @@ export const GLB_SPECS = {
     tailMats: ['RED_GLASS'],
   },
   mercedes: {
-    file: '2025_mercedes-benz_g-class_amg_g_63.glb',
+    file: 'opt/2025_mercedes-benz_g-class_amg_g_63.glb',
     rotY: 0,
     paintMats: ['MMAT_CarPaint_010'],
     rimMats: ['MMercedesAMG_G63SUVRewardRecycled_2020_Wheel1A_3D_3DWhee_e9cc5dd1', 'MMAT_Tire_Hub1'],
@@ -63,7 +64,7 @@ export const GLB_SPECS = {
     tailMats: [],
   },
   lambo: {
-    file: 'lamborgini_aventador.glb',
+    file: 'opt/lamborgini_aventador.glb',
     rotY: Math.PI / 2,
     paintMats: ['Body'],
     rimMats: ['FELGE1'],
@@ -72,14 +73,19 @@ export const GLB_SPECS = {
   },
 };
 
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/draco/gltf/');
+dracoLoader.preload();
+
 const loader = new GLTFLoader();
+loader.setDRACOLoader(dracoLoader);
 const glbCache = new Map();
 const glbLoading = new Map();
 
 // Ustuvorlik navbati (o'yinchi mashinasi va garaj birinchi yuklanadi, trafik orqa fonda)
 const loadQueue = [];
 let activeLoads = 0, priorityActive = 0;
-const MAX_CONCURRENT = 2;
+const MAX_CONCURRENT = 4;
 const progressCbs = new Map(); // id -> Set<(0..1 | -1) => void>
 
 function pumpQueue() {
