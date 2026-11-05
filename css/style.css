@@ -1733,10 +1733,10 @@ body.phone .mission { top: 112px; bottom: auto; right: auto; left: 50%; transfor
 }
 
 /* 2) Mobil & Planshet Lobby va HUD (<= 900px yoki body.phone) */
-@media (max-width: 900px) {
+@media (max-width: 900px), (max-height: 520px) {
   /* Mobil Lobby: Chap va O'ng panellar Hamburger menyuga yashiriladi,
-     Markazda 3D Mashina va 3D Personaj to'liq va toza ko'rinadi! */
-  .lob-hamburger-btn { display: inline-flex; }
+     Markazda 3D Mashina va 3D Personaj to'liq, keng va toza ko'rinadi! */
+  .lob-hamburger-btn { display: inline-flex !important; }
   .lobby-left,
   .lobby-right,
   .lob-quick-btns,
@@ -1750,42 +1750,96 @@ body.phone .mission { top: 112px; bottom: auto; right: auto; left: 50%; transfor
       "top"
       "center"
       "bottom" !important;
-    padding: 8px 10px !important;
-    gap: 6px !important;
+    padding: 6px 10px !important;
+    gap: 4px !important;
   }
   .lobby-topbar {
-    flex-wrap: wrap;
-    gap: 6px;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    justify-content: space-between !important;
   }
   .lobby-server-bar {
-    padding: 5px 10px;
-    font-size: 11px;
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    gap: 6px !important;
+    background: rgba(4, 7, 22, 0.65) !important;
+    backdrop-filter: blur(10px) !important;
+  }
+  .lobby-server-bar .srv-sep:nth-of-type(2),
+  .lobby-server-bar .srv-item:nth-of-type(3),
+  .lobby-server-bar .srv-sep:nth-of-type(3),
+  .lobby-server-bar .srv-item:nth-of-type(4) {
+    display: none !important; /* Xonalar va Server holatini kichik ekranda yashirish */
   }
   .lobby-profile-bar {
-    width: 100%;
-    justify-content: space-between;
-    padding: 5px 10px;
+    width: auto !important;
+    padding: 3px 8px !important;
+    gap: 6px !important;
+    background: rgba(4, 7, 22, 0.65) !important;
+    backdrop-filter: blur(10px) !important;
   }
+  .prof-lv-box { display: none !important; }
+  .prof-avatar { width: 28px !important; height: 28px !important; font-size: 14px !important; }
+  .prof-name-box input { width: 90px !important; height: 19px !important; font-size: 11.5px !important; }
+  .prof-id-row { font-size: 9px !important; }
+  .prof-money-box { font-size: 11px !important; gap: 3px !important; }
+  .prof-money-box b { font-size: 11.5px !important; }
+  .prof-gear-btn { width: 28px !important; height: 28px !important; font-size: 13px !important; padding: 0 !important; }
+  .lob-hamburger-btn { width: 28px !important; height: 28px !important; font-size: 14px !important; padding: 0 !important; }
+
   .lobby-center {
-    justify-content: space-between;
+    justify-content: space-between !important;
+    padding: 2px 0 !important;
   }
   .showroom-top-pill {
-    width: 100%;
-    padding: 6px 10px;
+    width: auto !important;
+    max-width: 95vw !important;
+    padding: 4px 10px !important;
+    gap: 8px !important;
+    border-radius: 12px !important;
+    background: rgba(4, 7, 22, 0.55) !important;
+    backdrop-filter: blur(8px) !important;
   }
+  .sr-car-head strong { font-size: 13px !important; }
+  .sr-specs { display: none !important; /* Mashina tezligi karuselda bor, joyni bo'shatamiz */ }
+  .sr-colors { gap: 3px !important; }
+  .sr-color-dot { width: 14px !important; height: 14px !important; }
+  .sr-mini-btn { padding: 3px 7px !important; font-size: 10px !important; border-radius: 6px !important; }
+
+  /* Karusel: ixcham va shaffof, 3D mashinani to'smaydi */
   .lobby-carousel-wrap {
-    width: 100%;
-    padding: 6px 8px;
+    width: min(640px, 96vw) !important;
+    padding: 4px 6px !important;
+    background: rgba(3, 6, 20, 0.6) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 12px !important;
   }
+  .carousel-head { margin-bottom: 3px !important; font-size: 9.5px !important; }
+  .car-nav-btn { width: 26px !important; height: 42px !important; font-size: 13px !important; border-radius: 8px !important; }
+  .lob-car-card {
+    flex: 0 0 102px !important;
+    padding: 4px 6px !important;
+    border-radius: 8px !important;
+    gap: 2px !important;
+  }
+  .lob-car-card b { font-size: 10.5px !important; }
+  .lob-car-card small { font-size: 8.5px !important; }
+  .lob-car-top { font-size: 8.5px !important; }
+
   .lobby-bottombar {
-    justify-content: center;
+    justify-content: center !important;
+    width: 100% !important;
+    padding-bottom: 2px !important;
   }
   .lobby-enter-btn {
-    width: 100%;
-    justify-content: center;
-    padding: 12px 24px;
-    font-size: 18px;
+    width: min(340px, 92vw) !important;
+    justify-content: center !important;
+    padding: 8px 18px !important;
+    font-size: 15px !important;
+    border-radius: 12px !important;
+    letter-spacing: 1px !important;
   }
+  .lobby-enter-btn i { font-size: 18px !important; }
 
   /* Personaj tanlash modali mobil ekranda */
   .char-preset-grid {
