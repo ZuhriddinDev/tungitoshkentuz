@@ -116,6 +116,13 @@ export const LANDMARKS = Object.entries(SPECIAL)
     return { ...v, j, k, x: blockC(j), z: blockC(k) };
   });
 
+export const RACES = [
+  { name: 'Amir Temur Sprinti', prize: 15_000_000, wps: [[8, 7], [8, 2]] },
+  { name: 'Tashkent City Halqasi', prize: 25_000_000, wps: [[4, 7], [6, 9]] },
+  { name: 'Kichik Halqa Tungi Drift', prize: 35_000_000, wps: [[2, 2], [12, 12]] },
+  { name: 'Chorsu — Magic City Ekspress', prize: 20_000_000, wps: [[3, 5], [4, 10]] },
+];
+
 // O'yinchi Amir Temur shoh ko'chasi va Islom Karimov ko'chasi chorrahasi yaqinida, Markaziy Avtosalon oldida boshlaydi
 export const SPAWN = { x: blockC(8) - 18, z: roadC(7), heading: Math.PI / 2 };
 

@@ -902,7 +902,7 @@ async function boot() {
   }
   if ($('mobStartPublicBtn')) $('mobStartPublicBtn').onclick = async () => {
     mobLobbyDrawer?.classList.add('hidden');
-    await joinPublicServer().catch(() => {});
+    joinPublicServer().catch(() => {});
     play();
   };
   if ($('mobDailyBtn')) $('mobDailyBtn').onclick = () => {
@@ -963,8 +963,8 @@ async function boot() {
   if ($('menuNextCar')) $('menuNextCar').onclick = () => cycleMenuCar(1);
 
   // Lobby: O'YIN BOSHLASH (Ommaviy serverga kirish)
-  if ($('btnStartPublic')) $('btnStartPublic').onclick = async () => {
-    await joinPublicServer().catch(() => {});
+  if ($('btnStartPublic')) $('btnStartPublic').onclick = () => {
+    joinPublicServer().catch(() => {});
     play();
   };
 
@@ -1040,7 +1040,15 @@ async function play() {
   }
   setName(name);
   const cfg0 = carById(activeCar().id);
-  if (!isCarReady(cfg0)) await withBusy(cfg0.name, 'Mashina modeli yuklanmoqda...', (setP) => preloadCar(cfg0, setP));
+  // GLB yuklanishi o'yinga kirishni bloklamasin: ko'pi bilan 2.5 soniya kutamiz, keyin model fonda almashadi
+  if (!isCarReady(cfg0)) {
+    try {
+      await withBusy(cfg0.name, 'Mashina modeli yuklanmoqda...', (setP) => Promise.race([
+        Promise.resolve(preloadCar(cfg0, setP)).catch(() => {}),
+        new Promise((r) => setTimeout(r, 2500)),
+      ]));
+    } catch (e) { console.warn('[play] model yuklash:', e); }
+  }
   initAudio(state.settings.volume);
   if (playerMode === 'driving') charCtrl?.hide();
   $('menu').classList.remove('show');
