@@ -13,13 +13,27 @@ export const PRESETS = {
   ultra:  { pr: 2.25, shadows: true,  map: 4096, bloom: true,  traffic: 18, peds: 110 },
 };
 
+export const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
+
 export function createRenderer(canvas, quality) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
+    antialias: !IS_MOBILE,
     powerPreference: 'high-performance',
     stencil: false,
   });
+  // GPU xotirasi tugasa (ko'pincha telefonda) — foydalanuvchiga xabar berib, sahifani qayta yuklaymiz
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    const t = document.getElementById('loadText');
+    if (t) t.textContent = "Grafika xotirasi tugadi. Sahifa qayta yuklanmoqda... (Sozlamalarda grafikani 'Past' qiling)";
+    try {
+      const k = 'tungi-toshkent-save-v3';
+      const s = JSON.parse(localStorage.getItem(k) || '{}');
+      if (s.settings) { s.settings.quality = 'low'; localStorage.setItem(k, JSON.stringify(s)); }
+    } catch { /* */ }
+    setTimeout(() => location.reload(), 1500);
+  }, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -51,6 +65,8 @@ export function createRenderer(canvas, quality) {
     },
     apply(q) {
       preset = PRESETS[q] || PRESETS.high;
+      // Telefon: GPU xotirasi kam — piksel zichligi, soya va trafikni cheklaymiz (brauzer yopilib qolmasligi uchun)
+      if (IS_MOBILE) preset = { ...preset, pr: Math.min(preset.pr, 1.35), map: Math.min(preset.map, 1024), traffic: Math.min(preset.traffic, 6), peds: Math.min(preset.peds, 24) };
       const pr = Math.min(devicePixelRatio || 1, preset.pr);
       renderer.setPixelRatio(pr);
       renderer.shadowMap.enabled = preset.shadows;

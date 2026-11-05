@@ -7,11 +7,12 @@ import { showBusy, hideBusy, setBusyProgress } from './busy.js';
 let renderer, scene, camera, carGroup, raf = 0, angle = 0.55, drag = null;
 
 function init() {
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  const mob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1;
+  renderer = new THREE.WebGLRenderer({ antialias: !mob, alpha: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mob ? 1.25 : 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.32;
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !mob;
   scene = new THREE.Scene();
   scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.035).texture;
   scene.environmentIntensity = 1.15;

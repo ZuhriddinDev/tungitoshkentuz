@@ -9,6 +9,20 @@
   <meta name="theme-color" content="#05060f" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>" />
   <link rel="stylesheet" href="css/style.css" />
+  <!-- Eski iPhone/Android brauzerlarida import map qo'llab-quvvatlanishi uchun -->
+  <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+  <script>
+    // Telefonda xato bo'lsa, ekranda ko'rsatamiz (oq/qora ekranda qolib ketmaslik uchun)
+    (function () {
+      function show(msg) {
+        var t = document.getElementById('loadText');
+        if (t && !document.getElementById('loading').classList.contains('hidden')) t.textContent = 'Xatolik: ' + msg + " — sahifani yangilang (Ctrl+F5 / brauzer keshini tozalang).";
+      }
+      window.addEventListener('error', function (e) { show((e.message || 'skript yuklanmadi') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')); });
+      window.addEventListener('unhandledrejection', function (e) { show(String(e.reason && e.reason.message || e.reason)); });
+      setTimeout(function () { var l = document.getElementById('loading'); if (l && !l.classList.contains('hidden')) show('Yuklanish juda uzoq davom etdi (internet sekin yoki brauzer eski)'); }, 45000);
+    })();
+  </script>
   <script type="importmap">
     { "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",

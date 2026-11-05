@@ -1832,3 +1832,8 @@ body.phone .hotbar {
 body.phone .hud-chat-widget {
   top: 44px;
 }
+
+/* Telefon: online o'yinchilar ro'yxati boshqaruv tugmalarini yopib qo'ymasin */
+body.phone .online-peers-hud { max-height: 96px; overflow-y: auto; transform: scale(0.82); transform-origin: top left; }
+@media (max-height: 430px) { body.phone .online-peers-hud { max-height: 70px; } }
+

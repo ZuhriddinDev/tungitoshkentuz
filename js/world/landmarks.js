@@ -27,7 +27,11 @@ const bldCache = new Map();
  * /binolar/ papkasidagi 3D GLB binolarni asinxron yuklash,
  * markazlashtirish, o'lchamini moslash va FPS uchun optimallashtirish
  */
+const IS_MOBILE = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900));
+
 export function loadBuildingGlb(url, { targetHeight = 0, targetWidth = 0, rotY = 0 } = {}) {
+  // Telefonlarda og'ir (3–17 MB) bino modellari xotirani to'ldirib, brauzerni yopib qo'yadi — procedural binolar qoladi
+  if (IS_MOBILE) return Promise.resolve(null);
   const key = `${url}|${targetHeight}|${targetWidth}|${rotY}`;
   if (bldCache.has(key)) {
     return bldCache.get(key).then((tpl) => (tpl ? tpl.clone(true) : null));

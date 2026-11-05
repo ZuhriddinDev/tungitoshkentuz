@@ -2,6 +2,7 @@
 import { START_MONEY, CARS, carById, DAILY_BONUS, fmt } from './config.js';
 
 const KEY = 'tungi-toshkent-save-v3';
+const IS_PHONE = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1);
 try { localStorage.removeItem('tungi-toshkent-save-v1'); localStorage.removeItem('tungi-toshkent-save-v2'); } catch (e) {}
 const listeners = new Set();
 
@@ -30,7 +31,7 @@ function fresh() {
     tx: [],
     settings: {
       volume: 0.6,
-      quality: 'high',
+      quality: IS_PHONE ? 'medium' : 'high',
       sens: 1,
       control: 'auto',
       steerType: 'wheel', // 'wheel' (Aylanuvchi rul) | 'buttons' (Chap-O'ng tugmalar)
@@ -47,7 +48,7 @@ function fresh() {
       accessory: 'watch',
     },
     mapVer: 2,
-    gfxVer: 2,
+    gfxVer: 3,
     pos: null,
   };
 }
@@ -65,9 +66,10 @@ function load() {
       if (!s.cars.some((c) => c.uid === s.activeUid)) s.activeUid = s.cars[0].uid;
       if (s.rental && !validIds.has(s.rental.car?.id)) s.rental = null;
       if (s.mapVer !== 2) { s.pos = null; s.mapVer = 2; }
-      if (s.gfxVer !== 2) {
-        if (s.settings && s.settings.quality === 'low') s.settings.quality = 'high';
-        s.gfxVer = 2;
+      if (s.gfxVer !== 3) {
+        // Telefonlarda xavfsiz standart: o'rtacha grafika (yuqori grafika ko'p telefonlarda brauzerni yopib qo'yardi)
+        if (s.settings && IS_PHONE && (s.settings.quality === 'high' || s.settings.quality === 'ultra')) s.settings.quality = 'medium';
+        s.gfxVer = 3;
       }
       return {
         ...fresh(),
