@@ -1,7 +1,20 @@
 // Mini-xarita (aylanuvchi radar) va katta xarita (M) — GPS nuqta qo'yish mumkin
 import { N, BLOCK, ROAD, HALF, roadC, blockC, blockInfo, nearestRoad, POIS, LANDMARKS, DISTRICTS, STREETS_X, STREETS_Z } from './world/layout.js';
 
-const COLORS = { city: '#2b3245', park: '#1f4d2a', square: '#25543a', canal: '#0f4a6b', gas: '#0d5c36', garage: '#5c4a0d', tvtower: '#3a3a5a', chorsu: '#1b4f8a', citytower: '#2c4a80' };
+const COLORS = {
+  city: '#283044',
+  park: '#1e4e2a',
+  square: '#25543a',
+  canal: '#0f4a6b',
+  gas: '#0d5c36',
+  garage: '#5c4a0d',
+  tvtower: '#3a3a5a',
+  chorsu: '#1b558a',
+  citytower: '#2a4d88',
+  minor: '#276878',
+  uzhotel: '#4e4537',
+  magiccity: '#4d2659',
+};
 let base; // oldindan chizilgan shahar rasmi
 
 function drawBase() {

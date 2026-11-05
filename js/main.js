@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { carById, KM_BONUS, DAY_LENGTH_SEC, fmt } from './config.js';
 import { state, activeCar, addMoney, bumpStat, touch, save, setName, canClaimDaily } from './state.js';
 import { createRenderer, PRESETS } from './render.js';
-import { buildCity, nightMats, waterMat } from './world/city.js';
+import { buildCity, updateCitySectors, nightMats, waterMat } from './world/city.js';
 import { buildProps, updateProps } from './world/props.js';
 import { buildLandmarks, animated } from './world/landmarks.js';
 import { createSky } from './world/sky.js';
@@ -123,6 +123,7 @@ function step(dt, t, sub = 1) {
   for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * night;
   waterMat.emissiveIntensity = 0.3 + night;
   updateProps(t, night);
+  updateCitySectors(vehicle.x, vehicle.z, R.preset.shadows ? 1150 : 780);
   traffic.setNight(night); traffic.update(dt, t, player);
   peds.update(dt, t, player);
   tickOnline(dt, {
@@ -140,7 +141,12 @@ function step(dt, t, sub = 1) {
   remotes?.update(dt, onlineList(), player, night);
   updateMission(dt);
   for (const f of animated) f(t);
-  updateEngine(vehicle.rpm, input.throttle, vehicle.cfg.pitch, vehicle.slip, vehicle.kmh);
+  updateEngine(vehicle.rpm, input.throttle, vehicle.cfg.pitch, vehicle.slip, vehicle.kmh, {
+    sound: vehicle.cfg.sound,
+    braking: vehicle.braking,
+    gear: vehicle.gear,
+    dt,
+  });
 
   // Masofa: statistika, har 10 km uchun bonus
   kmAcc += dist / 1000;
@@ -155,7 +161,11 @@ function step(dt, t, sub = 1) {
   if (waypoint && Math.hypot(waypoint.x - vehicle.x, waypoint.z - vehicle.z) < 20) { waypoint = null; toast('Manzilga yetib keldingiz', 'ok'); }
 
   const poi = nearPoi();
-  setPrompt(poi ? (poi.type === 'gas' ? '<span class="key">E</span>Benzin quyish' : '<span class="key">F</span>Garaj va avtosalon') : '');
+  if (vehicle.nearBorder && vehicle.borderMsg) {
+    setPrompt(`<span class="key">👮 YPX</span>${vehicle.borderMsg}`);
+  } else {
+    setPrompt(poi ? (poi.type === 'gas' ? '<span class="key">E</span>Benzin quyish' : '<span class="key">F</span>Garaj va avtosalon') : '');
+  }
   updateCamera(camera, vehicle, input.boost, dt);
 }
 
@@ -230,10 +240,18 @@ async function boot() {
     teleportTo: (x, z, h = 0) => vehicle.place(x, z, h),
     player: () => player, hour: () => hour, mapExtra, waypoint: () => waypoint, setWaypoint: (w) => { waypoint = w; },
   });
-  initInput(canvas);
+  initInput(canvas, () => {
+    const s = state.settings;
+    s.steerType = s.steerType === 'buttons' ? 'wheel' : 'buttons';
+    touch();
+    applyControl(s.control, s.steerType, s.touchScale);
+    toast(s.steerType === 'wheel' ? '🛞 Aylanuvchi Rul yoqildi' : '◀ ▶ Tugmalar yoqildi', 'ok');
+  });
   smoke = new TireSmoke(scene);
-  applyControl(state.settings.control);
-  addEventListener('resize', () => { if (state.settings.control === 'auto') applyControl('auto'); });
+  applyControl(state.settings.control, state.settings.steerType, state.settings.touchScale);
+  addEventListener('resize', () => {
+    if (state.settings.control === 'auto') applyControl('auto', state.settings.steerType, state.settings.touchScale);
+  });
   const myCode = displayId(playerId());
   if ($('menuMyId')) $('menuMyId').textContent = myCode;
   if ($('hudMyId')) $('hudMyId').textContent = myCode;

@@ -1,4 +1,4 @@
-﻿// O'yinchi holati, iqtisodiyot va saqlash (localStorage + ixtiyoriy bulut)
+// O'yinchi holati, iqtisodiyot va saqlash (localStorage + ixtiyoriy bulut)
 import { START_MONEY, CARS, carById, DAILY_BONUS, fmt } from './config.js';
 
 const KEY = 'tungi-toshkent-save-v3';
@@ -27,7 +27,17 @@ function fresh() {
     totalKm: 0, kmBonusPaid: 0, lastDaily: 0,
     stats: { km: 0, deliveries: 0, raceWins: 0, taxi: 0, driftBest: 0 },
     daily: { day: '', done: [] },
-    tx: [], settings: { volume: 0.6, quality: matchMedia('(pointer: coarse)').matches ? 'low' : 'medium', sens: 1, control: 'auto', smoke: true },
+    tx: [],
+    settings: {
+      volume: 0.6,
+      quality: matchMedia('(pointer: coarse)').matches ? 'low' : 'medium',
+      sens: 1,
+      control: 'auto',
+      steerType: 'wheel', // 'wheel' (Aylanuvchi rul) | 'buttons' (Chap-O'ng tugmalar)
+      touchScale: 'normal', // 'normal' | 'large'
+      smoke: true,
+    },
+    mapVer: 2,
     pos: null,
   };
 }
@@ -44,6 +54,7 @@ function load() {
       s.cars = migrated;
       if (!s.cars.some((c) => c.uid === s.activeUid)) s.activeUid = s.cars[0].uid;
       if (s.rental && !validIds.has(s.rental.car?.id)) s.rental = null;
+      if (s.mapVer !== 2) { s.pos = null; s.mapVer = 2; }
       return { ...fresh(), ...s, settings: { ...fresh().settings, ...s.settings } };
     }
   } catch (e) { /* buzilgan saqlov */ }

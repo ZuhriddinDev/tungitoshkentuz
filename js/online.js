@@ -305,9 +305,12 @@ function applyList(l) {
   let changed = false;
   for (const p of l) {
     seen.add(p.id);
-    if (!players.has(p.id)) {
+    const prev = players.get(p.id);
+    if (!prev) {
       changed = true;
       emit({ join: p.name });
+    } else if (p.chat && p.chatTs && p.chatTs !== prev.chatTs) {
+      emit({ chat: { name: p.name || 'Haydovchi', text: p.chat } });
     }
     players.set(p.id, { ...p, t: now });
   }
@@ -351,10 +354,19 @@ export function leave() {
 }
 
 let lastLocalState = null;
+let myChat = '';
+let myChatTs = 0;
+
+export function sendChat(text) {
+  myChat = String(text || '').trim().slice(0, 48);
+  myChatTs = Date.now();
+}
 
 // Har kadrda chaqiriladi; holat sekundiga ~8 marta yuboriladi
 export function tick(dt, local) {
-  lastLocalState = local;
+  const activeChat = myChat && Date.now() - myChatTs < 7000 ? myChat : '';
+  const payload = { ...local, chat: activeChat, chatTs: activeChat ? myChatTs : 0 };
+  lastLocalState = payload;
   if (status === 'off' || status === 'connecting') return;
   acc += dt;
   if (acc < 0.12) return;
@@ -369,7 +381,7 @@ export function tick(dt, local) {
       body: JSON.stringify({
         id: myId || playerId(),
         room: hostId || myId || playerId(),
-        state: local,
+        state: payload,
       }),
     })
       .then((r) => (r.ok ? r.json() : null))
@@ -390,7 +402,7 @@ export function tick(dt, local) {
   if (role === 'none') return;
   const now = performance.now();
   if (role === 'client') {
-    if (hostConn?.open) hostConn.send({ t: 's', s: local });
+    if (hostConn?.open) hostConn.send({ t: 's', s: payload });
     if (now - lastHostMsg > 9000) {
       resetRoom();
       emit({ left: 'host' });
@@ -403,7 +415,7 @@ export function tick(dt, local) {
       dropClient(id);
     }
   }
-  const all = [{ ...local }, ...[...players.values()].map(({ t, ...p }) => p)];
+  const all = [{ ...payload }, ...[...players.values()].map(({ t, ...p }) => p)];
   for (const [id, c] of conns) {
     if (c.open) c.send({ t: 'p', list: all.filter((p) => p.id !== id) });
   }

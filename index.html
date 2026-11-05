@@ -44,10 +44,17 @@
             <button class="btn" data-open="help"><i>⌨️</i>Boshqaruv</button>
             <button class="btn" data-open="about"><i>ℹ️</i>O'yin haqida</button>
           </div>
-          <p class="ver">v2.5 · Online Multiplayer (10 kishi) · Kompyuter va Telefon</p>
+          <p class="ver">v3.0 · Haqiqiy Toshkent 3D Xaritasi · Online 10 kishi · Kompyuter va Telefon</p>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Telefonni gorizontal (landscape) aylantirish tavsiyasi -->
+  <div id="rotateHint" class="rotate-hint">
+    <span>📱🔄 Telefonni gorizontal (yotiq) aylantirib o'ynang!</span>
+    <button type="button" class="btn sm-btn primary" data-fullscreen="1">⛶ Gorizontal Ekran</button>
+    <button type="button" class="rotate-close" id="closeRotateHint" title="Yopish">✕</button>
   </div>
 
   <!-- Yuklash qatlami (mashina sotib olish / almashtirish) -->
@@ -73,7 +80,7 @@
     <div id="missionHud" class="mission hidden"></div>
     <div class="dash">
       <div class="carname" id="hudCar">—</div>
-      <div class="speedo"><canvas id="speedo" width="220" height="220"></canvas><div class="kmh"><b id="hudSpeed">0</b><small>km/soat</small></div></div>
+      <div class="speedo"><canvas id="speedo" width="220" height="220"></canvas><div class="kmh"><b id="hudSpeed">0</b><small>km/soat · <span id="hudGear" class="gear-badge">N</span></small></div></div>
       <div class="gauges">
         <div class="gauge"><span>⛽ <b id="hudFuelText">0 l</b> <small id="hudFuelType"></small></span><div class="meter"><i id="hudFuel"></i></div></div>
         <div class="gauge"><span>🔧 Holat <b id="hudDmgText">100%</b></span><div class="meter hp"><i id="hudDmg"></i></div></div>
@@ -97,8 +104,29 @@
           <button type="button" data-hotkey="KeyC" title="Kamera">🎥</button>
           <button type="button" data-hotkey="KeyL" title="Fara">💡</button>
           <button type="button" data-hotkey="KeyH" title="Signal">📯</button>
-          <button type="button" data-fullscreen="1" title="To'liq ekran">⛶</button>
+          <button type="button" id="toggleSteerBtn" title="Rul / Tugmalar">🛞</button>
+          <button type="button" data-fullscreen="1" title="Gorizontal To'liq ekran">⛶</button>
         </div>
+        <!-- Aylanuvchi Rul (Steering Wheel) -->
+        <div class="wheel-pad" id="wheelPad" title="Barmoq bilan rulni aylantiring">
+          <div class="wheel-ring" id="wheelDisc">
+            <svg viewBox="0 0 120 120" class="wheel-svg">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(0,229,255,0.35)" stroke-width="10" />
+              <circle cx="60" cy="60" r="52" fill="none" stroke="#182246" stroke-width="7" />
+              <!-- Yuqori markaziy belgi (qizil sport chizig'i) -->
+              <path d="M 55 8 L 65 8" stroke="#ff2bd6" stroke-width="8" stroke-linecap="round" />
+              <!-- Rul spikalari (3 ta) -->
+              <path d="M 14 56 L 44 58 L 46 66 L 16 68 Z" fill="#1e2a54" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" />
+              <path d="M 106 56 L 76 58 L 74 66 L 104 68 Z" fill="#1e2a54" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" />
+              <path d="M 54 74 L 66 74 L 64 108 L 56 108 Z" fill="#1e2a54" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" />
+              <!-- Markaziy gupchak -->
+              <circle cx="60" cy="60" r="18" fill="#0d132a" stroke="#00e5ff" stroke-width="2.5" />
+              <text x="60" y="64" text-anchor="middle" fill="#00e5ff" font-size="11" font-weight="900">UZ</text>
+            </svg>
+          </div>
+          <small class="wheel-label">RUL</small>
+        </div>
+        <!-- Klassik chap/o'ng tugmalar -->
         <div class="pad left" id="steerPad">
           <button type="button" data-touch="left">◀</button>
           <button type="button" data-touch="right">▶</button>

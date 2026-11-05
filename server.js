@@ -122,6 +122,9 @@ async function handleApi(req, res, urlPath) {
 
     playerRoom.set(id, targetRoom);
     const state = body.state || {};
+    const prevP = roomMap.get(id);
+    const chat = state.chat ? String(state.chat).slice(0, 48) : (prevP && Date.now() - (prevP.chatTs || 0) < 7000 ? prevP.chat : '');
+    const chatTs = state.chat ? Number(state.chatTs) || Date.now() : (prevP?.chatTs || 0);
     roomMap.set(id, {
       id,
       name: String(state.name || 'Haydovchi').slice(0, 18),
@@ -133,6 +136,8 @@ async function handleApi(req, res, urlPath) {
       h: Number(state.h) || 0,
       v: Number(state.v) || 0,
       steer: Number(state.steer) || 0,
+      chat,
+      chatTs,
       updatedAt: Date.now(),
     });
 
@@ -150,6 +155,8 @@ async function handleApi(req, res, urlPath) {
           h: p.h,
           v: p.v,
           steer: p.steer,
+          chat: Date.now() - (p.chatTs || 0) < 7000 ? p.chat : '',
+          chatTs: p.chatTs || 0,
         });
       }
     }

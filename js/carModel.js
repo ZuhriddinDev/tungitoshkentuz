@@ -1,4 +1,4 @@
-// 3D avtomobil modellari: /car/ papkasidagi GLB modellarni xatosiz va tez yuklash,
+﻿// 3D avtomobil modellari: /car/ papkasidagi GLB modellarni xatosiz va tez yuklash,
 // rang, diska, spoyler, neon va faralarni boshqarish
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';

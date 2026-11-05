@@ -7,7 +7,7 @@ import { beep, setVolume } from './audio.js';
 import { openGarage } from './ui-garage.js';
 import { stopGarage } from './garage3d.js';
 import { applyControl } from './input.js';
-import { goOnline, joinFriend, leave, info as onlineInfo, list as onlineList, displayId, onOnline, MAX_PLAYERS } from './online.js';
+import { goOnline, joinFriend, leave, info as onlineInfo, list as onlineList, displayId, onOnline, sendChat, MAX_PLAYERS } from './online.js';
 
 const $ = (s) => document.querySelector(s);
 let game; // main.js beradigan API
@@ -238,6 +238,17 @@ function online() {
       </section>
     </div>
 
+    <div class="section-title">💬 Tezkor xabar va chaqiruv (3D mashina ustida ko'rinadi)</div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="opts" style="margin:0">
+        ${['👋 Salom!', '🏁 Poyga o\'ynaymiz!', '🔥 Driftga qarang!', '📍 Yonimga keling!', '👍 Zo\'r mashina!'].map((q) => `<button class="btn sm-btn" data-qchat="${q}">${q}</button>`).join('')}
+      </div>
+      <div class="row" style="margin-top:6px">
+        <input id="chatInput" maxlength="42" placeholder="Do'stlarga qisqa xabar yozing..." style="margin:0" />
+        <button class="btn primary" id="sendChatBtn" style="flex:0 0 auto">💬 Yuborish</button>
+      </div>
+    </div>
+
     <div class="section-title">Xonadagi o'yinchilar (${inf.count} / ${MAX_PLAYERS})</div>
     <div class="list">
       <div>
@@ -246,9 +257,11 @@ function online() {
       </div>
       ${peers.length === 0 ? `<div style="color:var(--muted);justify-content:center">Hozircha xonada boshqa o'yinchi yo'q — ID kodingizni do'stlaringizga yuboring yoki Umumiy zalga kiring!</div>` : peers.map((p) => {
         const c = carById(p.car);
+        const spd = Math.round(Math.abs(p.v || 0) * 3.6);
         return `<div>
-          <span>🟢 <b>${p.name || 'Haydovchi'}</b> <small style="color:var(--cyan)">(${displayId(p.id)})</small></span>
+          <span>🟢 <b>${p.name || 'Haydovchi'}</b> <small style="color:var(--cyan)">(${displayId(p.id)})</small>${p.chat ? ` · <b style="color:var(--gold)">«${p.chat}»</b>` : ''}</span>
           <span style="display:flex;align-items:center;gap:8px">
+            <small style="color:var(--muted)">${spd} km/s</small>
             <b>${c.name}</b>
             <button class="btn sm-btn" data-tp="${p.id}">📍 Yoniga borish</button>
           </span>
@@ -300,6 +313,23 @@ function online() {
     toast(`${p.name} yoniga o'tdingiz!`, 'ok');
   }));
 
+  const doChat = (txt) => {
+    const t = String(txt || '').trim();
+    if (!t) return;
+    sendChat(t);
+    beep('ok');
+    toast(`💬 Siz: ${t}`, 'ok');
+  };
+  body.querySelectorAll('[data-qchat]').forEach((b) => (b.onclick = () => doChat(b.dataset.qchat)));
+  body.querySelector('#sendChatBtn').onclick = () => {
+    const inp = body.querySelector('#chatInput');
+    doChat(inp.value);
+    inp.value = '';
+  };
+  body.querySelector('#chatInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') body.querySelector('#sendChatBtn').click();
+  });
+
   if (inf.status === 'off') {
     goOnline().then(() => { if (current === 'online') online(); }).catch(() => {});
   }
@@ -311,18 +341,26 @@ function settings() {
   const body = showModal('settings', '⚙ Sozlamalar', `
     <div class="set-grid">
       <section class="set-card">
-        <h3>🎮 Boshqaruv turi</h3>
-        ${seg('control', [['auto', '✨', 'Avto', 'Qurilmani o\'zi aniqlaydi'], ['pc', '🖥️', 'Kompyuter', 'Klaviatura + sichqoncha'], ['phone', '📱', 'Telefon', 'Sensorli tugmalar']], s.control)}
+        <h3>🎮 Boshqaruv rejimi</h3>
+        ${seg('control', [['auto', '✨', 'Avto', 'Qurilmani o\'zi aniqlaydi'], ['pc', '🖥️', 'Kompyuter', 'Klaviatura + sichqoncha'], ['phone', '📱', 'Telefon', 'Gorizontal + Rul']], s.control)}
         <p class="hint" id="ctlHint"></p>
+      </section>
+      <section class="set-card">
+        <h3>🛞 Telefon rul va tugmalar</h3>
+        <div class="section-title" style="margin-top:0">Burilish boshqaruvi</div>
+        ${seg('steerType', [['wheel', '🛞', 'Aylanuvchi Rul', 'Silliq analog rul'], ['buttons', '◀▶', 'Tugmalar', 'Chap / O\'ng tugma']], s.steerType || 'wheel')}
+        <div class="section-title">Tugmalar va rul o'lchami</div>
+        ${seg('touchScale', [['normal', '⚖️', "O'rta", 'Standart o\'lcham'], ['large', '🔎', 'Katta', 'Kattaroq rul va pedallar']], s.touchScale || 'normal')}
+        <button class="btn primary" id="landscapeBtn" style="width:100%;margin-top:10px">⛶ Gorizontal To'liq Ekran (Landscape)</button>
       </section>
       <section class="set-card">
         <h3>🖼️ Grafik sifati</h3>
         ${seg('quality', [['low', '⚡', 'Past', 'Eng tez'], ['medium', '⚖️', "O'rta", ''], ['high', '💎', 'Yuqori', ''], ['ultra', '🚀', 'Ultra', 'Eng chiroyli']], s.quality)}
-        <p class="hint">Past — soyalar va bloom o'chiriladi. Telefon uchun «Past» tavsiya etiladi.</p>
+        <p class="hint">Past — soyalar va bloom o'chiriladi. Telefon uchun «Past» yoki «O'rta» tavsiya etiladi.</p>
       </section>
       <section class="set-card">
-        <h3>🔊 Ovoz va kamera</h3>
-        <label class="slide"><span>Ovoz balandligi</span><b id="volV">${Math.round(s.volume * 100)}%</b><input type="range" id="vol" min="0" max="1" step="0.05" value="${s.volume}" /></label>
+        <h3>🔊 Motor ovozi va kamera</h3>
+        <label class="slide"><span>Motor va o'yin ovozi</span><b id="volV">${Math.round(s.volume * 100)}%</b><input type="range" id="vol" min="0" max="1" step="0.05" value="${s.volume}" /></label>
         <label class="slide"><span>Kamera sezgirligi</span><b id="sensV">${s.sens.toFixed(1)}</b><input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="${s.sens}" /></label>
         <label class="toggle"><span>💨 Drift tutuni</span><input type="checkbox" id="smoke" ${s.smoke !== false ? 'checked' : ''} /><i></i></label>
       </section>
@@ -332,15 +370,25 @@ function settings() {
       </section>
     </div>`);
   const hint = () => {
-    const mode = applyControl(s.control);
-    body.querySelector('#ctlHint').textContent = (s.control === 'auto' ? 'Avto: ' : '') + (mode === 'phone' ? 'ekrandagi sensorli tugmalar yoqilgan.' : 'W A S D / strelkalar, Shift — nitro, Space — drift.');
+    const mode = applyControl(s.control, s.steerType, s.touchScale);
+    body.querySelector('#ctlHint').textContent = (s.control === 'auto' ? 'Avto: ' : '') + (mode === 'phone' ? `ekranda ${s.steerType === 'buttons' ? 'chap/o\'ng tugmalar' : 'aylanuvchi rul (🛞)'} va gaz/tormoz pedallari yoqilgan.` : 'W A S D / strelkalar, Shift — nitro, Space — drift.');
   };
   hint();
   body.querySelectorAll('[data-seg]').forEach((g) => g.querySelectorAll('button').forEach((b) => (b.onclick = () => {
     g.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
-    if (g.dataset.seg === 'control') { s.control = b.dataset.v; touch(); hint(); }
-    else { const prev = s.quality; s.quality = b.dataset.v; touch(); game.setQuality(s.quality, prev); }
+    const kind = g.dataset.seg;
+    if (kind === 'control') { s.control = b.dataset.v; touch(); hint(); }
+    else if (kind === 'steerType') { s.steerType = b.dataset.v; touch(); hint(); }
+    else if (kind === 'touchScale') { s.touchScale = b.dataset.v; touch(); hint(); }
+    else if (kind === 'quality') { const prev = s.quality; s.quality = b.dataset.v; touch(); game.setQuality(s.quality, prev); }
   })));
+  body.querySelector('#landscapeBtn').onclick = () => {
+    document.documentElement.requestFullscreen?.().then(() => {
+      screen.orientation?.lock?.('landscape').catch(() => {});
+    }).catch(() => {});
+    screen.orientation?.lock?.('landscape').catch(() => {});
+    toast("Gorizontal to'liq ekran rejimi yoqildi", 'ok');
+  };
   body.querySelector('#vol').oninput = (e) => { s.volume = +e.target.value; body.querySelector('#volV').textContent = Math.round(s.volume * 100) + '%'; setVolume(s.volume); touch(); };
   body.querySelector('#sens').oninput = (e) => { s.sens = +e.target.value; window.__sens = s.sens; body.querySelector('#sensV').textContent = s.sens.toFixed(1); touch(); };
   body.querySelector('#smoke').onchange = (e) => { s.smoke = e.target.checked; touch(); };
@@ -391,6 +439,7 @@ onOnline((ev) => {
   if (ev.join) toast(`🌐 ${ev.join} o'yinga qo'shildi!`, 'ok');
   if (ev.leave) toast(`🌐 ${ev.leave} o'yindan chiqdi`, 'err');
   if (ev.left === 'host') toast("🌐 Xona egasi chiqib ketdi", 'err');
+  if (ev.chat) { beep('ok'); toast(`💬 ${ev.chat.name}: ${ev.chat.text}`, 'ok'); }
   if (current === 'online') online();
 });
 

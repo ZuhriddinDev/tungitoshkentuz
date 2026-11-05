@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --bg: rgba(8, 10, 24, 0.72);
   --line: rgba(0, 229, 255, 0.35);
   --cyan: #00e5ff;
@@ -79,7 +79,8 @@ input:focus { box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.25); }
 .speedo canvas { width: 100%; height: 100%; }
 .kmh { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 18px; }
 .kmh b { font-size: 46px; font-weight: 900; line-height: 1; }
-.kmh small { color: var(--muted); }
+.kmh small { color: var(--muted); display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+.gear-badge { display: inline-block; padding: 1px 6px; border-radius: 5px; background: rgba(0, 229, 255, 0.18); border: 1px solid var(--line); color: var(--cyan); font-weight: 900; font-size: 11px; }
 .gauges { grid-row: 2; grid-column: 1; display: flex; flex-direction: column; gap: 8px; width: 230px; margin-bottom: 18px; }
 .gauge { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; font-size: 13px; }
 .gauge small { color: var(--muted); }
@@ -177,6 +178,50 @@ body.phone #steerPad button {
   font-size: 28px; box-shadow: 0 6px 20px rgba(0,0,0,0.45);
   transition: transform 0.08s, background 0.1s;
 }
+/* Aylanuvchi Rul (Steering Wheel) */
+.wheel-pad { display: none; }
+body.phone .wheel-pad {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 148px; height: 148px; border-radius: 50%; position: relative;
+  background: radial-gradient(circle, rgba(16, 22, 48, 0.75) 35%, rgba(6, 8, 20, 0.55) 100%);
+  border: 2px solid rgba(0, 229, 255, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 0 18px rgba(0, 229, 255, 0.15);
+  backdrop-filter: blur(6px); touch-action: none; cursor: grab;
+}
+body.phone .wheel-pad.active {
+  border-color: var(--cyan);
+  box-shadow: 0 0 26px rgba(0, 229, 255, 0.45), inset 0 0 22px rgba(0, 229, 255, 0.25);
+}
+body.phone .wheel-ring {
+  width: 134px; height: 134px; will-change: transform;
+  transition: transform 0.04s linear; pointer-events: none;
+}
+body.phone .wheel-svg { width: 100%; height: 100%; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6)); }
+body.phone .wheel-label {
+  position: absolute; bottom: -18px; font-size: 10px; font-weight: 800;
+  letter-spacing: 1.5px; color: var(--muted); pointer-events: none;
+}
+body.phone.steer-wheel #steerPad { display: none !important; }
+body.phone.steer-buttons #wheelPad { display: none !important; }
+body.phone.scale-large .wheel-pad { width: 172px; height: 172px; }
+body.phone.scale-large .wheel-ring { width: 156px; height: 156px; }
+body.phone.scale-large #steerPad button { width: 90px; height: 90px; font-size: 32px; }
+body.phone.scale-large .pedal { width: 86px; height: 104px; }
+body.phone.scale-large .pedal.gas { width: 98px; height: 120px; }
+
+/* Gorizontal rejim tavsiyasi (Portret holatda) */
+.rotate-hint { display: none; }
+@media (orientation: portrait) {
+  body.phone .rotate-hint:not(.dismissed) {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    position: fixed; bottom: max(195px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+    z-index: 35; width: min(94vw, 420px); padding: 8px 12px; border-radius: 14px;
+    background: rgba(8, 12, 30, 0.92); border: 1px solid var(--gold);
+    box-shadow: 0 8px 26px rgba(0,0,0,0.65); font-size: 12px; font-weight: 600; color: var(--gold);
+    backdrop-filter: blur(10px);
+  }
+}
+.rotate-close { padding: 4px 8px; font-size: 14px; color: var(--muted); }
 body.phone .touch-sub { display: flex; gap: 10px; }
 body.phone .touch-sub button.sm {
   width: 68px; height: 52px; border-radius: 14px;
@@ -219,8 +264,34 @@ body.phone .hotbar button[data-hotkey="KeyL"],
 body.phone .hotbar button[data-hotkey="KeyH"] { display: none; }
 body.phone .hotbar button { width: 46px; font-size: 12px; padding: 5px 2px; border-radius: 10px; }
 body.phone .hotbar button small { font-size: 9px; }
-body.phone .prompt { bottom: 195px; font-size: 13px; padding: 8px 14px; }
+body.phone .prompt { bottom: 195px; font-size: 13px; padding: 8px 14px; max-width: 92vw; white-space: normal; text-align: center; }
 body.phone .mission { top: 124px; bottom: auto; right: auto; left: 50%; transform: translateX(-50%); min-width: 190px; padding: 8px 12px; font-size: 12px; }
+/* Telefon gorizontal (landscape) holatda ekran balandligi kichik bo'lganda qulay joylashuv */
+@media (max-height: 540px) and (orientation: landscape) {
+  .top { top: 6px; left: 10px; right: 10px; gap: 6px; }
+  .chip { padding: 4px 10px; border-radius: 10px; font-size: 12px; }
+  .chip.money { font-size: 14px; }
+  .chip.clock span { font-size: 14px; }
+  body.phone #minimap { width: 92px; height: 92px; top: 48px; left: 10px; }
+  body.phone .dash { top: 48px; right: 10px; grid-template-columns: 96px; }
+  body.phone .speedo { width: 96px; height: 96px; }
+  body.phone .kmh b { font-size: 20px; }
+  body.phone .hotbar { top: 48px; max-width: calc(100vw - 220px); }
+  body.phone .hotbar button { width: 42px; padding: 4px 2px; font-size: 11px; }
+  body.phone .touch { bottom: 8px; }
+  body.phone .touch-col { gap: 6px; }
+  body.phone .touch-mini button { width: 38px; height: 38px; font-size: 15px; }
+  body.phone .wheel-pad { width: 132px; height: 132px; }
+  body.phone .wheel-ring { width: 120px; height: 120px; }
+  body.phone .wheel-label { display: none; }
+  body.phone .pedal { height: 78px; width: 68px; }
+  body.phone .pedal.gas { height: 90px; width: 78px; }
+  body.phone .prompt { bottom: 140px; font-size: 12px; padding: 6px 12px; }
+  .menu-wrap { max-height: 94vh; overflow-y: auto; padding: 10px 0; }
+  .menu-hero .logo { font-size: 34px; }
+  .menu-hero .tag { margin: 8px 0 10px; font-size: 13px; }
+  .menu-wrap .menu-card { padding: 16px 20px; }
+}
 @media (max-width: 760px) {
   .top { gap: 6px; padding: 8px 10px; flex-wrap: wrap; }
   .chip { padding: 5px 10px; border-radius: 10px; }

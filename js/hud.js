@@ -41,6 +41,8 @@ export function updateHud(v, hour, waypoint, fps) {
   $('hudTime').textContent = hourLabel(hour);
   $('hudStreet').textContent = waypoint ? `📍 GPS: ${Math.round(Math.hypot(waypoint.x - v.x, waypoint.z - v.z))} m` : streetAt(v.x, v.z);
   $('hudSpeed').textContent = Math.round(v.kmh);
+  const gearEl = $('hudGear');
+  if (gearEl) gearEl.textContent = v.v < -0.5 ? 'R' : v.kmh < 2 ? 'N' : (v.gear || 1) + 'M';
   const fp = inst.fuelL / cfg.tank;
   $('hudFuel').style.width = (fp * 100).toFixed(1) + '%';
   $('hudFuel').classList.toggle('low', fp < 0.15);

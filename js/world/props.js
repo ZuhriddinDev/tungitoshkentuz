@@ -74,6 +74,18 @@ export function buildProps(scene, quality) {
   inst(new THREE.CylinderGeometry(0.5, 0.7, 1, 6), new THREE.MeshStandardMaterial({ color: 0x4a3626 }), trunks, scene);
   inst(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0x2f6b2a, roughness: 0.9, flatShading: true }), crowns, scene);
 
+  // Yo'l belgilari (Tezlik 60/70 va Piyodalar o'tish joyi) — InstancedMesh
+  const signPoles = [], signDiscs = [];
+  for (let i = 1; i < N; i += 2) for (let k = 1; k < N; k += 2) {
+    const cx = roadC(i), cz = roadC(k), o = ROAD / 2 + 1.4;
+    signPoles.push({ x: cx + o, y: 1.5, z: cz - o - 3, sx: 0.08, sy: 3.0, sz: 0.08 });
+    signDiscs.push({ x: cx + o, y: 3.1, z: cz - o - 3, sx: 0.65, sy: 0.65, sz: 0.08 });
+    signPoles.push({ x: cx - o - 3, y: 1.5, z: cz + o, sx: 0.08, sy: 3.0, sz: 0.08 });
+    signDiscs.push({ x: cx - o - 3, y: 3.1, z: cz + o, sx: 0.65, sy: 0.65, sz: 0.08, r: Math.PI / 2 });
+  }
+  inst(box, poleMat, signPoles, scene);
+  inst(box, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xff2222, emissiveIntensity: 0.35 }), signDiscs, scene);
+
   buildBillboards(scene);
   buildPOIs(scene);
 }
