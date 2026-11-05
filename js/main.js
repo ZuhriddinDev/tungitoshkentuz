@@ -35,7 +35,7 @@ import {
   MAX_PLAYERS,
 } from './online.js';
 import { RemoteCars } from './remoteCars.js';
-import { PlayerCharacter } from './character.js';
+import { PlayerCharacter, getPresetById } from './character.js';
 
 const $ = (s) => document.getElementById(s);
 const canvas = $('game');
@@ -139,6 +139,17 @@ function updateLobbyProfileUI() {
   if ($('lobDailySub')) {
     $('lobDailySub').textContent = canClaimDaily() ? '🎁 25 000 000 so\'m bonus tayyor!' : '✅ Bugungi mukofot olingan';
   }
+  if ($('lobCharSub') && state.charConfig) {
+    const pr = getPresetById(state.charConfig.preset);
+    $('lobCharSub').textContent = `${pr.name} · ${pr.role}`;
+  }
+}
+
+function applyCharConfig() {
+  if (charCtrl && state.charConfig) {
+    charCtrl.setConfig(state.charConfig);
+  }
+  updateLobbyProfileUI();
 }
 
 function renderLobbyCarCarousel() {
@@ -479,6 +490,11 @@ function syncOnlineNow(dt) {
     pv: charCtrl ? charCtrl.v : 0,
     animState: charCtrl ? charCtrl.animState : 'idle',
     emote: charCtrl ? charCtrl.emote : '',
+    charPreset: state.charConfig?.preset || 'temur',
+    charOutfit: state.charConfig?.outfit || 'bomber',
+    charColor: state.charConfig?.color || '#12141c',
+    charHair: state.charConfig?.hair || 'classic',
+    charGlasses: state.charConfig?.glasses || 'dark',
     ridingWith: playerMode === 'passenger' ? ridingWith : '',
   });
   remotes?.update(dt, onlineList(), player, night);
@@ -502,11 +518,9 @@ function step(dt, t, sub = 1) {
     smoke?.update(dt, vehicle, state.settings.smoke !== false, groundY(vehicle.x, vehicle.z));
     if (vehicle.impact > 3) { addShake(Math.min(0.6, vehicle.impact * 0.05)); thump(vehicle.impact); }
 
-    g.position.set(vehicle.x, g.position.y + (groundY(vehicle.x, vehicle.z) - g.position.y) * Math.min(1, dt * 12), vehicle.z);
-    const acc = (vehicle.v - lastV) / Math.max(dt, 1e-3); lastV = vehicle.v;
-    pitch += (THREE.MathUtils.clamp(-acc * 0.004, -0.04, 0.04) - pitch) * Math.min(1, dt * 6);
-    g.rotation.set(pitch, vehicle.heading, THREE.MathUtils.clamp(-vehicle.yawRate * vehicle.v * 0.004, -0.06, 0.06));
-    model.update(dist * Math.sign(vehicle.v || 1), vehicle.steer);
+    g.position.set(vehicle.x, g.position.y + (groundY(vehicle.x, vehicle.z) - g.position.y) * Math.min(1, dt * 14), vehicle.z);
+    g.rotation.set(0, vehicle.heading, 0);
+    model.update(dist * Math.sign(vehicle.v || 1), vehicle.steer, vehicle.pitch || 0, vehicle.roll || 0);
     model.setBrake(vehicle.braking);
 
     updateEngine(vehicle.rpm, input.throttle, vehicle.cfg.pitch, vehicle.slip, vehicle.kmh, {
@@ -759,6 +773,7 @@ async function boot() {
   buildLandmarks(scene);
   await progress(80, '3D avtomobil va 3D Streetwear Personaj yuklanmoqda...');
   charCtrl = new PlayerCharacter(scene, activeCar().color);
+  applyCharConfig();
   preloadCar(carById(activeCar().id));
   setCar();
   await progress(90, 'Shahar transporti va 3D NPC lar...');
@@ -771,6 +786,7 @@ async function boot() {
     tow,
     endRental,
     changeCar,
+    applyCharConfig,
     returnToLobby,
     save: () => save(true),
     setQuality,
@@ -820,7 +836,31 @@ async function boot() {
     summonOwnCar();
   };
 
-  // HUD ustidagi Tezkor Suhbat (Quick Chat)
+  // Yig'iluvchi (Collapsible) HUD Chat va bildirishnoma nishoni
+  let unreadChatCount = 0;
+  let hudChatOpen = false;
+  const setHudChatOpen = (openState) => {
+    hudChatOpen = openState;
+    const w = $('hudChatWidget');
+    const p = $('hudChatPanel');
+    const b = $('hudChatBadge');
+    if (w) w.classList.toggle('collapsed', !openState);
+    if (p) p.classList.toggle('hidden', !openState);
+    if (openState) {
+      unreadChatCount = 0;
+      if (b) { b.textContent = '0'; b.classList.add('hidden'); }
+      updateHudChatLog();
+    }
+  };
+  if ($('hudChatToggleBtn')) $('hudChatToggleBtn').onclick = (e) => {
+    e.stopPropagation();
+    setHudChatOpen(!hudChatOpen);
+  };
+  if ($('hudChatCloseBtn')) $('hudChatCloseBtn').onclick = (e) => {
+    e.stopPropagation();
+    setHudChatOpen(false);
+  };
+
   const sendFromHud = (txt) => {
     const v = String(txt || '').trim();
     if (!v) return;
@@ -842,6 +882,44 @@ async function boot() {
     e.stopPropagation();
     if (e.key === 'Enter') $('hudChatSend')?.click();
   });
+
+  // Mobil Lobby Hamburger Menyu va Mobil HUD Harakatlar Menyusi
+  const mobLobbyDrawer = $('mobileLobbyDrawer');
+  if ($('btnMobileLobbyDrawer')) $('btnMobileLobbyDrawer').onclick = (e) => {
+    e.stopPropagation();
+    mobLobbyDrawer?.classList.toggle('hidden');
+  };
+  if ($('closeMobileLobbyDrawer')) $('closeMobileLobbyDrawer').onclick = (e) => {
+    e.stopPropagation();
+    mobLobbyDrawer?.classList.add('hidden');
+  };
+  if (mobLobbyDrawer) {
+    mobLobbyDrawer.addEventListener('click', (e) => {
+      if (e.target === mobLobbyDrawer || e.target.closest('[data-open]')) {
+        mobLobbyDrawer.classList.add('hidden');
+      }
+    });
+  }
+  if ($('mobStartPublicBtn')) $('mobStartPublicBtn').onclick = async () => {
+    mobLobbyDrawer?.classList.add('hidden');
+    await joinPublicServer().catch(() => {});
+    play();
+  };
+  if ($('mobDailyBtn')) $('mobDailyBtn').onclick = () => {
+    mobLobbyDrawer?.classList.add('hidden');
+    $('btnLobbyDaily')?.click();
+  };
+
+  const hudMobDrawer = $('hudMobileDrawer');
+  if ($('hudMobileMenuBtn')) $('hudMobileMenuBtn').onclick = (e) => {
+    e.stopPropagation();
+    hudMobDrawer?.classList.toggle('hidden');
+  };
+  if (hudMobDrawer) {
+    hudMobDrawer.addEventListener('click', () => {
+      hudMobDrawer.classList.add('hidden');
+    });
+  }
 
   // Lobby: ID nusxalash
   const myCode = displayId(playerId());
@@ -930,7 +1008,17 @@ async function boot() {
     if ($('hudOnline')) $('hudOnline').textContent = `🌐 Online: ${inf.count}/${inf.max || MAX_PLAYERS}`;
     if ($('hudMyId')) $('hudMyId').textContent = displayId(inf.host || inf.id);
     updateLobbyServerUI();
-    if (ev.chat || ev.chatUpdated) updateHudChatLog();
+    if (ev.chat || ev.chatUpdated) {
+      updateHudChatLog();
+      if (ev.chat && !hudChatOpen) {
+        unreadChatCount++;
+        const b = $('hudChatBadge');
+        if (b) {
+          b.textContent = String(unreadChatCount);
+          b.classList.remove('hidden');
+        }
+      }
+    }
     if (playing) updateOnlinePeersHud();
   });
 

@@ -338,7 +338,9 @@ function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
     pivot.add(spin); procGroup.add(pivot);
     wheels.push({ pivot, spin, front: sz > 0 });
   }
-  group.add(procGroup);
+  const chassisTilt = new THREE.Group();
+  chassisTilt.add(procGroup);
+  group.add(chassisTilt);
 
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(W * 1.5, L * 1.3), new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false }));
   shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.03; group.add(shadow);
@@ -350,8 +352,8 @@ function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
     group.add(headBeam);
   }
 
-  const extras = new THREE.Group(); group.add(extras);
-  return { group, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam, radius: G.r, rearTop: G.p.low.at(-1)[1] };
+  const extras = new THREE.Group(); chassisTilt.add(extras);
+  return { group, chassisTilt, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam, radius: G.r, rearTop: G.p.low.at(-1)[1] };
 }
 
 // ============================================================
@@ -359,7 +361,7 @@ function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
 // ============================================================
 export function buildCar(cfg, look = {}, opts = {}) {
   const proc = buildProceduralCar(cfg, look, opts);
-  const { group, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam } = proc;
+  const { group, chassisTilt, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam } = proc;
   let currentLook = { color: '#f5f5f5', rims: 'std', spoiler: 'none', neon: 'none', ...look };
   const isPriority = opts.beam !== false || opts.priority === true;
 
@@ -419,20 +421,30 @@ export function buildCar(cfg, look = {}, opts = {}) {
       }
     },
 
-    update(dist, steer) {
-      if (!api._glbLoaded) {
-        const r = Math.max(api.radius, 0.2);
-        for (const w of wheels) {
-          w.spin.rotation.x += dist / r;
-          if (w.front) w.pivot.rotation.y = steer;
-        }
+    setTilt(pitch = 0, roll = 0, steer = 0) {
+      chassisTilt.rotation.x = pitch;
+      chassisTilt.rotation.z = roll;
+      chassisTilt.rotation.y = steer * 0.055;
+      chassisTilt.position.y = Math.abs(roll) * 0.035;
+    },
+
+    update(dist, steer, pitch = 0, roll = 0) {
+      const r = Math.max(api.radius, 0.2);
+      for (const w of wheels) {
+        w.spin.rotation.x += dist / r;
+        if (w.front) w.pivot.rotation.y = steer;
+      }
+      if (pitch || roll || steer) {
+        api.setTilt(pitch, roll, steer);
+      } else {
+        chassisTilt.rotation.y = steer * 0.055;
       }
     },
 
     _applyGlb(inst) {
       if (!inst) return;
-      group.remove(procGroup);
-      group.add(inst.root);
+      chassisTilt.remove(procGroup);
+      chassisTilt.add(inst.root);
       api._glbLoaded = true;
       api._glbPaintMats = inst.paintMats;
       api._glbRimMats = inst.rimMats;

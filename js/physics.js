@@ -16,6 +16,9 @@ export class Vehicle {
     this.lat = 0;
     this.yawRate = 0;
     this.steer = 0;
+    this.roll = 0;
+    this.pitch = 0;
+    this.driftFactor = 0;
     this.rpm = 0.18;
     this.gear = 1;
     this.drifting = false;
@@ -35,83 +38,128 @@ export class Vehicle {
 
   // input: { throttle 0..1, reverse 0..1, steer -1..1, boost bool, handbrake bool }
   step(dt, input, others = []) {
+    // Frame-rate mustaqil fizika (past FPS da ham sakramasligi uchun)
+    dt = Math.min(dt, 0.05);
     const c = this.cfg, inst = this.inst;
     const fuelOk = inst.fuelL > 0;
     const wrongFuel = inst.fuelType && inst.fuelType !== c.fuel ? 0.88 : 1;
     const power = ENGINE_MUL[inst.engine || 0] * wrongFuel * (1 - inst.damage / 260) * (fuelOk ? 1 : 0);
-    const boost = input.boost && fuelOk ? 1.32 : 1;
-    const vmaxRoad = (c.maxSpeed / 3.6) * (0.9 + 0.1 * ENGINE_MUL[inst.engine || 0]) * (input.boost ? 1.08 : 1);
+    const boost = input.boost && fuelOk ? 1.35 : 1;
+    const vmaxRoad = (c.maxSpeed / 3.6) * (0.92 + 0.1 * ENGINE_MUL[inst.engine || 0]) * (input.boost ? 1.08 : 1);
 
     // Yo'ldan chiqqanda (trotuar, maysazor) boshqaruv buzilmasligi va barqaror yurishi
     this.offRoad = !onRoad(this.x, this.z);
-    const surfaceGrip = this.offRoad ? 0.94 : 1.0;
-    const vmax = this.offRoad ? Math.min(vmaxRoad, 130 / 3.6) : vmaxRoad;
-    const vrev = 32 / 3.6;
+    const surfaceGrip = this.offRoad ? 0.95 : 1.0;
+    const vmax = this.offRoad ? Math.min(vmaxRoad, 138 / 3.6) : vmaxRoad;
+    const vrev = 36 / 3.6;
 
-    // Gaz va tormoz pedali silliq ishlaydi (keskin siltanishsiz)
-    this.thr += (input.throttle - this.thr) * Math.min(1, dt * 8.5);
-    this.brk += (input.reverse - this.brk) * Math.min(1, dt * 10);
-    const traction = 10.2 * c.grip * surfaceGrip;
+    // Gaz va tormoz pedali sezgir va silliq ishlaydi
+    this.thr += (input.throttle - this.thr) * Math.min(1, dt * 14);
+    this.brk += (input.reverse - this.brk) * Math.min(1, dt * 16);
+    const traction = 11.8 * c.grip * surfaceGrip;
 
     let a = 0;
     this.braking = false;
     if (input.throttle > 0) {
-      if (this.v < -0.4) {
-        a = Math.min(c.brake * 1.15, traction * 1.2);
+      if (this.v < -0.35) {
+        // Orqaga ketayotganda W bosilsa — kuchli tormoz
+        a = Math.min(c.brake * 1.35, traction * 1.35);
         this.braking = true;
       } else {
-        const speedRatio = Math.max(0, this.v) / vmax;
-        const torqueCurve = Math.max(0.18, 1 - speedRatio ** 1.85);
-        a = Math.min(c.accel * power * boost * this.thr, traction * 1.1) * torqueCurve;
+        const speedRatio = Math.max(0, this.v) / Math.max(1, vmax);
+        const lowEndBoost = speedRatio < 0.25 ? 1.16 : 1.0;
+        const torqueCurve = Math.max(0.22, 1 - speedRatio ** 1.9) * lowEndBoost;
+        a = Math.min(c.accel * 1.08 * power * boost * this.thr, traction * 1.18) * torqueCurve;
       }
     } else if (input.reverse > 0) {
-      if (this.v > 0.4) {
-        a = -Math.min(c.brake * 1.15, traction * 1.2) * (0.35 + 0.65 * this.brk);
+      if (this.v > 0.35) {
+        // Oldinga ketayotganda S bosilsa — aniq va kuchli tormoz
+        a = -Math.min(c.brake * 1.32, traction * 1.32) * (0.45 + 0.55 * this.brk);
         this.braking = true;
       } else {
-        a = -Math.min(c.accel * 0.52 * power, traction) * input.reverse * (1 - (Math.abs(this.v) / vrev) ** 1.8);
+        // To'xtagandan keyin orqaga yurish (Reverse)
+        const revRatio = Math.abs(this.v) / vrev;
+        a = -Math.min(c.accel * 0.58 * power, traction) * input.reverse * Math.max(0.2, 1 - revRatio ** 1.7);
       }
     } else {
       // Gazdan oyoq olinganda: tabiiy dvigatel tormozi + dumalash qarshiligi
-      const offRoadDrag = this.offRoad ? 1.4 : 0.55;
-      a = -Math.sign(this.v) * (offRoadDrag + 0.015 * Math.abs(this.v) + 0.0011 * this.v * this.v);
-      if (Math.abs(this.v) < 0.25) { this.v = 0; a = 0; }
+      const offRoadDrag = this.offRoad ? 1.25 : 0.48;
+      a = -Math.sign(this.v) * (offRoadDrag + 0.014 * Math.abs(this.v) + 0.001 * this.v * this.v);
+      if (Math.abs(this.v) < 0.22) { this.v = 0; a = 0; }
     }
 
     if (input.handbrake) {
-      a -= Math.sign(this.v) * c.brake * 0.52;
+      a -= Math.sign(this.v) * c.brake * 0.58;
       this.braking = true;
     }
     this.v = clamp(this.v + a * dt, -vrev, vmax);
 
-    // Silliq rul boshqaruvi: past tezlikda manevrli, yuqori tezlikda barqaror va aniq
+    // ========================================================================
+    // GTA 5 / Forza Horizon Arcade Rul & Burilish Tizimi
+    // ========================================================================
     const speed = Math.abs(this.v);
-    const maxSteer = 0.56 / (1 + speed * 0.052);
-    const steerTarget = input.steer * maxSteer;
-    const steerRate = Math.abs(steerTarget) < Math.abs(this.steer) ? 13 : 8.2;
+    // Past tezlikda rul burchagi katta (manevrli), yuqori tezlikda barqaror
+    const maxSteer = clamp(0.62 / (1 + speed * 0.041), 0.16, 0.62);
+    const steerInput = clamp(input.steer || 0, -1, 1);
+    const steerTarget = steerInput * maxSteer;
+
+    // A/D bosilganda darhol javob beradi, qo'yib yuborilganda markazga tez qaytadi
+    const isCentering = Math.abs(steerInput) < 0.02;
+    const isCounterSteer = !isCentering && (steerInput * this.steer < -0.001);
+    const steerRate = isCentering ? 22.0 : isCounterSteer ? 26.0 : 18.5;
     this.steer += (steerTarget - this.steer) * Math.min(1, dt * steerRate);
+    if (isCentering && Math.abs(this.steer) < 0.002) this.steer = 0;
 
-    const wheelBase = c.len * 0.62;
-    const hb = input.handbrake && speed > 5.5;
-    const grip = c.grip * surfaceGrip * (hb ? 0.38 : 1);
+    // Handbrake Drift holati va silliq grip tiklanishi
+    const hb = Boolean(input.handbrake && speed > 4.2);
+    const targetDrift = hb ? 1.0 : 0.0;
+    this.driftFactor += (targetDrift - this.driftFactor) * Math.min(1, dt * (hb ? 8.0 : 5.5));
+    if (!hb && this.driftFactor < 0.01) this.driftFactor = 0;
 
-    const desiredYaw = (this.v / wheelBase) * Math.tan(this.steer) * (hb ? 1.45 : 1);
-    const maxYaw = (traction * (hb ? 0.62 : 1.05)) / Math.max(speed, 2.2);
-    const targetYaw = clamp(desiredYaw, -maxYaw, maxYaw);
-    this.yawRate += (targetYaw - this.yawRate) * Math.min(1, dt * (6.5 + grip * 5.5));
-    this.heading += this.yawRate * dt;
+    const wheelBase = Math.max(2.1, c.len * 0.56);
+    const grip = c.grip * surfaceGrip;
 
-    // Yon sirpanish: yo'ldan chiqqanda anti-spin stabilizator mashinani aylanib ketishdan saqlaydi
-    const latKick = hb ? 0.52 : this.offRoad ? 0.06 : 0.10;
+    if (speed < 0.15) {
+      // To'xtab turganda rul g'ildiraklarni buradi, lekin mashina joyida aylanib ketmaydi
+      this.yawRate = 0;
+      this.lat = 0;
+    } else {
+      // Ackermann burilish: this.v oldinga (+) va orqaga (-) yurishda yo'nalishni tabiiy to'g'ri oladi
+      const lowSpeedTurnBoost = speed < 8 ? 1.18 : 1.05;
+      const driftYawMul = 1.0 + this.driftFactor * 0.48;
+      const desiredYaw = (this.v / wheelBase) * Math.tan(this.steer) * lowSpeedTurnBoost * driftYawMul;
+      const maxLatAccel = traction * (1.28 - this.driftFactor * 0.25);
+      const maxYaw = maxLatAccel / Math.max(speed, 1.8);
+      const targetYaw = clamp(desiredYaw, -maxYaw, maxYaw);
+
+      // Yuqori sezgirlik: mashinaning burni darhol rul burilgan tomonga qaraydi
+      const yawResponse = 24.0 - this.driftFactor * 9.0;
+      this.yawRate += (targetYaw - this.yawRate) * Math.min(1, dt * yawResponse);
+      this.heading += this.yawRate * dt;
+    }
+
+    // Tire Grip (Shina tishlashishi):
+    // Oddiy haydashda yonlama quti kabi sirpanish (box sliding) 0 ga teng!
+    // Faqat Handbrake (Space) bosilganda orqa g'ildiraklar boshqariladigan driftga kiradi.
+    const latKick = this.driftFactor * 0.46;
     this.lat += -this.yawRate * this.v * dt * latKick;
-    const latDamp = hb ? 1.35 : this.offRoad ? 9.5 : 6.8;
-    this.lat *= Math.exp(-dt * grip * latDamp);
-    this.lat = clamp(this.lat, -speed * 0.55, speed * 0.55);
+    const latDamp = (22.0 * (1 - this.driftFactor * 0.88) + 1.8) * grip;
+    this.lat *= Math.exp(-dt * latDamp);
+    this.lat = clamp(this.lat, -speed * 0.52, speed * 0.52);
+    if (Math.abs(this.lat) < 0.005) this.lat = 0;
 
-    this.slip = Math.atan2(Math.abs(this.lat), Math.max(1.2, speed));
-    this.drifting = (this.slip > 0.17 || (hb && Math.abs(this.steer) > 0.08)) && speed > 7.5;
-    if (this.drifting) this.v -= Math.sign(this.v) * this.slip * 1.9 * dt;
+    this.slip = speed > 1.0 ? Math.atan2(Math.abs(this.lat), Math.max(1.2, speed)) : 0;
+    this.drifting = (this.slip > 0.14 || (hb && Math.abs(this.steer) > 0.07)) && speed > 6.0;
+    if (this.drifting) this.v -= Math.sign(this.v) * this.slip * 1.45 * dt;
 
+    // Kuzov dinamikasi: burilishda yon tomonga yengil og'ish (roll), gaz/tormozda pitch
+    const latG = this.yawRate * this.v;
+    const targetRoll = clamp(latG * 0.0035 + this.steer * Math.min(1, speed / 22) * 0.022, -0.065, 0.065);
+    const targetPitch = clamp(-a * 0.0034, -0.042, 0.045);
+    this.roll += (targetRoll - this.roll) * Math.min(1, dt * 12);
+    this.pitch += (targetPitch - this.pitch) * Math.min(1, dt * 10);
+
+    // Harakat vektori: old yo'nalish (fwdX, fwdZ) + faqat driftdagi lateral siljish
     const rx = Math.cos(this.heading), rz = -Math.sin(this.heading);
     const dx = (this.fwdX * this.v + rx * this.lat) * dt;
     const dz = (this.fwdZ * this.v + rz * this.lat) * dt;

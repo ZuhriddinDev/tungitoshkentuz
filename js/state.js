@@ -37,6 +37,15 @@ function fresh() {
       touchScale: 'normal', // 'normal' | 'large'
       smoke: true,
     },
+    charConfig: {
+      preset: 'temur',
+      outfit: 'bomber',
+      color: '#12141c',
+      hair: 'classic',
+      hairColor: '#181311',
+      glasses: 'dark',
+      accessory: 'watch',
+    },
     mapVer: 2,
     gfxVer: 2,
     pos: null,
@@ -60,7 +69,12 @@ function load() {
         if (s.settings && s.settings.quality === 'low') s.settings.quality = 'high';
         s.gfxVer = 2;
       }
-      return { ...fresh(), ...s, settings: { ...fresh().settings, ...s.settings } };
+      return {
+        ...fresh(),
+        ...s,
+        settings: { ...fresh().settings, ...s.settings },
+        charConfig: { ...fresh().charConfig, ...(s.charConfig || {}) },
+      };
     }
   } catch (e) { /* buzilgan saqlov */ }
   return fresh();

@@ -2,13 +2,14 @@
 import { FUELS, carById, fmt, CARS } from './config.js';
 import { state, activeCar, spend, touch, claimDaily, canClaimDaily, dailyTasks, resetSave, setName } from './state.js';
 import { MISSIONS, mission, startMission, cancelMission } from './missions.js';
-import { drawBigMap, bigMapToWorld } from './map.js';
+import { drawBigMap, bigMapToWorld, mapState, MAP_CATEGORIES, findNearestPOI, findMapItemAt } from './map.js';
 import { beep, setVolume } from './audio.js';
 import { openGarage } from './ui-garage.js';
 import { stopGarage } from './garage3d.js';
 import { applyControl } from './input.js';
 import { goOnline, joinFriend, createPrivateRoom, joinRoomByCode, joinPublicServer, leave, info as onlineInfo, list as onlineList, displayId, onOnline, sendChat, sendOnlineEvent, chatHistory, serverStats, MAX_PLAYERS, PRIVATE_MAX_PLAYERS } from './online.js';
 import { blockC } from './world/layout.js';
+import { CHARACTER_PRESETS, OUTFIT_STYLES, CHAR_CUSTOM_OPTIONS, getPresetById } from './character.js';
 
 const $ = (s) => document.querySelector(s);
 let game; // main.js beradigan API
@@ -117,19 +118,241 @@ function service() {
   };
   body.querySelector('#svDaily').onclick = () => { if (claimDaily()) { beep('cash'); toast(`Kunlik bonus: +${fmt(25_000_000)}`, 'cash'); service(); } };
 }
-// ---------- Katta xarita (M): bosib GPS nuqta qo'yiladi ----------
+// ---------- Katta Interaktiv Toshkent GPS Xaritasi (M) ----------
 function bigMap() {
-  const body = showModal('map', '🗺 Toshkent xaritasi', `<p style="color:var(--muted);margin-bottom:10px">Xaritaga bosing — GPS nuqtasi qo'yiladi. Qayta bosilsa o'chadi.</p><canvas class="bigmap" width="900" height="900"></canvas>`);
-  const cv = body.querySelector('canvas');
-  const draw = () => drawBigMap(cv, game.player(), game.mapExtra());
-  cv.onclick = (e) => {
-    const r = cv.getBoundingClientRect();
-    const [x, z] = bigMapToWorld((e.clientX - r.left) / r.width * cv.width, (e.clientY - r.top) / r.height * cv.height, cv.width);
-    const wp = game.waypoint();
-    game.setWaypoint(wp && Math.hypot(wp.x - x, wp.z - z) < 40 ? null : { x, z });
-    beep('ok'); draw();
+  const pl = game.player();
+  const wp = game.waypoint();
+  const distKm = wp ? (Math.hypot(wp.x - pl.x, wp.z - pl.z) / 1000).toFixed(2) : null;
+
+  const body = showModal('map', '🗺️ Toshkent GPS Xaritasi (OpenStreetMap)', `
+    <div class="gps-toolbar">
+      <div class="gps-cats" id="gpsCatBar">
+        ${MAP_CATEGORIES.map((c) => `
+          <button type="button" class="gps-cat-btn ${mapState.filter === c.id ? 'on' : ''}" data-mcat="${c.id}">
+            <span>${c.icon}</span><b>${c.label}</b>
+          </button>
+        `).join('')}
+      </div>
+      <div class="gps-quick-row">
+        <button type="button" class="btn sm-btn primary" id="gpsNearGas">⛽ Eng yaqin Zapravka</button>
+        <button type="button" class="btn sm-btn gold" id="gpsNearGarage">🚘 Eng yaqin Garaj</button>
+        <button type="button" class="btn sm-btn" id="gpsCenterMe">🎯 Mening joyim</button>
+        <button type="button" class="btn sm-btn" id="gpsZoomIn" title="Yaqinlashtirish">➕</button>
+        <button type="button" class="btn sm-btn" id="gpsZoomOut" title="Uzoqlashtirish">➖</button>
+        <button type="button" class="btn sm-btn danger" id="gpsClearWp" ${wp ? '' : 'style="display:none"'}>❌ GPS (${distKm || 0} km)</button>
+      </div>
+    </div>
+
+    <div class="gps-map-stage">
+      <canvas class="bigmap" id="bigMapCv" width="920" height="920"></canvas>
+      <div id="mapPoiInspector" class="gps-poi-card hidden"></div>
+    </div>
+    <p class="hint" style="text-align:center;margin-top:6px">
+      💡 Xaritadagi istalgan nuqta yoki belgi ustiga bosing — <b>GPS marshrut</b> chiziladi. G'ildirakcha yoki ➕/➖ orqali kattalashtiring.
+    </p>
+  `);
+
+  const cv = body.querySelector('#bigMapCv');
+  const inspector = body.querySelector('#mapPoiInspector');
+  const clearBtn = body.querySelector('#gpsClearWp');
+
+  const syncClearBtn = () => {
+    const curWp = game.waypoint();
+    const pNow = game.player();
+    if (curWp) {
+      const km = (Math.hypot(curWp.x - pNow.x, curWp.z - pNow.z) / 1000).toFixed(2);
+      clearBtn.style.display = '';
+      clearBtn.textContent = `❌ GPS (${km} km)`;
+    } else {
+      clearBtn.style.display = 'none';
+    }
   };
-  draw(); mapTimer = setInterval(draw, 500);
+
+  const renderInspector = () => {
+    const sel = mapState.selectedPoi;
+    if (!sel) {
+      inspector.classList.add('hidden');
+      inspector.innerHTML = '';
+      return;
+    }
+    const pNow = game.player();
+    const dKm = (Math.hypot(sel.x - pNow.x, sel.z - pNow.z) / 1000).toFixed(2);
+    inspector.classList.remove('hidden');
+    inspector.innerHTML = `
+      <div class="poi-card-main">
+        <div class="poi-ic" style="border-color:${sel.color}">${sel.icon}</div>
+        <div class="poi-txt">
+          <b>${sel.title}</b>
+          <small>${sel.sub} · <span style="color:var(--cyan)">${dKm} km</span></small>
+        </div>
+      </div>
+      <div class="poi-card-acts">
+        <button type="button" class="btn sm-btn primary" id="poiSetGps">📍 Yo'nalish belgilash (GPS)</button>
+        <button type="button" class="btn sm-btn" id="poiClose">✕</button>
+      </div>
+    `;
+    inspector.querySelector('#poiSetGps').onclick = () => {
+      game.setWaypoint({ x: sel.x, z: sel.z, label: sel.title });
+      beep('ok');
+      toast(`📍 GPS marshrut belgilandi: ${sel.title} (${dKm} km)`, 'ok');
+      syncClearBtn();
+      draw();
+    };
+    inspector.querySelector('#poiClose').onclick = () => {
+      mapState.selectedPoi = null;
+      renderInspector();
+      draw();
+    };
+  };
+
+  const draw = () => {
+    drawBigMap(cv, game.player(), game.mapExtra());
+    syncClearBtn();
+  };
+
+  // Kategoriya filtrlari
+  body.querySelectorAll('[data-mcat]').forEach((b) => {
+    b.onclick = () => {
+      mapState.filter = b.dataset.mcat;
+      body.querySelectorAll('[data-mcat]').forEach((x) => x.classList.toggle('on', x === b));
+      beep('ok');
+      draw();
+    };
+  });
+
+  // Tezkor tugmalar: Eng yaqin Zapravka va Eng yaqin Garaj
+  body.querySelector('#gpsNearGas').onclick = () => {
+    const pNow = game.player();
+    const near = findNearestPOI(pNow.x, pNow.z, 'gas');
+    if (near) {
+      mapState.selectedPoi = near;
+      game.setWaypoint({ x: near.x, z: near.z, label: near.title });
+      const km = (Math.hypot(near.x - pNow.x, near.z - pNow.z) / 1000).toFixed(2);
+      beep('ok');
+      toast(`⛽ Eng yaqin zapravka: ${near.title} (${km} km)`, 'ok');
+      renderInspector();
+      draw();
+    }
+  };
+
+  body.querySelector('#gpsNearGarage').onclick = () => {
+    const pNow = game.player();
+    const near = findNearestPOI(pNow.x, pNow.z, 'garage');
+    if (near) {
+      mapState.selectedPoi = near;
+      game.setWaypoint({ x: near.x, z: near.z, label: near.title });
+      const km = (Math.hypot(near.x - pNow.x, near.z - pNow.z) / 1000).toFixed(2);
+      beep('ok');
+      toast(`🚘 Eng yaqin garaj: ${near.title} (${km} km)`, 'ok');
+      renderInspector();
+      draw();
+    }
+  };
+
+  body.querySelector('#gpsCenterMe').onclick = () => {
+    const pNow = game.player();
+    mapState.panX = pNow.x;
+    mapState.panZ = pNow.z;
+    mapState.zoom = Math.max(1.5, mapState.zoom);
+    beep('ok');
+    draw();
+  };
+
+  body.querySelector('#gpsZoomIn').onclick = () => {
+    mapState.zoom = Math.min(3.5, (mapState.zoom || 1) + 0.45);
+    draw();
+  };
+
+  body.querySelector('#gpsZoomOut').onclick = () => {
+    mapState.zoom = Math.max(1.0, (mapState.zoom || 1) - 0.45);
+    if (mapState.zoom <= 1.05) { mapState.panX = 0; mapState.panZ = 0; }
+    draw();
+  };
+
+  clearBtn.onclick = () => {
+    game.setWaypoint(null);
+    mapState.selectedPoi = null;
+    renderInspector();
+    beep('ok');
+    toast("GPS yo'nalishi o'chirildi", 'ok');
+    draw();
+  };
+
+  // Drag-to-pan va Click-to-select / Waypoint
+  let dragStart = null;
+  let moved = false;
+
+  cv.addEventListener('pointerdown', (e) => {
+    dragStart = { x: e.clientX, y: e.clientY, panX: mapState.panX || 0, panZ: mapState.panZ || 0 };
+    moved = false;
+    try { cv.setPointerCapture(e.pointerId); } catch { /* */ }
+  });
+
+  cv.addEventListener('pointermove', (e) => {
+    if (!dragStart) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    if (Math.hypot(dx, dy) > 6) moved = true;
+    if (moved && mapState.zoom > 1.02) {
+      const r = cv.getBoundingClientRect();
+      const worldSpan = 2100 / (mapState.zoom || 1);
+      mapState.panX = dragStart.panX - (dx / r.width) * worldSpan;
+      mapState.panZ = dragStart.panZ - (dy / r.height) * worldSpan;
+      draw();
+    }
+  });
+
+  const endPointer = (e) => {
+    if (!dragStart) return;
+    const wasMoved = moved;
+    dragStart = null;
+    if (wasMoved) return;
+
+    const r = cv.getBoundingClientRect();
+    const [wx, wz] = bigMapToWorld(
+      ((e.clientX - r.left) / r.width) * cv.width,
+      ((e.clientY - r.top) / r.height) * cv.height,
+      cv.width
+    );
+    const hitPoi = findMapItemAt(wx, wz, 55 / Math.sqrt(mapState.zoom || 1));
+    if (hitPoi) {
+      mapState.selectedPoi = hitPoi;
+      game.setWaypoint({ x: hitPoi.x, z: hitPoi.z, label: hitPoi.title });
+      const pNow = game.player();
+      const km = (Math.hypot(hitPoi.x - pNow.x, hitPoi.z - pNow.z) / 1000).toFixed(2);
+      beep('ok');
+      toast(`📍 ${hitPoi.icon} ${hitPoi.title} (${km} km)`, 'ok');
+      renderInspector();
+      draw();
+    } else {
+      mapState.selectedPoi = null;
+      renderInspector();
+      const curWp = game.waypoint();
+      if (curWp && Math.hypot(curWp.x - wx, curWp.z - wz) < 38) {
+        game.setWaypoint(null);
+        toast("GPS nuqtasi o'chirildi", 'ok');
+      } else {
+        game.setWaypoint({ x: wx, z: wz });
+        const pNow = game.player();
+        const km = (Math.hypot(wx - pNow.x, wz - pNow.z) / 1000).toFixed(2);
+        toast(`📍 GPS nuqta qo'yildi (${km} km)`, 'ok');
+      }
+      beep('ok');
+      draw();
+    }
+  };
+
+  cv.addEventListener('pointerup', endPointer);
+  cv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.28 : -0.28;
+    mapState.zoom = Math.max(1.0, Math.min(3.5, (mapState.zoom || 1) + delta));
+    draw();
+  }, { passive: false });
+
+  renderInspector();
+  draw();
+  mapTimer = setInterval(draw, 250);
 }
 
 // ---------- Poygalar (R) ----------
@@ -181,6 +404,7 @@ function pause() {
       <button class="btn gold big" data-a="lobby">🏠 Bosh menyuga (Lobby) qaytish</button>
       <button class="btn big" data-a="online">🌐 Online Xona (${inf.count}/${inf.max || MAX_PLAYERS})</button>
       <button class="btn big" data-a="garage">🚗 Garaj va Tuning</button>
+      <button class="btn big" data-a="char">🕶️ Personaj va Kiyimlar</button>
       <button class="btn big" data-a="settings">⚙ Sozlamalar</button>
       <button class="btn big" data-a="help">⌨ Boshqaruv</button>
       <button class="btn big" data-a="save">💾 Saqlash</button>
@@ -198,6 +422,7 @@ function pause() {
     lobby: () => { closeModal(); game.returnToLobby?.(); },
     online,
     garage: () => open('garage'),
+    char: () => open('char'),
     settings,
     help,
     save: () => { game.save(); toast("O'yin saqlandi", 'ok'); },
@@ -575,7 +800,195 @@ function leaderboard() {
   `);
 }
 
-const PANELS = { gas: gasStation, service, garage: () => openGarage({ showModal, toast, closeModal, game }), map: bigMap, race: races, jobs, pause, online, settings, help, leaderboard, about, ideas };
+// ---------- Personaj Tanlash va Sozlash ("Tungi Toshkent: Qahramon Tanlovi") ----------
+function renderAvatarMiniSvg(p) {
+  const topCol = p.color || '#12141c';
+  const inCol = p.innerColor || '#f5f7fa';
+  const hairCol = p.hairColor || '#181311';
+  const hasCap = p.hair === 'cap_black' || p.hair === 'cap_white';
+  const capCol = p.hair === 'cap_white' ? '#f4f6fb' : '#0f172a';
+  const hasGlasses = p.glasses && p.glasses !== 'none';
+  const hasBeard = p.hair === 'beard';
+  const isVarsity = p.outfit === 'varsity';
+  const isSuit = p.outfit === 'suit';
+  const sleeveCol = isVarsity ? '#f8fafc' : topCol;
+
+  return `<svg viewBox="0 0 80 96" class="char-avatar-svg">
+    <defs>
+      <radialGradient id="bg_${p.id}" cx="50%" cy="40%" r="60%">
+        <stop offset="0%" stop-color="rgba(0,229,255,0.26)"/>
+        <stop offset="100%" stop-color="rgba(10,16,32,0.92)"/>
+      </radialGradient>
+    </defs>
+    <rect x="2" y="2" width="76" height="92" rx="12" fill="url(#bg_${p.id})" stroke="rgba(255,255,255,0.12)"/>
+    <!-- Yelka va Kurtka -->
+    <path d="M12 92 C12 66 24 58 40 58 C56 58 68 66 68 92 Z" fill="${topCol}"/>
+    <path d="M12 92 C12 72 18 62 25 60 L25 92 Z" fill="${sleeveCol}"/>
+    <path d="M68 92 C68 72 62 62 55 60 L55 92 Z" fill="${sleeveCol}"/>
+    <!-- Ichki futbolka / ko'ylak -->
+    <polygon points="31,58 49,58 44,86 36,86" fill="${inCol}"/>
+    ${isSuit ? `<polygon points="38.5,60 41.5,60 42.5,82 40,86 37.5,82" fill="#11131a"/>` : ''}
+    <!-- Bo'yin va Bosh -->
+    <rect x="35" y="47" width="10" height="13" rx="4" fill="#e0ac82"/>
+    <ellipse cx="40" cy="36" rx="14" ry="16" fill="#e0ac82"/>
+    ${hasBeard ? `<path d="M27 38 C27 50 53 50 53 38 L51 46 C45 53 35 53 29 46 Z" fill="${hairCol}"/>` : ''}
+    <!-- Ko'zlar yoki Ko'zoynak -->
+    ${hasGlasses
+      ? `<rect x="28" y="31" width="10" height="6" rx="2" fill="#090d16" stroke="#38bdf8" stroke-width="0.8"/>
+         <rect x="42" y="31" width="10" height="6" rx="2" fill="#090d16" stroke="#38bdf8" stroke-width="0.8"/>
+         <line x1="38" y1="33" x2="42" y2="33" stroke="#f59e0b" stroke-width="1.5"/>`
+      : `<circle cx="34" cy="34" r="1.8" fill="#1b120c"/><circle cx="46" cy="34" r="1.8" fill="#1b120c"/>`
+    }
+    <!-- Soch yoki Kepka -->
+    ${hasCap
+      ? `<path d="M25 30 C25 18 55 18 55 30 Z" fill="${capCol}"/>
+         <rect x="24" y="28" width="34" height="4" rx="2" fill="${capCol}"/>`
+      : `<path d="M25 32 C24 17 56 17 55 32 C51 24 29 24 25 32 Z" fill="${hairCol}"/>`
+    }
+  </svg>`;
+}
+
+function charSelect() {
+  const cfg = state.charConfig || (state.charConfig = {
+    preset: 'temur',
+    outfit: 'bomber',
+    color: '#12141c',
+    hair: 'classic',
+    hairColor: '#181311',
+    glasses: 'dark',
+    accessory: 'watch',
+  });
+  const activePreset = getPresetById(cfg.preset);
+
+  const cycleOpt = (key, dir) => {
+    const list = CHAR_CUSTOM_OPTIONS[key] || [];
+    if (!list.length) return;
+    const curVal = cfg[key] ?? activePreset[key];
+    const idx = Math.max(0, list.findIndex((o) => o.id === curVal));
+    const next = list[(idx + dir + list.length) % list.length];
+    cfg[key] = next.id;
+    touch();
+    game.applyCharConfig?.();
+    beep('ok');
+    charSelect();
+  };
+
+  const getOptLabel = (key) => {
+    const list = CHAR_CUSTOM_OPTIONS[key] || [];
+    const curVal = cfg[key] ?? activePreset[key];
+    return (list.find((o) => o.id === curVal) || list[0])?.name || '';
+  };
+
+  const body = showModal('char', '🕶️ Tungi Toshkent: Qahramon Tanlovi', `
+    <div class="char-select-layout">
+      <!-- 1. PERSONAJ TANLASH (8 ta Qahramon Preseti) -->
+      <div class="section-title" style="margin-top:0">PERSONAJ TANLASH (8 OBRAZ)</div>
+      <div class="char-preset-grid">
+        ${CHARACTER_PRESETS.map((p) => {
+          const isSel = cfg.preset === p.id;
+          return `
+            <button type="button" class="char-preset-card ${isSel ? 'active' : ''}" data-cpreset="${p.id}">
+              ${isSel ? '<span class="char-check">✔</span>' : ''}
+              <div class="char-avatar-wrap">${renderAvatarMiniSvg(p)}</div>
+              <b>${p.name}</b>
+              <small>${p.role}</small>
+            </button>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="char-bottom-cols">
+        <!-- 2. KIYIM USLUBLARI (4 ta Outfit) -->
+        <section class="set-card">
+          <h3>👕 KIYIM USLUBLARI</h3>
+          <div class="char-outfit-grid">
+            ${OUTFIT_STYLES.map((o) => {
+              const isSel = (cfg.outfit || activePreset.outfit) === o.id;
+              return `
+                <button type="button" class="char-outfit-btn ${isSel ? 'active' : ''}" data-coutfit="${o.id}">
+                  <b>${o.name}</b>
+                  <small>${o.sub}</small>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </section>
+
+        <!-- 3. PERSONAJNI SOZLASH (5 ta Customizer) -->
+        <section class="set-card">
+          <h3>✨ PERSONAJNI SOZLASH</h3>
+          <div class="char-custom-rows">
+            ${[
+              ['hair', '💇‍♂️ Soch turmagi'],
+              ['hairColor', '🎨 Soch rangi'],
+              ['glasses', "🕶️ Ko'zoynak"],
+              ['color', '🧥 Libos rangi'],
+              ['accessory', '⌚ Aksessuar'],
+            ].map(([k, title]) => `
+              <div class="char-cust-row">
+                <span>${title}</span>
+                <div class="char-cust-Arrows">
+                  <button type="button" class="btn sm-btn" data-ccust="${k}" data-cdir="-1">◀</button>
+                  <b>${getOptLabel(k)}</b>
+                  <button type="button" class="btn sm-btn" data-ccust="${k}" data-cdir="1">▶</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      </div>
+
+      <div class="char-save-footer">
+        <button type="button" class="btn gold big" id="saveCharConfigBtn" style="width:100%;font-size:16px">
+          ✨ TANLASH VA SAQLASH (${activePreset.name})
+        </button>
+      </div>
+    </div>
+  `);
+
+  body.querySelectorAll('[data-cpreset]').forEach((b) => {
+    b.onclick = () => {
+      const p = getPresetById(b.dataset.cpreset);
+      state.charConfig = {
+        preset: p.id,
+        outfit: p.outfit,
+        color: p.color,
+        hair: p.hair,
+        hairColor: p.hairColor,
+        glasses: p.glasses,
+        accessory: p.accessory,
+      };
+      touch();
+      game.applyCharConfig?.();
+      beep('ok');
+      charSelect();
+    };
+  });
+
+  body.querySelectorAll('[data-coutfit]').forEach((b) => {
+    b.onclick = () => {
+      state.charConfig.outfit = b.dataset.coutfit;
+      touch();
+      game.applyCharConfig?.();
+      beep('ok');
+      charSelect();
+    };
+  });
+
+  body.querySelectorAll('[data-ccust]').forEach((b) => {
+    b.onclick = () => cycleOpt(b.dataset.ccust, Number(b.dataset.cdir));
+  });
+
+  body.querySelector('#saveCharConfigBtn').onclick = () => {
+    touch();
+    game.applyCharConfig?.();
+    beep('cash');
+    toast(`🕶️ Qahramon saqlandi: ${activePreset.name}!`, 'cash');
+    closeModal();
+  };
+}
+
+const PANELS = { gas: gasStation, service, garage: () => openGarage({ showModal, toast, closeModal, game }), map: bigMap, race: races, jobs, pause, online, settings, help, leaderboard, char: charSelect, about, ideas };
 
 function renderModalChatLog() {
   const logEl = document.getElementById('onlineChatLog');

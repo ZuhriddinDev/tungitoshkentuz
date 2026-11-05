@@ -185,27 +185,34 @@ function connectWebSocket() {
         try { m = JSON.parse(ev.data); } catch { return; }
         if (!m || typeof m !== 'object') return;
 
-        if (m.t === 'hello' || m.t === 'pong') {
-          const rtt = typeof m.ts === 'number' ? performance.now() - m.ts : null;
-          if (m.stats) updateServerStats(m.stats, rtt);
-          return;
-        }
-
-        if (m.t === 'sync_ack') {
-          if (m.room) hostId = m.room;
-          if (m.roomType) roomType = m.roomType;
-          if (m.maxPlayers) roomMax = m.maxPlayers;
-          if (m.stats) updateServerStats(m.stats);
-          applyList(m.players || [], m.events || []);
-          return;
-        }
-
         if (m.reqId && pendingWsReq.has(m.reqId)) {
           const req = pendingWsReq.get(m.reqId);
           pendingWsReq.delete(m.reqId);
           clearTimeout(req.timer);
           if (m.ok === false || m.error) req.reject(new Error(m.error || 'Server xatosi'));
           else req.resolve(m);
+          return;
+        }
+
+        if (m.t === 'hello' || m.t === 'pong') {
+          const tsVal = typeof m.ts === 'number' ? m.ts : m.clientTs;
+          const rtt = typeof tsVal === 'number' ? performance.now() - tsVal : null;
+          if (m.stats) updateServerStats(m.stats, rtt);
+          return;
+        }
+
+        if (m.type === 'event' && m.event) {
+          applyList([...players.values()], [m.event]);
+          return;
+        }
+
+        if (m.t === 'sync_ack' || m.t === 'state' || m.t === 'room_joined' || m.t === 'room_created') {
+          if (m.room) hostId = m.room;
+          if (m.roomType) roomType = m.roomType;
+          if (m.maxPlayers || m.max) roomMax = m.maxPlayers || m.max;
+          if (m.stats) updateServerStats(m.stats);
+          applyList(m.players || [], m.events || []);
+          return;
         }
       };
 
@@ -356,19 +363,27 @@ export async function createPrivateRoom() {
   const statePayload = lastLocalState || { id: myId, name: 'Haydovchi' };
 
   if (mode === 'ws' && ws?.readyState === WebSocket.OPEN) {
-    const res = await sendWsRequest({ t: 'create_room', id: myId, state: statePayload });
-    hostId = res.room;
-    roomType = 'private';
-    roomMax = res.maxPlayers || PRIVATE_MAX_PLAYERS;
-    role = 'room';
-    status = 'connected';
-    players.clear();
-    if (res.stats) updateServerStats(res.stats);
-    emit({ roomChanged: hostId });
-    return hostId;
+    try {
+      const res = await sendWsRequest({ t: 'create_room', id: myId, state: statePayload }, 2600);
+      hostId = res.room;
+      roomType = 'private';
+      roomMax = res.maxPlayers || res.max || PRIVATE_MAX_PLAYERS;
+      role = 'room';
+      status = 'connected';
+      players.clear();
+      if (res.stats) updateServerStats(res.stats);
+      emit({ roomChanged: hostId });
+      return hostId;
+    } catch (wsErr) {
+      // Agar xato biznes mantiqdan bo'lmasa (timeout/socket), HTTP ga avtomatik o'tamiz
+      if (wsErr && wsErr.message && !wsErr.message.includes('Server javob bermadi') && !wsErr.message.includes('WebSocket')) {
+        throw wsErr;
+      }
+      mode = 'server';
+    }
   }
 
-  if (mode === 'server') {
+  if (mode === 'server' || mode === 'ws') {
     const r = await fetch('/api/online/create-room', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -378,7 +393,7 @@ export async function createPrivateRoom() {
     if (!r.ok || !data.ok) throw new Error(data.error || "Xona yaratib bo'lmadi");
     hostId = data.room;
     roomType = 'private';
-    roomMax = data.maxPlayers || PRIVATE_MAX_PLAYERS;
+    roomMax = data.maxPlayers || data.max || PRIVATE_MAX_PLAYERS;
     role = 'room';
     status = 'connected';
     players.clear();
@@ -469,25 +484,29 @@ export async function joinFriend(raw) {
     status = 'joining';
     emit();
     try {
-      const res = await sendWsRequest({ t: 'join_room', id: myId, room: id, state: statePayload });
+      const res = await sendWsRequest({ t: 'join_room', id: myId, room: id, state: statePayload }, 2600);
       role = 'room';
       status = 'connected';
       hostId = res.room || id;
       roomType = res.roomType || (isPublic ? 'public' : 'private');
-      roomMax = res.maxPlayers || (roomType === 'private' ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS);
+      roomMax = res.maxPlayers || res.max || (roomType === 'private' ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS);
       players.clear();
       if (res.stats) updateServerStats(res.stats);
       applyList(res.players || [], res.events || []);
       emit({ roomChanged: hostId });
       return hostId;
     } catch (e) {
-      status = 'connected';
-      emit();
-      throw e;
+      if (e && e.message && !e.message.includes('Server javob bermadi') && !e.message.includes('WebSocket')) {
+        status = 'connected';
+        emit();
+        throw e;
+      }
+      // WS javobi kechiksa HTTP orqali ulash
+      mode = 'server';
     }
   }
 
-  if (mode === 'server') {
+  if (mode === 'server' || mode === 'ws') {
     status = 'joining';
     emit();
     const r = await fetch('/api/online/join-room', {
@@ -505,7 +524,7 @@ export async function joinFriend(raw) {
     status = 'connected';
     hostId = data.room || id;
     roomType = data.roomType || (isPublic ? 'public' : 'private');
-    roomMax = data.maxPlayers || (roomType === 'private' ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS);
+    roomMax = data.maxPlayers || data.max || (roomType === 'private' ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS);
     players.clear();
     if (data.stats) updateServerStats(data.stats);
     applyList(data.players || [], data.events || []);

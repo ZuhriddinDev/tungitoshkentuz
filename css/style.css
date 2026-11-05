@@ -1322,3 +1322,513 @@ body.phone .mission { top: 112px; bottom: auto; right: auto; left: 50%; transfor
 .id-box small { display: block; color: var(--muted); font-size: 11px; margin-bottom: 2px; }
 .id-box strong { font-size: 22px; letter-spacing: 1.5px; color: var(--cyan); }
 .online-lbl { display: block; font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+/* ============================================================
+   OPENSTREETMAP & GTA ONLINE GPS XARITA MODAL DIZAYNI
+   ============================================================ */
+.gps-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.gps-cats {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.gps-cats::-webkit-scrollbar { display: none; }
+.gps-cat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+  white-space: nowrap;
+  transition: 0.15s;
+}
+.gps-cat-btn.on {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.25), rgba(255, 43, 214, 0.2));
+  border-color: var(--cyan);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.28);
+}
+.gps-quick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.gps-map-stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.gps-poi-card {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, 94%);
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(7, 11, 24, 0.94);
+  border: 1px solid var(--cyan);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.poi-card-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.poi-ic {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid var(--cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+.poi-txt b {
+  display: block;
+  font-size: 14px;
+  color: #fff;
+}
+.poi-txt small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.poi-card-acts {
+  display: flex;
+  gap: 6px;
+}
+
+/* ============================================================
+   TUNGI TOSHKENT: QAHRAMON TANLOVI (PERSONAJ VA KIYIMLAR)
+   ============================================================ */
+.char-select-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.char-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.char-preset-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(16, 24, 48, 0.86), rgba(8, 12, 26, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: 0.16s;
+}
+.char-preset-card:hover {
+  border-color: var(--cyan);
+  transform: translateY(-2px);
+}
+.char-preset-card.active {
+  border: 2px solid var(--gold);
+  background: linear-gradient(160deg, rgba(255, 215, 64, 0.18), rgba(0, 229, 255, 0.14));
+  box-shadow: 0 0 20px rgba(255, 215, 64, 0.28);
+}
+.char-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: #111;
+  font-size: 12px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.char-avatar-wrap {
+  width: 68px;
+  height: 82px;
+  margin-bottom: 6px;
+}
+.char-avatar-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.char-preset-card b {
+  font-size: 13px;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+.char-preset-card small {
+  font-size: 10px;
+  color: var(--cyan);
+  font-weight: 700;
+}
+.char-bottom-cols {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 12px;
+}
+.char-outfit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.char-outfit-btn {
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: left;
+  transition: 0.15s;
+}
+.char-outfit-btn.active {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.16);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.22);
+}
+.char-outfit-btn b {
+  display: block;
+  font-size: 12.5px;
+  color: #fff;
+}
+.char-outfit-btn small {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.char-custom-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.char-cust-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12.5px;
+}
+.char-cust-Arrows {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.char-cust-Arrows b {
+  min-width: 106px;
+  text-align: center;
+  color: var(--gold);
+  font-size: 12px;
+}
+
+/* ============================================================
+   YIG'ILUVCHI (COLLAPSIBLE) HUD CHAT VA MOBIL TORTMALAR
+   ============================================================ */
+.hud-chat-widget {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 16;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: auto;
+  background: none;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+.hud-chat-toggle {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(8, 12, 28, 0.84);
+  border: 1px solid rgba(0, 229, 255, 0.42);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 800;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+}
+.chat-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--pink);
+  color: #fff;
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 900;
+}
+.hud-chat-panel {
+  pointer-events: auto;
+  margin-top: 6px;
+  width: min(360px, 90vw);
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(7, 11, 26, 0.90);
+  border: 1px solid rgba(0, 229, 255, 0.38);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+}
+.hud-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--cyan);
+  margin-bottom: 5px;
+}
+
+/* Mobil Lobby Hamburger tugmasi va tortmasi */
+.lob-hamburger-btn {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.24), rgba(255, 43, 214, 0.22));
+  border: 1px solid var(--cyan);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  align-items: center;
+  justify-content: center;
+}
+.mob-lobby-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: rgba(3, 5, 14, 0.76);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  pointer-events: auto;
+}
+.mob-drawer-card {
+  width: min(460px, 94vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 14px;
+}
+.mob-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--cyan);
+}
+.mob-drawer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.mob-d-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: left;
+}
+.mob-d-item.primary {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.25), rgba(255, 43, 214, 0.2));
+  border-color: var(--cyan);
+}
+.mob-d-item.gold {
+  background: linear-gradient(135deg, rgba(255, 179, 0, 0.24), rgba(255, 215, 64, 0.14));
+  border-color: var(--gold);
+}
+.mob-d-item span { font-size: 20px; }
+.mob-d-item b { font-size: 12.5px; color: #fff; }
+.mob-d-item small { font-size: 10.5px; color: var(--muted); }
+
+/* Mobil HUD yig'iluvchi menyu */
+.mob-hud-menu-btn { display: none; }
+.hud-mob-drawer {
+  position: fixed;
+  top: 52px;
+  right: 12px;
+  z-index: 25;
+  width: min(310px, 88vw);
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(8, 12, 28, 0.94);
+  border: 1px solid var(--cyan);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(12px);
+}
+.hud-mob-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+.hud-mob-grid button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 18px;
+}
+.hud-mob-grid button span {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ============================================================
+   4 BOSQICHLI RESPONSIVE DIZAYN (KOMPYUTER VA MOBIL UCHUN ALOHIDA)
+   ============================================================ */
+/* 1) Compact Desktop (901px - 1200px) */
+@media (max-width: 1200px) and (min-width: 901px) {
+  .lobby-layout {
+    grid-template-columns: 245px 1fr 235px;
+    gap: 8px 10px;
+    padding: 10px 12px;
+  }
+}
+
+/* 2) Mobil & Planshet Lobby va HUD (<= 900px yoki body.phone) */
+@media (max-width: 900px) {
+  /* Mobil Lobby: Chap va O'ng panellar Hamburger menyuga yashiriladi,
+     Markazda 3D Mashina va 3D Personaj to'liq va toza ko'rinadi! */
+  .lob-hamburger-btn { display: inline-flex; }
+  .lobby-left,
+  .lobby-right,
+  .lob-quick-btns,
+  .sr-drag-hint {
+    display: none !important;
+  }
+  .lobby-layout {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto 1fr auto !important;
+    grid-template-areas:
+      "top"
+      "center"
+      "bottom" !important;
+    padding: 8px 10px !important;
+    gap: 6px !important;
+  }
+  .lobby-topbar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .lobby-server-bar {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  .lobby-profile-bar {
+    width: 100%;
+    justify-content: space-between;
+    padding: 5px 10px;
+  }
+  .lobby-center {
+    justify-content: space-between;
+  }
+  .showroom-top-pill {
+    width: 100%;
+    padding: 6px 10px;
+  }
+  .lobby-carousel-wrap {
+    width: 100%;
+    padding: 6px 8px;
+  }
+  .lobby-bottombar {
+    justify-content: center;
+  }
+  .lobby-enter-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 24px;
+    font-size: 18px;
+  }
+
+  /* Personaj tanlash modali mobil ekranda */
+  .char-preset-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .char-bottom-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 3) Kichik Mobil Ekranlar (360px - 600px) */
+@media (max-width: 600px) {
+  .lobby-server-bar .srv-sep:nth-of-type(2),
+  .lobby-server-bar .srv-item:nth-of-type(3) {
+    display: none;
+  }
+  .prof-lv-box { display: none; }
+  .sr-specs { display: none; }
+  .lob-car-card { flex: 0 0 112px; padding: 5px 7px; }
+}
+
+/* 4) Telefon boshqaruv rejimida (body.phone) Lobby va HUD tozaligi */
+body.phone .lob-hamburger-btn {
+  display: inline-flex;
+}
+body.phone .lobby-left,
+body.phone .lobby-right,
+body.phone .lob-quick-btns,
+body.phone .sr-drag-hint {
+  display: none !important;
+}
+body.phone .lobby-layout {
+  grid-template-columns: 1fr !important;
+  grid-template-rows: auto 1fr auto !important;
+  grid-template-areas:
+    "top"
+    "center"
+    "bottom" !important;
+  padding: 6px 10px !important;
+  gap: 5px !important;
+}
+body.phone .mob-hud-menu-btn {
+  display: inline-flex;
+}
+body.phone .hotbar {
+  display: none !important; /* Barcha ikkilamchi tugmalar ☰ menyu ichiga joylashtirildi */
+}
+body.phone .hud-chat-widget {
+  top: 44px;
+}

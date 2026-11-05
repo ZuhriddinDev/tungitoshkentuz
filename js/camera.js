@@ -19,10 +19,12 @@ export function updateCamera(camera, v, boost, dt) {
   const cfg = v.cfg;
   if (followH === null) followH = v.heading;
   let dh = v.heading - followH; dh = Math.atan2(Math.sin(dh), Math.cos(dh));
-  followH += dh * Math.min(1, dt * 4);
+  // Tezlik va rul burilishiga mos sezgir kamera ergashishi (ortiqcha kechikishsiz)
+  const followSpeed = 7.5 + Math.min(4.5, Math.abs(v.steer || 0) * 6);
+  followH += dh * Math.min(1, dt * followSpeed);
 
   const targetFov = camState.mode === 2 ? 72 : 60 + Math.min(16, v.kmh * 0.07) + (boost && v.kmh > 20 ? 6 : 0);
-  fov += (targetFov - fov) * Math.min(1, dt * 3);
+  fov += (targetFov - fov) * Math.min(1, dt * 4);
   camera.fov = fov; camera.updateProjectionMatrix();
 
   if (camState.mode === 2) {
@@ -31,18 +33,18 @@ export function updateCamera(camera, v, boost, dt) {
     return;
   }
   // Sichqoncha qo'yib yuborilgach, kamera asta-sekin orqaga qaytadi
-  if (performance.now() - cam.lastMove > 2500) cam.yaw *= Math.pow(0.05, dt);
+  if (performance.now() - cam.lastMove > 2200) cam.yaw *= Math.pow(0.04, dt);
 
-  let dist = cam.dist * (camState.mode === 1 ? 1.7 : 1) * Math.sqrt(cfg.len / 4.5) + v.kmh * 0.012;
+  let dist = cam.dist * (camState.mode === 1 ? 1.65 : 0.96) * Math.sqrt(cfg.len / 4.5) + v.kmh * 0.011;
   const yaw = followH + Math.PI + cam.yaw, horiz = Math.cos(cam.pitch);
   const dx = Math.sin(yaw) * horiz, dz = Math.cos(yaw) * horiz;
   for (const t of [0.35, 0.6, 0.85, 1]) if (blocked(v.x + dx * dist * t, v.z + dz * dist * t)) { dist *= Math.max(0.3, t - 0.2); break; }
-  curDist += (dist - curDist) * Math.min(1, dt * (dist < curDist ? 20 : 3));
+  curDist += (dist - curDist) * Math.min(1, dt * (dist < curDist ? 22 : 5));
 
-  tmp.set(v.x + dx * curDist, Math.max(0.6, 1.3 + Math.sin(cam.pitch) * curDist), v.z + dz * curDist);
+  tmp.set(v.x + dx * curDist, Math.max(0.6, 1.32 + Math.sin(cam.pitch) * curDist), v.z + dz * curDist);
   if (shake > 0.01) { tmp.x += (Math.random() - 0.5) * shake; tmp.y += (Math.random() - 0.5) * shake; shake *= Math.pow(0.02, dt); }
   camera.position.copy(tmp);
-  look.set(v.x + v.fwdX * 2, 1.1, v.z + v.fwdZ * 2);
+  look.set(v.x + v.fwdX * 2.4, 1.08, v.z + v.fwdZ * 2.4);
   camera.lookAt(look);
 }
 

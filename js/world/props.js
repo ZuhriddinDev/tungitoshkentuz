@@ -4,6 +4,7 @@ import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, POIS, addCollider
 import { signTexture, ADS } from './textures.js';
 import { GLOW_TEX } from '../carModel.js';
 import { nightMats } from './city.js';
+import { loadBuildingGlb } from './landmarks.js';
 
 const box = new THREE.BoxGeometry(1, 1, 1);
 const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v3 = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
@@ -114,18 +115,28 @@ function buildPOIs(scene) {
     const pad = new THREE.Mesh(new THREE.BoxGeometry(BLOCK - 6, 0.25, 34), new THREE.MeshStandardMaterial({ color: 0x2c2d31, roughness: 0.8 }));
     pad.position.set(0, 0.12, -5); g.add(pad);
     if (p.type === 'gas') {
+      const procGas = new THREE.Group();
+      g.add(procGas);
       const roof = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0xf5f5f5, emissive: 0xffffff, emissiveIntensity: 0.15 }));
-      roof.scale.set(26, 0.8, 14); roof.position.set(0, 6, -6); g.add(roof);
+      roof.scale.set(26, 0.8, 14); roof.position.set(0, 6, -6); procGas.add(roof);
       const stripe = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x00a651, emissive: 0x00ff7a, emissiveIntensity: 0.6 }));
-      stripe.scale.set(26.2, 0.3, 14.2); stripe.position.set(0, 5.6, -6); g.add(stripe);
+      stripe.scale.set(26.2, 0.3, 14.2); stripe.position.set(0, 5.6, -6); procGas.add(stripe);
       for (const px of [-8, 0, 8]) {
-        const pump = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x1565c0 })); pump.scale.set(1.2, 1.8, 0.8); pump.position.set(px, 1.1, -6); g.add(pump);
-        const col = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0xdddddd })); col.scale.set(0.4, 5.6, 0.4); col.position.set(px, 3, -6); g.add(col);
+        const pump = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x1565c0 })); pump.scale.set(1.2, 1.8, 0.8); pump.position.set(px, 1.1, -6); procGas.add(pump);
+        const col = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0xdddddd })); col.scale.set(0.4, 5.6, 0.4); col.position.set(px, 3, -6); procGas.add(col);
         addCollider(p.x + px - 0.8, p.z - 6.6, p.x + px + 0.8, p.z - 5.4, 'pump');
       }
-      const shopMat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0 }); const shop = new THREE.Mesh(box, shopMat); shop.scale.set(20, 5, 10); shop.position.set(0, 2.5, -30); g.add(shop);
+      const shopMat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0 }); const shop = new THREE.Mesh(box, shopMat); shop.scale.set(20, 5, 10); shop.position.set(0, 2.5, -30); procGas.add(shop);
       addCollider(p.x - 10, p.z - 35, p.x + 10, p.z - 25);
       addSign(g, ['UZ-OIL', 'AI-92 · AI-95 · AI-100'], '#003b1f', '#00ff7a', 0, 9, 4);
+
+      // /binolar/gas-station.glb 3D modelini asinxron yuklash va o'rnatish
+      loadBuildingGlb('/binolar/gas-station.glb', { targetWidth: 32 }).then((glb) => {
+        if (!glb) return;
+        procGas.visible = false;
+        glb.position.set(0, 0.15, -14);
+        g.add(glb);
+      });
     } else {
       const hall = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x1d2433, metalness: 0.7, roughness: 0.2, emissive: 0x0b3d91, emissiveIntensity: 0.3 }));
       hall.scale.set(60, 12, 30); hall.position.set(0, 6, -38); g.add(hall);

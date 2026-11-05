@@ -96,7 +96,7 @@ export class RemoteCars {
           ? `💺 +${passList.join(', ')}`
           : `🟢 TT-${p.id}`;
       const labelKey = `${p.name}|${chatText}|${subBadge}`;
-      const tuneKey = `${p.color || '#f5f5f5'}|${p.rims || 'std'}|${p.spoiler || 'none'}|${p.neon || 'none'}`;
+      const tuneKey = `${p.color || '#f5f5f5'}|${p.rims || 'std'}|${p.spoiler || 'none'}|${p.neon || 'none'}|${p.charPreset || 'temur'}|${p.charOutfit || ''}|${p.charColor || ''}|${p.charHair || ''}|${p.charGlasses || ''}`;
 
       if (!r || r.carId !== cfg.id) {
         if (r) this.dispose(r);
@@ -110,6 +110,13 @@ export class RemoteCars {
         model.group.rotation.order = 'YXZ';
 
         const charModel = buildCharacterModel(p.color || '#00e5ff');
+        charModel.setConfig?.({
+          preset: p.charPreset || 'temur',
+          outfit: p.charOutfit || undefined,
+          color: p.charColor || undefined,
+          hair: p.charHair || undefined,
+          glasses: p.charGlasses || undefined,
+        });
         charModel.group.visible = false;
         this.scene.add(charModel.group);
 
@@ -164,6 +171,13 @@ export class RemoteCars {
           neon: p.neon || 'none',
         });
         r.charModel.setColor(p.color || '#00e5ff');
+        r.charModel.setConfig?.({
+          preset: p.charPreset || 'temur',
+          outfit: p.charOutfit || undefined,
+          color: p.charColor || undefined,
+          hair: p.charHair || undefined,
+          glasses: p.charGlasses || undefined,
+        });
       }
 
       // 1. Mashina harakatini silliq yangilash

@@ -217,10 +217,180 @@ function getSharedAssets() {
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
+// ============================================================================
+// 8 TA QAHRAMON PRESETI ("Tungi Toshkent: Qahramon Tanlovi" dizayniga 100% mos)
+// ============================================================================
+export const CHARACTER_PRESETS = [
+  {
+    id: 'temur',
+    name: 'TEMUR',
+    role: 'VIP HAYDOVCHI',
+    outfit: 'bomber',
+    color: '#141720',
+    innerColor: '#f5f7fa',
+    pantsColor: '#161922',
+    hair: 'classic',
+    hairColor: '#181311',
+    glasses: 'dark',
+    accessory: 'watch',
+  },
+  {
+    id: 'sardor',
+    name: 'SARDOR',
+    role: 'STREET DRIFTER',
+    outfit: 'hoodie',
+    color: '#12141c',
+    innerColor: '#00e5ff',
+    pantsColor: '#181c26',
+    hair: 'cap_black',
+    hairColor: '#181311',
+    glasses: 'none',
+    accessory: 'chain',
+  },
+  {
+    id: 'javohir',
+    name: 'JAVOHIR',
+    role: 'OQBO\'RI',
+    outfit: 'hoodie',
+    color: '#eef2f7',
+    innerColor: '#11141c',
+    pantsColor: '#161922',
+    hair: 'cap_white',
+    hairColor: '#221a15',
+    glasses: 'none',
+    accessory: 'watch',
+  },
+  {
+    id: 'asliddin',
+    name: 'ASLIDDIN',
+    role: 'TASHKENT CITY BOSS',
+    outfit: 'suit',
+    color: '#12141b',
+    innerColor: '#ffffff',
+    pantsColor: '#12141b',
+    hair: 'slick',
+    hairColor: '#161210',
+    glasses: 'dark',
+    accessory: 'watch',
+  },
+  {
+    id: 'bekzod',
+    name: 'BEKZOD',
+    role: 'TYUNING USTA',
+    outfit: 'plaid',
+    color: '#9e1f28',
+    innerColor: '#1a1d24',
+    pantsColor: '#23395d',
+    hair: 'classic',
+    hairColor: '#3b2416',
+    glasses: 'none',
+    accessory: 'watch',
+  },
+  {
+    id: 'shoxrux',
+    name: 'SHOXRUX',
+    role: 'TUNGI REYDER',
+    outfit: 'leather',
+    color: '#181619',
+    innerColor: '#262932',
+    pantsColor: '#1b202b',
+    hair: 'beard',
+    hairColor: '#15110f',
+    glasses: 'aviator',
+    accessory: 'chain',
+  },
+  {
+    id: 'ulugbek',
+    name: "ULUG'BEK",
+    role: 'PRO POYGACHI',
+    outfit: 'varsity',
+    color: '#1d4ed8',
+    innerColor: '#f8fafc',
+    pantsColor: '#1e293b',
+    hair: 'classic',
+    hairColor: '#181311',
+    glasses: 'sport',
+    accessory: 'watch',
+  },
+  {
+    id: 'bobur',
+    name: 'BOBUR',
+    role: 'PREMIUM CLUB',
+    outfit: 'sweater',
+    color: '#d6c3a5',
+    innerColor: '#ffffff',
+    pantsColor: '#1c2029',
+    hair: 'slick',
+    hairColor: '#3b2416',
+    glasses: 'none',
+    accessory: 'watch',
+  },
+];
+
+export const OUTFIT_STYLES = [
+  { id: 'bomber', name: 'Bomber Kurtka', sub: 'Oq futbolka + Qora bomber' },
+  { id: 'hoodie', name: 'Streetwear Hoodie', sub: 'Kapyushon + Toj emblemasi' },
+  { id: 'suit', name: 'Klassik Kostyum', sub: 'Oq ko\'ylak + Galstuk' },
+  { id: 'varsity', name: 'Varsity Sport', sub: 'Oq yengli sport kurtka' },
+];
+
+export const CHAR_CUSTOM_OPTIONS = {
+  hair: [
+    { id: 'classic', name: 'Klassik soch' },
+    { id: 'cap_black', name: 'Qora kepka' },
+    { id: 'cap_white', name: 'Oq kepka' },
+    { id: 'slick', name: 'Silliq taralgan' },
+    { id: 'beard', name: 'Soch va Soqol' },
+  ],
+  hairColor: [
+    { id: '#181311', name: 'Qora' },
+    { id: '#3b2416', name: "To'q jigarrang" },
+    { id: '#6e472b', name: 'Kashtan' },
+    { id: '#c29352', name: 'Sariq / Blond' },
+    { id: '#8c96a6', name: 'Kumush' },
+  ],
+  glasses: [
+    { id: 'dark', name: 'Qora VIP' },
+    { id: 'none', name: "Ko'zoynaksiz" },
+    { id: 'aviator', name: 'Aviator' },
+    { id: 'sport', name: 'Neon Sport' },
+  ],
+  color: [
+    { id: '#12141c', name: 'Tungi Qora' },
+    { id: '#eef2f7', name: 'Oq' },
+    { id: '#1d4ed8', name: 'Sport Ko\'k' },
+    { id: '#9e1f28', name: 'Qizil' },
+    { id: '#d6c3a5', name: 'Bej / Oltin' },
+    { id: '#15803d', name: 'Zumrad Yashil' },
+  ],
+  accessory: [
+    { id: 'watch', name: 'Oltin Soat' },
+    { id: 'chain', name: 'Kumush Zanjir' },
+    { id: 'both', name: 'Soat + Zanjir' },
+    { id: 'none', name: "Yo'q" },
+  ],
+};
+
+export function getPresetById(id) {
+  return CHARACTER_PRESETS.find((p) => p.id === id) || CHARACTER_PRESETS[0];
+}
+
 export function buildCharacterModel(accentColor = '#00e5ff') {
   const A = getSharedAssets();
   const group = new THREE.Group();
   group.rotation.order = 'YXZ';
+
+  // Har bir personaj nusxasi uchun mustaqil materiallar (boshqa o'yinchilar bilan aralashib ketmasligi uchun)
+  const torsoMat = A.hoodieMat.clone();
+  const sleeveMat = A.hoodieMat.clone();
+  const innerShirtMat = new THREE.MeshStandardMaterial({ color: 0xf5f7fa, roughness: 0.55, metalness: 0.05 });
+  const tieMat = new THREE.MeshStandardMaterial({ color: 0x11131a, roughness: 0.45, metalness: 0.15 });
+  const myPantsMat = A.pantsMat.clone();
+  const myCapMat = A.capMat.clone();
+  const myHairMat = A.hairMat.clone();
+  const glassesMat = new THREE.MeshStandardMaterial({ color: 0x0a0d14, roughness: 0.12, metalness: 0.85 });
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.22, metalness: 0.92 });
+  const silverMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.18, metalness: 0.95 });
 
   const accentMat = new THREE.MeshStandardMaterial({
     color: accentColor || '#00e5ff',
@@ -238,7 +408,7 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
   hips.position.set(0, 0.92, 0);
   group.add(hips);
 
-  const pelvisMesh = new THREE.Mesh(A.pelvisGeo, A.pantsMat);
+  const pelvisMesh = new THREE.Mesh(A.pelvisGeo, myPantsMat);
   pelvisMesh.castShadow = true;
   hips.add(pelvisMesh);
 
@@ -247,12 +417,12 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
   spine.position.set(0, 0.06, 0);
   hips.add(spine);
 
-  const abdomenMesh = new THREE.Mesh(A.abdomenGeo, A.hoodieMat);
+  const abdomenMesh = new THREE.Mesh(A.abdomenGeo, torsoMat);
   abdomenMesh.position.set(0, 0.11, 0);
   abdomenMesh.castShadow = true;
   spine.add(abdomenMesh);
 
-  const pocketMesh = new THREE.Mesh(A.pocketGeo, A.hoodieMat);
+  const pocketMesh = new THREE.Mesh(A.pocketGeo, torsoMat);
   pocketMesh.position.set(0, 0.09, 0.125);
   spine.add(pocketMesh);
 
@@ -261,10 +431,30 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
   chest.position.set(0, 0.22, 0);
   spine.add(chest);
 
-  const chestMesh = new THREE.Mesh(A.chestGeo, A.hoodieMat);
+  const chestMesh = new THREE.Mesh(A.chestGeo, torsoMat);
   chestMesh.position.set(0, 0.14, 0);
   chestMesh.castShadow = true;
   chest.add(chestMesh);
+
+  // Bomber / Kostyum / Varsity uchun ichki oq ko'ylak/futbolka paneli
+  const innerShirtMesh = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.28, 0.045), innerShirtMat);
+  innerShirtMesh.position.set(0, 0.14, 0.132);
+  chest.add(innerShirtMesh);
+
+  // Klassik kostyum uchun galstuk (Tie)
+  const tieMesh = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.22, 0.015), tieMat);
+  tieMesh.position.set(0, 0.14, 0.158);
+  tieMesh.visible = false;
+  chest.add(tieMesh);
+
+  // Bo'yin zanjiri (Silver Chain aksessuari)
+  const chainMesh = new THREE.Mesh(
+    new THREE.TorusGeometry(0.078, 0.006, 8, 20).rotateX(Math.PI * 0.38),
+    silverMat
+  );
+  chainMesh.position.set(0, 0.27, 0.095);
+  chainMesh.visible = false;
+  chest.add(chainMesh);
 
   // Orqa toj emblemasi (Streetwear Crown print)
   const backDecal = new THREE.Mesh(A.decalPlaneGeo, A.backDecalMat);
@@ -273,7 +463,7 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
   chest.add(backDecal);
 
   // Kapyushon (bo'yin orqasida)
-  const hoodBack = new THREE.Mesh(A.hoodBackGeo, A.hoodieMat);
+  const hoodBack = new THREE.Mesh(A.hoodBackGeo, torsoMat);
   hoodBack.position.set(0, 0.29, -0.09);
   hoodBack.rotation.x = -0.35;
   chest.add(hoodBack);
@@ -307,6 +497,12 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
   jawMesh.position.set(0, 0.04, 0.015);
   head.add(jawMesh);
 
+  // Soqol (Beard opsiyasi uchun)
+  const beardMesh = new THREE.Mesh(new THREE.BoxGeometry(0.142, 0.068, 0.138), myHairMat);
+  beardMesh.position.set(0, 0.032, 0.02);
+  beardMesh.visible = false;
+  head.add(beardMesh);
+
   const noseMesh = new THREE.Mesh(A.noseGeo, A.skinMat);
   noseMesh.position.set(0, 0.085, 0.125);
   head.add(noseMesh);
@@ -326,35 +522,49 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
   pupilL.position.set(-0.042, 0.102, 0.117);
   const pupilR = new THREE.Mesh(A.pupilGeo, A.eyePupilMat);
   pupilR.position.set(0.042, 0.102, 0.117);
-  const browL = new THREE.Mesh(A.browGeo, A.hairMat);
+  const browL = new THREE.Mesh(A.browGeo, myHairMat);
   browL.position.set(-0.042, 0.125, 0.112);
   browL.rotation.z = -0.06;
-  const browR = new THREE.Mesh(A.browGeo, A.hairMat);
+  const browR = new THREE.Mesh(A.browGeo, myHairMat);
   browR.position.set(0.042, 0.125, 0.112);
   browR.rotation.z = 0.06;
   head.add(eyeL, eyeR, pupilL, pupilR, browL, browR);
 
-  // Soch va Qora Streetwear Kepka
-  const hairMesh = new THREE.Mesh(A.hairBackGeo, A.hairMat);
-  hairMesh.position.set(0, 0.105, -0.008);
-  head.add(hairMesh);
+  // Ko'zoynak (Sunglasses)
+  const glassesGroup = new THREE.Group();
+  const lensGeo = new THREE.BoxGeometry(0.056, 0.032, 0.016);
+  const lensL = new THREE.Mesh(lensGeo, glassesMat);
+  lensL.position.set(-0.044, 0.103, 0.124);
+  const lensR = new THREE.Mesh(lensGeo, glassesMat);
+  lensR.position.set(0.044, 0.103, 0.124);
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.008, 0.014), goldMat);
+  bridge.position.set(0, 0.108, 0.125);
+  glassesGroup.add(lensL, lensR, bridge);
+  head.add(glassesGroup);
 
-  const capCrown = new THREE.Mesh(A.capCrownGeo, A.capMat);
+  // Soch va Kepka
+  const hairMesh = new THREE.Mesh(A.hairBackGeo, myHairMat);
+  hairMesh.position.set(0, 0.105, -0.008);
+  const hairTopMesh = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.055, 0.19), myHairMat);
+  hairTopMesh.position.set(0, 0.195, 0.01);
+  head.add(hairMesh, hairTopMesh);
+
+  const capCrown = new THREE.Mesh(A.capCrownGeo, myCapMat);
   capCrown.position.set(0, 0.115, 0);
   capCrown.rotation.x = -0.08;
-  const capVisor = new THREE.Mesh(A.capVisorGeo, A.capMat);
+  const capVisor = new THREE.Mesh(A.capVisorGeo, myCapMat);
   capVisor.position.set(0, 0.138, 0.135);
   capVisor.rotation.x = 0.08;
   head.add(capCrown, capVisor);
 
   // 5. Qo'llar (Yelka -> Tirsak -> Bilak va Barmoqlar)
   function buildArm(side) {
-    const s = side === 'L' ? 1 : -1; // +X chap yoki o'ng: Three.js da oldi +Z bo'lsa, chap qo'l +X, o'ng qo'l -X
+    const s = side === 'L' ? 1 : -1;
     const shoulder = new THREE.Group();
     shoulder.position.set(s * 0.235, 0.25, 0);
     chest.add(shoulder);
 
-    const upperArmMesh = new THREE.Mesh(A.upperArmGeo, A.hoodieMat);
+    const upperArmMesh = new THREE.Mesh(A.upperArmGeo, sleeveMat);
     upperArmMesh.position.set(0, -0.12, 0);
     upperArmMesh.castShadow = true;
     shoulder.add(upperArmMesh);
@@ -363,7 +573,7 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
     elbow.position.set(0, -0.25, 0);
     shoulder.add(elbow);
 
-    const foreArmMesh = new THREE.Mesh(A.foreArmGeo, A.hoodieMat);
+    const foreArmMesh = new THREE.Mesh(A.foreArmGeo, sleeveMat);
     foreArmMesh.position.set(0, -0.11, 0);
     foreArmMesh.castShadow = true;
     elbow.add(foreArmMesh);
@@ -376,6 +586,13 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
     wrist.position.set(0, -0.24, 0);
     elbow.add(wrist);
 
+    let watchMesh = null;
+    if (side === 'L') {
+      watchMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.022, 12), goldMat);
+      watchMesh.position.set(0, 0.015, 0);
+      wrist.add(watchMesh);
+    }
+
     const palmMesh = new THREE.Mesh(A.palmGeo, A.skinMat);
     palmMesh.position.set(0, -0.035, 0);
     const fingersMesh = new THREE.Mesh(A.fingersGeo, A.skinMat);
@@ -387,7 +604,7 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
     thumbMesh.rotation.z = s * 0.35;
     wrist.add(palmMesh, fingersMesh, thumbMesh);
 
-    return { shoulder, elbow, wrist };
+    return { shoulder, elbow, wrist, watchMesh };
   }
 
   const armL = buildArm('L');
@@ -400,12 +617,12 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
     hip.position.set(s * 0.105, -0.02, 0);
     hips.add(hip);
 
-    const thighMesh = new THREE.Mesh(A.thighGeo, A.pantsMat);
+    const thighMesh = new THREE.Mesh(A.thighGeo, myPantsMat);
     thighMesh.position.set(0, -0.19, 0);
     thighMesh.castShadow = true;
     hip.add(thighMesh);
 
-    const cargoPocket = new THREE.Mesh(A.cargoPocketGeo, A.pantsMat);
+    const cargoPocket = new THREE.Mesh(A.cargoPocketGeo, myPantsMat);
     cargoPocket.position.set(s * 0.082, -0.20, 0.01);
     hip.add(cargoPocket);
 
@@ -413,12 +630,12 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
     knee.position.set(0, -0.40, 0);
     hip.add(knee);
 
-    const shinMesh = new THREE.Mesh(A.shinGeo, A.pantsMat);
+    const shinMesh = new THREE.Mesh(A.shinGeo, myPantsMat);
     shinMesh.position.set(0, -0.19, 0);
     shinMesh.castShadow = true;
     knee.add(shinMesh);
 
-    const pantCuff = new THREE.Mesh(A.pantCuffGeo, A.pantsMat);
+    const pantCuff = new THREE.Mesh(A.pantCuffGeo, myPantsMat);
     pantCuff.position.set(0, -0.36, 0);
     knee.add(pantCuff);
 
@@ -467,6 +684,78 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
   let phase = Math.random() * Math.PI * 2;
   let curState = 'idle';
 
+  function applyCharConfig(raw = {}) {
+    const preset = getPresetById(raw.preset || 'temur');
+    const outfit = raw.outfit || preset.outfit || 'bomber';
+    const mainColor = raw.color || preset.color || '#12141c';
+    const hairStyle = raw.hair || preset.hair || 'classic';
+    const hairColor = raw.hairColor || preset.hairColor || '#181311';
+    const glasses = raw.glasses || preset.glasses || 'dark';
+    const accessory = raw.accessory || preset.accessory || 'watch';
+
+    torsoMat.color.set(mainColor);
+    torsoMat.roughness = outfit === 'leather' ? 0.32 : outfit === 'suit' ? 0.48 : 0.72;
+    torsoMat.metalness = outfit === 'leather' ? 0.25 : 0.08;
+
+    // Varsity kurtkada yenglar oq bo'ladi
+    if (outfit === 'varsity') {
+      sleeveMat.color.set('#f8fafc');
+    } else {
+      sleeveMat.color.set(mainColor);
+    }
+    sleeveMat.roughness = torsoMat.roughness;
+    sleeveMat.metalness = torsoMat.metalness;
+
+    myPantsMat.color.set(preset.pantsColor || '#161922');
+
+    // Ichki ko'ylak va galstuk
+    const hasOpenFront = outfit === 'bomber' || outfit === 'suit' || outfit === 'varsity' || outfit === 'leather';
+    innerShirtMesh.visible = hasOpenFront;
+    innerShirtMat.color.set(preset.innerColor || '#f5f7fa');
+    tieMesh.visible = outfit === 'suit';
+
+    // Hoodie detallari
+    const isHoodie = outfit === 'hoodie';
+    hoodBack.visible = isHoodie;
+    pocketMesh.visible = isHoodie;
+    cordL.visible = isHoodie;
+    cordR.visible = isHoodie;
+    backDecal.visible = isHoodie && mainColor.toLowerCase() !== '#eef2f7';
+
+    // Soch, Kepka va Soqol
+    myHairMat.color.set(hairColor);
+    const hasCap = hairStyle === 'cap_black' || hairStyle === 'cap_white';
+    capCrown.visible = hasCap;
+    capVisor.visible = hasCap;
+    if (hasCap) {
+      myCapMat.color.set(hairStyle === 'cap_white' ? '#f4f6fb' : '#0e1017');
+    }
+    hairTopMesh.visible = !hasCap;
+    beardMesh.visible = hairStyle === 'beard';
+
+    // Ko'zoynak
+    glassesGroup.visible = glasses !== 'none';
+    if (glasses === 'sport') {
+      glassesMat.color.set('#00e5ff');
+      glassesMat.metalness = 0.95;
+    } else if (glasses === 'aviator') {
+      glassesMat.color.set('#1e293b');
+      glassesMat.metalness = 0.9;
+    } else {
+      glassesMat.color.set('#0a0d14');
+      glassesMat.metalness = 0.85;
+    }
+
+    // Aksessuarlar (Soat va Zanjir)
+    if (armL.watchMesh) {
+      armL.watchMesh.visible = accessory === 'watch' || accessory === 'both';
+    }
+    chainMesh.visible = accessory === 'chain' || accessory === 'both';
+  }
+
+  // Standart holatda Temur (VIP) obrazini o'rnatamiz
+  applyCharConfig({ preset: 'temur' });
+
   return {
     group,
     ring,
@@ -474,6 +763,7 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
       if (c) accentMat.color.set(c);
       if (c) accentMat.emissive.set(c);
     },
+    setConfig: applyCharConfig,
     animate(dt, speed = 0, stateOrEmote = 'idle', stateProgress = 0) {
       const absV = Math.abs(speed);
       let anim = stateOrEmote || 'idle';
@@ -845,6 +1135,10 @@ export class PlayerCharacter {
 
   setColor(c) {
     this.model.setColor(c);
+  }
+
+  setConfig(cfg) {
+    this.model.setConfig?.(cfg);
   }
 
   hide() {

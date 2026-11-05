@@ -8,12 +8,78 @@
 // 7) Mustaqillik maydoni (Ezgulik arkasi, Senat ustunlari va favvoralar)
 // 8) Magic City & Milliy bog' (Ertaknamo qasr minoralari va favvora)
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { LANDMARKS, addCollider } from './layout.js';
 import { nightMats } from './city.js';
 import { signTexture } from './textures.js';
 
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, ...o });
 export const animated = [];
+
+const bldDraco = new DRACOLoader();
+bldDraco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/draco/gltf/');
+const bldLoader = new GLTFLoader();
+bldLoader.setDRACOLoader(bldDraco);
+const bldCache = new Map();
+
+/**
+ * /binolar/ papkasidagi 3D GLB binolarni asinxron yuklash,
+ * markazlashtirish, o'lchamini moslash va FPS uchun optimallashtirish
+ */
+export function loadBuildingGlb(url, { targetHeight = 0, targetWidth = 0, rotY = 0 } = {}) {
+  const key = `${url}|${targetHeight}|${targetWidth}|${rotY}`;
+  if (bldCache.has(key)) {
+    return bldCache.get(key).then((tpl) => (tpl ? tpl.clone(true) : null));
+  }
+  const p = new Promise((resolve) => {
+    setTimeout(() => {
+      bldLoader.load(
+        url,
+        (gltf) => {
+          try {
+            const root = gltf.scene;
+            root.rotation.set(0, rotY, 0);
+            root.position.set(0, 0, 0);
+            root.scale.setScalar(1);
+            root.updateMatrixWorld(true);
+
+            const box = new THREE.Box3().setFromObject(root);
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+
+            let sc = 1;
+            if (targetHeight > 0) sc = targetHeight / Math.max(size.y, 0.01);
+            else if (targetWidth > 0) sc = targetWidth / Math.max(size.x, size.z, 0.01);
+
+            root.scale.setScalar(sc);
+            root.position.set(-center.x * sc, -box.min.y * sc, -center.z * sc);
+            root.updateMatrixWorld(true);
+
+            // Mobil va kompyuterda yuqori FPS saqlash uchun frustum culling va yengil soya
+            root.traverse((o) => {
+              if (!o.isMesh) return;
+              o.castShadow = false;
+              o.receiveShadow = false;
+              o.frustumCulled = true;
+            });
+
+            const wrap = new THREE.Group();
+            wrap.add(root);
+            resolve(wrap);
+          } catch (e) {
+            console.warn('[Binolar GLB] Xatolik:', url, e);
+            resolve(null);
+          }
+        },
+        undefined,
+        () => resolve(null)
+      );
+    }, 900);
+  });
+  bldCache.set(key, p);
+  return p.then((tpl) => (tpl ? tpl.clone(true) : null));
+}
 
 export function buildLandmarks(scene) {
   animated.length = 0;
@@ -251,36 +317,55 @@ const BUILDERS = {
       crown.position.set(tw.x, tw.h + 1.1, tw.z);
       g.add(crown);
       addCollider(l.x + tw.x - tw.r, l.z + tw.z - tw.r, l.x + tw.x + tw.r, l.z + tw.z + tw.r);
+
+      // Nest One asosiy minorasi uchun /binolar/3d_model_uzbekistan_tashkent_sity_nest_one.glb ni yuklash
+      if (isNestOne && tw.h === 195) {
+        loadBuildingGlb('/binolar/3d_model_uzbekistan_tashkent_sity_nest_one.glb', { targetHeight: 198 }).then((glb) => {
+          if (!glb) return;
+          body.visible = false;
+          crown.visible = false;
+          glb.position.set(tw.x, 0, tw.z);
+          g.add(glb);
+        });
+      }
     }
-    if (isNestOne) addMonumentSign(g, 'TASHKENT CITY', 'Nest One · Xalqaro ishbilarmonlik markazi', 0, 6, 36);
+    if (isNestOne) addMonumentSign(g, 'TASHKENT CITY · NEST ONE', '266m Osmono\'par · Ishbilarmonlik markazi', 0, 6, 36);
   },
 
-  // 7. Mustaqillik maydoni va bog'lar
+  // 7. Mustaqillik maydoni va Oliy Majlis / Senat binosi
   park(g, l) {
     if (l.name.startsWith('Mustaqillik')) {
+      const fallbackGroup = new THREE.Group();
+      g.add(fallbackGroup);
       const white = std(0xf2eee6);
       for (const x of [-22, -11, 0, 11, 22]) {
         const c = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.0, 15, 12), white);
         c.position.set(x, 7.5, -30);
-        g.add(c);
+        fallbackGroup.add(c);
         addCollider(l.x + x - 1.2, l.z - 31.2, l.x + x + 1.2, l.z - 28.8);
       }
       const top = new THREE.Mesh(new THREE.BoxGeometry(50, 2.2, 3.6), white);
       top.position.set(0, 15.8, -30);
-      g.add(top);
+      fallbackGroup.add(top);
       for (const x of [-15, -5, 5, 15]) {
         const bird = new THREE.Mesh(
           new THREE.ConeGeometry(0.85, 3.2, 8),
           std(0xffd740, { metalness: 0.85, emissive: 0x553300, emissiveIntensity: 0.3 })
         );
         bird.position.set(x, 18.5, -30);
-        g.add(bird);
+        fallbackGroup.add(bird);
       }
-      addMonumentSign(g, 'MUSTAQILLIK MAYDONI', 'Ezgulik arkasi · Favvoralar xiyoboni', 0, 5.2, 36);
-      fountain(g, -18, 8);
-      fountain(g, 18, 8);
+      // /binolar/oliy_majlis_binosi..glb 3D modelini yuklash
+      loadBuildingGlb('/binolar/oliy_majlis_binosi..glb', { targetWidth: 56 }).then((glb) => {
+        if (!glb) return;
+        glb.position.set(0, 0, -18);
+        g.add(glb);
+      });
+      addMonumentSign(g, 'MUSTAQILLIK VA OLIY MAJLIS', 'Ezgulik arkasi · Parlament binosi', 0, 5.2, 36);
+      fountain(g, -18, 12);
+      fountain(g, 18, 12);
     }
-    fountain(g, 0, 0);
+    fountain(g, 0, 14);
   },
 
   // 8. Magic City (Ertaknamo qasr minoralari va bayram chiroqlari)

@@ -57,7 +57,7 @@
         </div>
 
         <div class="lobby-profile-bar panel-glass">
-          <div class="prof-avatar" title="3D Streetwear Qahramon">🕶️</div>
+          <button type="button" class="prof-avatar" data-open="char" title="Personaj va kiyimni o'zgartirish">🕶️</button>
           <div class="prof-name-box">
             <input id="nameInput" maxlength="18" placeholder="Ismingiz..." title="Haydovchi ismini o'zgartirish" autocomplete="off" />
             <div class="prof-id-row">
@@ -74,8 +74,31 @@
             <b id="lobMoney">2 000 000 000 so'm</b>
           </div>
           <button type="button" class="prof-gear-btn" data-open="settings" title="Sozlamalar">⚙️</button>
+          <button type="button" class="lob-hamburger-btn" id="btnMobileLobbyDrawer" title="Menyu">☰</button>
         </div>
       </header>
+
+      <!-- MOBIL LOBBY HAMBURGER TORTMASI (Barcha qo'shimcha bo'limlar shu yerda) -->
+      <div id="mobileLobbyDrawer" class="mob-lobby-drawer hidden">
+        <div class="mob-drawer-card panel-glass">
+          <div class="mob-drawer-head">
+            <b>🧭 TUNGI TOSHKENT MENYUSI</b>
+            <button type="button" id="closeMobileLobbyDrawer" class="close">✕</button>
+          </div>
+          <div class="mob-drawer-grid">
+            <button type="button" id="mobStartPublicBtn" class="mob-d-item primary"><span>🌐</span><b>Ommaviy Server</b><small>Darhol o'ynash</small></button>
+            <button type="button" data-open="online" class="mob-d-item"><span>🔒</span><b>Do'stlar Xonasi</b><small>Kod bilan kirish</small></button>
+            <button type="button" data-open="garage" class="mob-d-item"><span>🚗</span><b>Garaj va Tuning</b><small>Avtosalon va bo'yoq</small></button>
+            <button type="button" data-open="char" class="mob-d-item"><span>🕶️</span><b>Personaj Tanlash</b><small>8 obraz va kiyimlar</small></button>
+            <button type="button" data-open="map" class="mob-d-item"><span>🗺️</span><b>Toshkent Xaritasi</b><small>OpenStreetMap GPS</small></button>
+            <button type="button" data-open="race" class="mob-d-item"><span>🏁</span><b>Musobaqalar</b><small>Poyga va Drift</small></button>
+            <button type="button" id="mobDailyBtn" class="mob-d-item gold"><span>🎁</span><b>Kunlik Mukofot</b><small>+25 mln bonus</small></button>
+            <button type="button" data-open="leaderboard" class="mob-d-item"><span>🏆</span><b>Reyting</b><small>Top haydovchilar</small></button>
+            <button type="button" data-open="settings" class="mob-d-item"><span>⚙️</span><b>Sozlamalar</b><small>Rul, Ovoz va Grafika</small></button>
+            <button type="button" data-open="help" class="mob-d-item"><span>⌨️</span><b>Boshqaruv</b><small>Tugmalar yordami</small></button>
+          </div>
+        </div>
+      </div>
 
       <!-- 2. CHAP PANEL: Neon Logotip va 6 ta Asosiy Menyu Kartasi -->
       <aside class="lobby-left">
@@ -120,6 +143,15 @@
             <div class="nav-txt">
               <b>GARAJ VA TUNING</b>
               <small>Mashinalar, bo'yoq, disk va motor</small>
+            </div>
+            <i class="nav-arr">›</i>
+          </button>
+
+          <button type="button" class="nav-card" data-open="char">
+            <span class="nav-ic">🕶️</span>
+            <div class="nav-txt">
+              <b>PERSONAJ VA KIYIM</b>
+              <small id="lobCharSub">8 qahramon obrazi va uslublar</small>
             </div>
             <i class="nav-arr">›</i>
           </button>
@@ -169,6 +201,7 @@
             <div class="sr-colors" id="lobbyColorDots" title="Mashina rangini tezkor o'zgartirish"></div>
             <button type="button" class="sr-mini-btn" id="lobbyRimBtn" title="Diskni almashtirish">🛞 Disk</button>
             <button type="button" class="sr-mini-btn" id="lobbyLightBtn" title="Faralarni yoqish/o'chirish">💡 Fara</button>
+            <button type="button" class="sr-mini-btn" data-open="char" title="Personaj va kiyim tanlash">🕶️ Personaj</button>
           </div>
         </div>
 
@@ -274,22 +307,51 @@
       <button class="chip online-chip" data-hotkey="KeyO" title="Online xona (O)"><b id="hudOnline">🌐 Online: 1/30</b><small id="hudMyId">OMMAVIY SERVER</small></button>
       <div class="chip money" id="hudMoney">0 so'm</div>
       <div class="chip clock"><span id="hudTime">00:00</span><small id="hudStreet">—</small></div>
-      <button class="chip iconbtn" data-hotkey="Escape" title="Pauza va Menyu (ESC)">☰</button>
+      <button type="button" class="chip iconbtn mob-hud-menu-btn" id="hudMobileMenuBtn" title="Tezkor Menyu">☰</button>
+      <button class="chip iconbtn" data-hotkey="Escape" title="Pauza va Menyu (ESC)">⏸</button>
+    </div>
+
+    <!-- MOBIL HUD YIG'ILUVCHI HARAKATLAR MENYUSI (Haydashga xalaqit bermaydi) -->
+    <div id="hudMobileDrawer" class="hud-mob-drawer hidden">
+      <div class="hud-mob-grid">
+        <button type="button" data-hotkey="KeyF">🚶<span>Tushish/Kirish</span></button>
+        <button type="button" data-hotkey="KeyG">🚗<span>Garaj</span></button>
+        <button type="button" data-hotkey="KeyE">⛽<span>Xizmat/Benzin</span></button>
+        <button type="button" data-hotkey="KeyM">🗺️<span>GPS Xarita</span></button>
+        <button type="button" data-hotkey="KeyR">🏁<span>Poyga</span></button>
+        <button type="button" data-hotkey="KeyT">📦<span>Ish/Taksi</span></button>
+        <button type="button" data-hotkey="KeyO">🌐<span>Online Xona</span></button>
+        <button type="button" data-open="char">🕶️<span>Personaj</span></button>
+        <button type="button" data-hotkey="KeyL">💡<span>Fara</span></button>
+        <button type="button" data-hotkey="KeyH">📯<span>Signal</span></button>
+        <button type="button" data-hotkey="KeyC">🎥<span>Kamera</span></button>
+        <button type="button" data-open="settings">⚙️<span>Sozlamalar</span></button>
+      </div>
     </div>
 
     <!-- Real-vaqtda online o'yinchilar radari (do'stlar ulanganda ko'rinadi) -->
     <div id="onlinePeersHud" class="online-peers-hud hidden"></div>
 
-    <!-- Real-vaqtda HUD Tezkor Suhbat -->
-    <div id="hudChatWidget" class="hud-chat-widget">
-      <div id="hudChatLog" class="hud-chat-log"></div>
-      <div class="hud-chat-bar">
-        <button type="button" class="q-emo" data-hud-chat="👋 Salom!">👋</button>
-        <button type="button" class="q-emo" data-hud-chat="💺 Mashinamga o'tiring!">💺</button>
-        <button type="button" class="q-emo" data-hud-chat="🏁 Poyga o'ynaymiz!">🏁</button>
-        <button type="button" class="q-emo" data-hud-chat="🔥 Driftga qarang!">🔥</button>
-        <input id="hudChatInput" maxlength="48" placeholder="Chat..." autocomplete="off" />
-        <button type="button" id="hudChatSend" title="Yuborish">➤</button>
+    <!-- YIG'ILUVCHI (COLLAPSIBLE) HUD CHAT — O'yin boshida yopiq turadi, haydashga xalaqit bermaydi -->
+    <div id="hudChatWidget" class="hud-chat-widget collapsed">
+      <button type="button" id="hudChatToggleBtn" class="hud-chat-toggle" title="Suhbatni ochish / yopish">
+        <span>💬 Chat</span>
+        <i id="hudChatBadge" class="chat-badge hidden">0</i>
+      </button>
+      <div id="hudChatPanel" class="hud-chat-panel hidden">
+        <div class="hud-chat-head">
+          <span>💬 Xona suhbati</span>
+          <button type="button" id="hudChatCloseBtn" title="Yopish">✕</button>
+        </div>
+        <div id="hudChatLog" class="hud-chat-log"></div>
+        <div class="hud-chat-bar">
+          <button type="button" class="q-emo" data-hud-chat="👋 Salom!">👋</button>
+          <button type="button" class="q-emo" data-hud-chat="💺 Mashinamga o'tiring!">💺</button>
+          <button type="button" class="q-emo" data-hud-chat="🏁 Poyga o'ynaymiz!">🏁</button>
+          <button type="button" class="q-emo" data-hud-chat="🔥 Driftga qarang!">🔥</button>
+          <input id="hudChatInput" maxlength="48" placeholder="Xabar yozing..." autocomplete="off" />
+          <button type="button" id="hudChatSend" title="Yuborish">➤</button>
+        </div>
       </div>
     </div>
 

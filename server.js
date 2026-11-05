@@ -125,6 +125,11 @@ function sanitizePlayerState(id, raw = {}, prev = null) {
     ph: clampNum(raw.ph, -Math.PI * 4, Math.PI * 4, raw.h || 0),
     pv: clampNum(raw.pv, -20, 25, 0),
     emote: String(raw.emote || '').slice(0, 12),
+    charPreset: String(raw.charPreset || prev?.charPreset || 'temur').slice(0, 16),
+    charOutfit: String(raw.charOutfit || prev?.charOutfit || '').slice(0, 16),
+    charColor: String(raw.charColor || prev?.charColor || '').slice(0, 16),
+    charHair: String(raw.charHair || prev?.charHair || '').slice(0, 16),
+    charGlasses: String(raw.charGlasses || prev?.charGlasses || '').slice(0, 16),
     ridingWith: sanitizeId(raw.ridingWith || ''),
     km: clampNum(raw.km, 0, 1_000_000, prev?.km || 0),
     chat,
@@ -380,6 +385,7 @@ function syncPlayerInRoom(pid, targetRoom, rawState = {}, rawEvent = null) {
     roomName: targetRoom.name,
     count: targetRoom.players.size,
     max: targetRoom.maxPlayers,
+    maxPlayers: targetRoom.maxPlayers,
     players,
     events: recentEvents,
     stats: {
@@ -538,47 +544,51 @@ function setupWebSocket(req, socket) {
 
 function handleWsMessage(socket, msg, bindPid) {
   if (!msg || typeof msg !== 'object') return;
+  const reqId = msg.reqId || undefined;
 
   if (msg.t === 'ping') {
-    sendWs(socket, { t: 'pong', clientTs: msg.clientTs, stats: getServerStats() });
+    sendWs(socket, { t: 'pong', reqId, ts: msg.ts ?? msg.clientTs, clientTs: msg.clientTs, stats: getServerStats() });
     return;
   }
 
   const pid = sanitizeId(msg.id);
-  if (!pid) return;
+  if (!pid) {
+    if (reqId) sendWs(socket, { t: 'error', reqId, ok: false, error: 'Player ID topilmadi' });
+    return;
+  }
   bindPid(pid);
 
   if (msg.t === 'create_room') {
     const res = createPrivateRoom(pid, msg.maxPlayers);
     if (res.error) {
-      sendWs(socket, { t: 'error', error: res.error });
+      sendWs(socket, { t: 'error', reqId, ok: false, error: res.error });
       return;
     }
     const syncRes = syncPlayerInRoom(pid, res.room, msg.state || {});
-    sendWs(socket, { t: 'room_created', ...syncRes });
+    sendWs(socket, { t: 'room_created', reqId, ...syncRes });
     return;
   }
 
   if (msg.t === 'join_room') {
     const resolved = resolveTargetRoom(pid, msg.room, false);
     if (resolved.error) {
-      sendWs(socket, { t: 'error', error: resolved.error });
+      sendWs(socket, { t: 'error', reqId, ok: false, error: resolved.error });
       return;
     }
     const syncRes = syncPlayerInRoom(pid, resolved.room, msg.state || {});
     if (syncRes.error) {
-      sendWs(socket, { t: 'error', error: syncRes.error });
+      sendWs(socket, { t: 'error', reqId, ok: false, error: syncRes.error });
       return;
     }
-    sendWs(socket, { t: 'room_joined', ...syncRes });
+    sendWs(socket, { t: 'room_joined', reqId, ...syncRes });
     return;
   }
 
-  if (msg.t === 'leave_room') {
+  if (msg.t === 'leave_room' || msg.t === 'leave') {
     removePlayerFromCurrentRoom(pid);
     const pubRoom = findAvailablePublicRoom(pid);
     const syncRes = syncPlayerInRoom(pid, pubRoom, msg.state || {});
-    sendWs(socket, { t: 'room_joined', ...syncRes });
+    sendWs(socket, { t: 'room_joined', reqId, ...syncRes });
     return;
   }
 
@@ -590,7 +600,7 @@ function handleWsMessage(socket, msg, bindPid) {
       targetRoom = resolved.room || findAvailablePublicRoom(pid);
     }
     const syncRes = syncPlayerInRoom(pid, targetRoom, msg.state || {}, msg.event || null);
-    sendWs(socket, { t: 'state', ...syncRes });
+    sendWs(socket, { t: 'sync_ack', reqId, ...syncRes });
   }
 }
 

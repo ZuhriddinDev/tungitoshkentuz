@@ -28,7 +28,10 @@ export function setEnabled(v) {
 
 export function initInput(canvas, onSteerToggle) {
   addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+      if (e.code === 'Escape') e.target.blur?.();
+      return;
+    }
     if (hot.has(e.code) && !e.repeat) { e.preventDefault(); hot.get(e.code)(); return; }
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
     if (enabled) keys.add(e.code);
@@ -129,7 +132,7 @@ export function initInput(canvas, onSteerToggle) {
       const cy = rect.top + rect.height / 2;
       const dx = e.clientX - cx;
       const dy = e.clientY - cy;
-      const radius = Math.max(24, rect.width * 0.42);
+      const radius = Math.max(22, rect.width * 0.35);
 
       if (isStart) {
         startX = e.clientX;
@@ -143,10 +146,12 @@ export function initInput(canvas, onSteerToggle) {
       if (deltaAngle > 180) deltaAngle -= 360;
       if (deltaAngle < -180) deltaAngle += 360;
 
-      const slideNorm = Math.max(-1, Math.min(1, (e.clientX - startX) / (radius * 0.85)));
-      // Bosh barmoq bilan ham aylantirish, ham chap-o'ngga surish ishlaydi
-      const combined = Math.max(-1, Math.min(1, horizNorm * 0.65 + slideNorm * 0.35));
-      wheelDeg = combined * 108; // ±108° gacha vizual burilish
+      const slideNorm = Math.max(-1, Math.min(1, (e.clientX - startX) / (radius * 0.78)));
+      const angleNorm = Math.max(-1, Math.min(1, deltaAngle / 95));
+      // Bosh barmoq bilan ham aylantirish, ham chap-o'ngga surish sezgir ishlaydi
+      const rawCombined = Math.max(-1, Math.min(1, horizNorm * 0.55 + slideNorm * 0.30 + angleNorm * 0.15));
+      const combined = Math.sign(rawCombined) * Math.pow(Math.abs(rawCombined), 0.88);
+      wheelDeg = combined * 115; // ±115° gacha vizual burilish
       // physics.js da steer > 0 chapga, steer < 0 o'ngga
       wheelSteer = -combined;
       wheelDisc.style.transform = `rotate(${wheelDeg.toFixed(1)}deg)`;
