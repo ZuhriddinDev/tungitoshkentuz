@@ -53,213 +53,681 @@ input:focus { box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.25); }
 .loading span { color: var(--muted); font-size: 13px; }
 
 /* ============================================================
-   AAA 3D KIRISH BANNERI VA BOSH MENYU (3D sahna orqada ko'rinib turadi)
+   GTA ONLINE USLUBIDAGI PREMIUM 3D GAME LOBBY (V4.0)
    ============================================================ */
-#menu {
+#menu.lobby-screen {
   background:
-    radial-gradient(circle at 38% 55%, rgba(0, 0, 0, 0.05) 0%, rgba(3, 5, 16, 0.58) 72%),
-    linear-gradient(90deg, rgba(4, 6, 18, 0.78) 0%, rgba(4, 6, 18, 0.15) 45%, rgba(4, 6, 18, 0.82) 100%);
+    radial-gradient(circle at 50% 48%, rgba(0, 0, 0, 0.0) 0%, rgba(2, 4, 14, 0.25) 54%, rgba(3, 5, 16, 0.78) 100%),
+    linear-gradient(90deg, rgba(4, 6, 18, 0.82) 0%, rgba(4, 6, 18, 0.04) 26%, rgba(4, 6, 18, 0.04) 74%, rgba(4, 6, 18, 0.84) 100%);
   overflow: hidden;
+  pointer-events: none;
 }
-.menu-bg i { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; animation: floaty 14s ease-in-out infinite; }
-.menu-bg i:nth-child(1) { width: 340px; height: 340px; background: #00e5ff; left: -90px; top: 8%; opacity: .18; }
-.menu-bg i:nth-child(2) { width: 380px; height: 380px; background: #ff2bd6; right: -110px; bottom: -70px; opacity: .2; animation-delay: -5s; }
-.menu-bg i:nth-child(3) { width: 240px; height: 240px; background: #ffd740; left: 42%; top: -80px; opacity: .1; animation-delay: -9s; }
-@keyframes floaty { 0%,100% { transform: translate(0,0); } 50% { transform: translate(35px,-25px); } }
+#menu.lobby-screen.show {
+  pointer-events: none; /* Markaziy 3D sahnani 360° aylantirish uchun */
+}
+.lobby-loading,
+.lobby-topbar,
+.lobby-left,
+.lobby-right,
+.showroom-top-pill,
+.lobby-carousel-wrap,
+.lobby-bottombar {
+  pointer-events: auto;
+}
 
-.menu-wrap {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: clamp(16px, 3vw, 44px);
-  width: min(1180px, 95vw);
-  max-height: 94vh;
+.lobby-loading {
+  width: min(440px, 92vw);
+  padding: 28px 26px;
+  text-align: center;
 }
-.menu-hero {
-  flex: 1 1 520px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 14px;
-  perspective: 1100px;
+.lobby-loading .bar {
+  height: 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin: 16px 0 10px;
 }
-.hero-3d-banner {
-  padding: 22px 26px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, rgba(10, 16, 40, 0.74), rgba(6, 8, 22, 0.42));
-  border: 1px solid rgba(0, 229, 255, 0.35);
+.lobby-loading .bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--cyan), var(--pink), var(--gold));
+  transition: width 0.2s;
+}
+.lobby-loading span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.panel-glass {
+  background: linear-gradient(155deg, rgba(10, 14, 34, 0.84), rgba(5, 7, 18, 0.90));
+  border: 1px solid rgba(0, 229, 255, 0.34);
+  border-radius: 16px;
   box-shadow:
-    0 20px 55px rgba(0, 0, 0, 0.55),
-    -6px 0 0 rgba(0, 229, 255, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(8px);
-  transform: rotateY(6deg) rotateX(2deg);
-  transform-style: preserve-3d;
-  transition: transform 0.35s ease;
+    0 12px 34px rgba(0, 0, 0, 0.58),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
 }
-.hero-3d-banner:hover {
-  transform: rotateY(2deg) rotateX(0deg) translateY(-2px);
-}
-.banner-top-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-.badge {
-  display: inline-block;
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 1.5px;
-  background: linear-gradient(90deg, rgba(0, 229, 255, 0.22), rgba(255, 43, 214, 0.22));
-  border: 1px solid var(--cyan);
-  color: #fff;
-}
-.live-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 11px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  background: rgba(0, 230, 118, 0.14);
-  border: 1px solid rgba(0, 230, 118, 0.45);
-  color: var(--green);
-}
+
+.green-txt { color: var(--green); }
+.cyan-txt { color: var(--cyan); }
+.gold-txt { color: var(--gold); }
+.full-w { width: 100%; }
+
 .pulse-dot {
-  width: 8px;
-  height: 8px;
+  display: inline-block;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: var(--green);
   box-shadow: 0 0 10px var(--green);
   animation: blink 1.2s infinite;
 }
-.logo-3d-wrap {
-  margin: 4px 0 10px;
-}
+
+.logo-3d-wrap { margin: 4px 0 8px; }
 .logo {
-  font-size: clamp(36px, 6.2vw, 68px);
+  font-size: clamp(32px, 5vw, 54px);
   font-weight: 900;
-  letter-spacing: 3px;
+  letter-spacing: 2.5px;
   line-height: 0.96;
   color: #ffffff;
   text-transform: uppercase;
-  text-shadow:
-    0 1px 0 #00b8d4,
-    0 2px 0 #0097a7,
-    0 3px 0 #006064,
-    0 4px 0 #004d40,
-    0 10px 28px rgba(0, 229, 255, 0.65);
+  text-shadow: 0 2px 0 #0097a7, 0 8px 24px rgba(0, 229, 255, 0.65);
 }
 .logo span {
   display: block;
   color: var(--pink);
-  text-shadow:
-    0 1px 0 #c51162,
-    0 2px 0 #880e4f,
-    0 3px 0 #4a072b,
-    0 10px 34px rgba(255, 43, 214, 0.85);
-  animation: flicker 5s infinite;
+  text-shadow: 0 2px 0 #880e4f, 0 8px 28px rgba(255, 43, 214, 0.85);
 }
 .logo-sub {
-  margin-top: 8px;
-  font-size: 11px;
+  margin-top: 6px;
+  font-size: 10.5px;
   font-weight: 800;
-  letter-spacing: 2.2px;
+  letter-spacing: 2px;
   color: var(--gold);
-  text-shadow: 0 0 12px rgba(255, 215, 64, 0.5);
-}
-@keyframes flicker { 0%, 92%, 100% { opacity: 1; } 93% { opacity: .65; } 95% { opacity: 1; } 97% { opacity: .8; } }
-.menu-hero .tag {
-  color: #d0dcff;
-  font-size: 14px;
-  line-height: 1.5;
-  margin: 10px 0 14px;
-  max-width: 520px;
-}
-.chips { display: flex; flex-wrap: wrap; gap: 7px; }
-.chips b {
-  font-size: 12px;
-  font-weight: 700;
-  padding: 6px 11px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-/* Bosh menyudagi jonli 3D avtomobil vitrinasi */
-.hero-car-showcase {
+/* Asosiy 5-zonali Grid */
+.lobby-layout {
+  position: fixed;
+  inset: 0;
+  padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  display: grid;
+  grid-template-columns: 280px 1fr 275px;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "top top top"
+    "left center right"
+    "bottom bottom bottom";
+  gap: 10px 14px;
+  pointer-events: none;
+}
+
+/* 1. YUQORI PANEL */
+.lobby-topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.lobby-server-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.srv-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.srv-item small {
+  color: var(--muted);
+  font-weight: 600;
+}
+.srv-sep {
+  color: rgba(255, 255, 255, 0.18);
+}
+
+.lobby-profile-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+}
+.prof-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.28), rgba(255, 43, 214, 0.28));
+  border: 1.5px solid var(--cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.prof-name-box {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.prof-name-box input {
+  margin: 0;
+  padding: 2px 6px;
+  width: 118px;
+  height: 22px;
+  font-size: 13px;
+  font-weight: 800;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+}
+.prof-id-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  color: var(--cyan);
+  font-weight: 800;
+}
+.prof-id-row button {
+  font-size: 11px;
+  padding: 0 3px;
+  opacity: 0.85;
+}
+.prof-lv-box {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 72px;
+  font-size: 11.5px;
+  color: var(--gold);
+}
+.xp-bar {
+  height: 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.xp-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--pink));
+}
+.prof-money-box {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: rgba(255, 215, 64, 0.12);
+  border: 1px solid rgba(255, 215, 64, 0.38);
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.prof-gear-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 16px;
+}
+.prof-gear-btn:hover {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.2);
+}
+
+/* 2. CHAP PANEL */
+.lobby-left {
+  grid-area: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 0;
+}
+.lobby-brand {
+  padding: 12px 14px;
+  text-align: center;
+  border-left: 3px solid var(--cyan);
+}
+.skyline-svg {
+  width: 100%;
+  height: 36px;
+  margin-bottom: 2px;
+}
+.lobby-logo {
+  font-size: 29px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 18px rgba(0, 229, 255, 0.75);
+}
+.lobby-logo span {
+  display: block;
+  font-size: 32px;
+  color: var(--pink);
+  text-shadow: 0 0 22px rgba(255, 43, 214, 0.85);
+}
+.lobby-sub {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #cbd8ff;
+  margin-top: 4px;
+}
+.lobby-slogan {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--gold);
+  margin-top: 3px;
+  font-weight: 700;
+}
+
+.lobby-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  justify-content: center;
+}
+.nav-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, rgba(12, 17, 40, 0.86), rgba(7, 10, 24, 0.88));
+  border: 1px solid rgba(0, 229, 255, 0.32);
+  text-align: left;
+  transition: transform 0.16s, box-shadow 0.2s, border-color 0.2s;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.nav-card:hover {
+  transform: translateX(4px);
+  border-color: var(--cyan);
+  box-shadow: 0 0 22px rgba(0, 229, 255, 0.35);
+}
+.nav-card.primary-card {
+  background: linear-gradient(135deg, rgba(0, 198, 255, 0.28), rgba(255, 43, 214, 0.26));
+  border-color: var(--cyan);
+  box-shadow: 0 0 24px rgba(0, 229, 255, 0.28);
+}
+.nav-card.gold-card {
+  border-color: rgba(255, 215, 64, 0.55);
+  background: linear-gradient(135deg, rgba(255, 179, 0, 0.2), rgba(14, 16, 36, 0.88));
+}
+.nav-ic {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.nav-txt {
+  flex: 1;
+  min-width: 0;
+}
+.nav-txt b {
+  display: block;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #fff;
+}
+.nav-txt small {
+  display: block;
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-arr {
+  font-style: normal;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--cyan);
+}
+
+/* 3. MARKAZIY 3D SHOWROOM VA KARUSEL */
+.lobby-center {
+  grid-area: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  min-width: 0;
+}
+.showroom-top-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 16px;
+  border-radius: 16px;
+  width: min(640px, 100%);
+  flex-wrap: wrap;
+}
+.sr-car-head strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+.sr-specs {
+  display: flex;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--gold);
+  font-weight: 700;
+  margin-top: 2px;
+}
+.sr-quick-tune {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.sr-colors {
+  display: flex;
+  gap: 5px;
+}
+.sr-color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  transition: transform 0.15s;
+}
+.sr-color-dot.on,
+.sr-color-dot:hover {
+  transform: scale(1.2);
+  border-color: #fff;
+  box-shadow: 0 0 10px var(--cyan);
+}
+.sr-mini-btn {
+  padding: 5px 9px;
+  border-radius: 9px;
+  background: rgba(0, 229, 255, 0.14);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #fff;
+}
+.sr-mini-btn:hover {
+  background: rgba(0, 229, 255, 0.28);
+}
+
+.sr-drag-hint {
+  margin-top: auto;
+  margin-bottom: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(4, 8, 22, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+  color: #c8d6ff;
+  pointer-events: none;
+}
+
+.lobby-carousel-wrap {
+  width: min(680px, 100%);
+  padding: 8px 12px 10px;
+}
+.carousel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+  color: var(--cyan);
+}
+.carousel-head small {
+  color: var(--gold);
+}
+.carousel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.car-nav-btn {
+  width: 34px;
+  height: 58px;
+  border-radius: 11px;
+  background: rgba(0, 229, 255, 0.14);
+  border: 1px solid var(--line);
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--cyan);
+  flex-shrink: 0;
+  transition: 0.15s;
+}
+.car-nav-btn:hover {
+  background: rgba(0, 229, 255, 0.3);
+  transform: scale(1.04);
+}
+.lobby-car-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  flex: 1;
+  padding: 2px;
+}
+.lobby-car-strip::-webkit-scrollbar { display: none; }
+.lob-car-card {
+  flex: 0 0 132px;
+  padding: 7px 9px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: 0.16s;
+}
+.lob-car-card:hover {
+  border-color: var(--cyan);
+  transform: translateY(-2px);
+}
+.lob-car-card.active {
+  border-color: var(--cyan);
+  background: linear-gradient(145deg, rgba(0, 229, 255, 0.22), rgba(255, 43, 214, 0.16));
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.3);
+}
+.lob-car-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+}
+.lob-car-card b {
+  font-size: 12px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lob-car-card small {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* 4. O'NG PANEL */
+.lobby-right {
+  grid-area: right;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 0;
+}
+.lobby-weather {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 13px;
+  font-size: 12.5px;
+  color: #d6e2ff;
+}
+.lobby-weather b {
+  font-size: 15px;
+  color: var(--gold);
+}
+.lobby-card {
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lcard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.lcard-head h3 {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  color: #fff;
+}
+.live-tag {
+  padding: 2px 7px;
+  border-radius: 8px;
+  font-size: 9.5px;
+  font-weight: 900;
+  background: rgba(0, 229, 255, 0.18);
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+}
+.lobby-map-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#lobbyMapCanvas {
+  width: 100%;
+  height: 126px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  background: #070b1c;
+  display: block;
+}
+.map-poi-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.map-poi-chips button {
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #dce6ff;
+}
+.map-poi-chips button:hover {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.2);
+}
+
+.lob-stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+}
+.lob-stat-list > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.lob-stat-list span {
+  color: var(--muted);
+}
+
+/* 5. PASTKI BAR */
+.lobby-bottombar {
+  grid-area: bottom;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(10, 14, 34, 0.82), rgba(18, 24, 56, 0.68));
-  border: 1px solid rgba(0, 229, 255, 0.35);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
-  max-width: 480px;
 }
-.car-nav-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: rgba(0, 229, 255, 0.14);
-  border: 1px solid var(--line);
-  font-size: 16px;
-  font-weight: 900;
-  color: var(--cyan);
-  transition: .15s;
-}
-.car-nav-btn:hover { background: rgba(0, 229, 255, 0.3); transform: scale(1.06); }
-.car-showcase-info { flex: 1; text-align: center; }
-.car-showcase-info small {
-  display: block;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  color: var(--cyan);
-}
-.car-showcase-info strong {
-  display: block;
-  font-size: 18px;
-  font-weight: 900;
-  color: #fff;
-  margin: 2px 0 4px;
-}
-.car-showcase-stats {
+.lob-quick-btns {
   display: flex;
-  justify-content: center;
-  gap: 10px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
   flex-wrap: wrap;
-  font-size: 11.5px;
-  color: var(--gold);
+}
+.lob-quick-btns button {
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12.5px;
   font-weight: 700;
+  transition: 0.15s;
+}
+.lob-quick-btns button:hover {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.18);
 }
 
-.menu-wrap .menu-card {
-  flex: 0 0 380px;
-  width: 380px;
-  max-width: 94vw;
-  padding: 24px 24px 20px;
+.lobby-enter-btn {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 12px;
+  padding: 13px 38px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #ff8f00, #ffd740, #ff6d00);
+  background-size: 200% 100%;
+  border: 2px solid #fff3b0;
+  color: #170d00;
+  font-size: 21px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  box-shadow: 0 8px 32px rgba(255, 179, 0, 0.55), 0 0 20px rgba(255, 215, 64, 0.45);
+  transition: transform 0.16s, box-shadow 0.2s;
 }
-.menu-card label { display: block; text-align: left; font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
-.menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-.menu-grid .btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 11px 6px; font-size: 12.5px; }
-.menu-grid .btn i { font-style: normal; font-size: 20px; }
-.ver { color: var(--muted); font-size: 11px; text-align: center; margin-top: 12px; }
-.btn.pulse { animation: pulseGlow 2.4s ease-in-out infinite; }
-@keyframes pulseGlow { 0%,100% { box-shadow: 0 6px 24px rgba(255,43,214,.38); } 50% { box-shadow: 0 6px 40px rgba(0,229,255,.65); } }
+.lobby-enter-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 40px rgba(255, 215, 64, 0.78);
+}
+.lobby-enter-btn i {
+  font-style: normal;
+  font-size: 26px;
+  line-height: 1;
+}
+.btn.pulse, .lobby-enter-btn.pulse { animation: pulseGlow 2.4s ease-in-out infinite; }
+@keyframes pulseGlow { 0%,100% { box-shadow: 0 6px 24px rgba(255,179,0,.45); } 50% { box-shadow: 0 6px 42px rgba(0,229,255,.72); } }
 
 /* ============================================================
    HUD VA REAL-VAQT ONLINE DO'STLAR RADARI
@@ -717,20 +1185,49 @@ body.phone .mission { top: 112px; bottom: auto; right: auto; left: 50%; transfor
   body.phone .pedal.gas { height: 86px; width: 76px; }
   body.phone .prompt { bottom: 130px; font-size: 12px; padding: 6px 12px; }
 
-  /* Bosh menyu landscape holatda */
-  .menu-wrap { align-items: center; gap: 14px; max-height: 94vh; }
-  .hero-3d-banner { padding: 12px 16px; }
-  .logo { font-size: clamp(26px, 4.5vw, 40px); }
-  .logo-sub { font-size: 9.5px; margin-top: 4px; }
-  .menu-hero .tag { margin: 6px 0 8px; font-size: 12px; }
-  .chips b { padding: 4px 8px; font-size: 11px; }
-  .hero-car-showcase { padding: 8px 12px; }
-  .car-showcase-info strong { font-size: 15px; }
-  .menu-wrap .menu-card { flex: 0 0 320px; width: 320px; padding: 14px 16px; }
-  .btn.big { padding: 11px; font-size: 15px; }
-  .menu-grid .btn { padding: 7px 4px; font-size: 11.5px; }
+  /* Premium Game Lobby landscape holatda */
+  .lobby-layout {
+    grid-template-columns: 215px 1fr 205px;
+    gap: 6px 10px;
+    padding: 6px 10px;
+  }
+  .lobby-server-bar { padding: 4px 10px; font-size: 10.5px; gap: 6px; }
+  .lobby-profile-bar { padding: 4px 8px; gap: 6px; }
+  .prof-avatar { width: 28px; height: 28px; font-size: 14px; }
+  .prof-name-box input { width: 92px; height: 19px; font-size: 11.5px; }
+  .prof-lv-box { min-width: 55px; font-size: 10px; }
+  .prof-money-box { padding: 3px 7px; font-size: 11px; }
+  .lobby-brand { padding: 6px 8px; }
+  .skyline-svg { height: 22px; }
+  .lobby-logo { font-size: 19px; }
+  .lobby-logo span { font-size: 21px; }
+  .lobby-sub { font-size: 8px; }
+  .lobby-slogan { display: none; }
+  .nav-card { padding: 5px 8px; gap: 7px; border-radius: 10px; }
+  .nav-ic { width: 24px; height: 24px; font-size: 13px; border-radius: 7px; }
+  .nav-txt b { font-size: 10.5px; }
+  .nav-txt small { display: none; }
+  .showroom-top-pill { padding: 5px 10px; gap: 8px; }
+  .sr-car-head strong { font-size: 13.5px; }
+  .sr-specs { font-size: 10px; gap: 6px; }
+  .sr-drag-hint { display: none; }
+  .lobby-carousel-wrap { padding: 5px 8px; }
+  .carousel-head { margin-bottom: 3px; font-size: 9.5px; }
+  .car-nav-btn { width: 26px; height: 42px; font-size: 12px; }
+  .lob-car-card { flex: 0 0 105px; padding: 4px 7px; }
+  .lob-car-card b { font-size: 10.5px; }
+  .lobby-weather { padding: 4px 9px; font-size: 10.5px; }
+  .lobby-card { padding: 6px 8px; gap: 4px; }
+  .lcard-head h3 { font-size: 10.5px; }
+  #lobbyMapCanvas { height: 68px; }
+  .map-poi-chips { display: none; }
+  .lob-stat-list { gap: 3px; font-size: 10px; }
+  .lob-stat-list > div { padding: 3px 6px; }
+  .lob-quick-btns { padding: 4px 6px; gap: 4px; }
+  .lob-quick-btns button { padding: 4px 8px; font-size: 10.5px; }
+  .lobby-enter-btn { padding: 8px 24px; font-size: 16px; border-radius: 12px; }
 
-  /* Garaj (F) landscape holatda bitta ekranga sig'adi */
+  /* Garaj (G) landscape holatda bitta ekranga sig'adi */
   .modal-card { max-height: 94vh; width: 96vw; }
   .modal-head { padding: 8px 14px; }
   #modalBody { padding: 8px 14px 12px; }
@@ -739,7 +1236,7 @@ body.phone .mission { top: 112px; bottom: auto; right: auto; left: 50%; transfor
   .g-chip { padding: 5px 10px; }
 }
 
-@media (max-width: 780px) and (orientation: portrait) {
+@media (max-width: 920px) and (orientation: portrait) {
   .top { gap: 5px; padding: 6px 8px; flex-wrap: wrap; }
   .chip { padding: 5px 9px; border-radius: 10px; }
   .chip.clock small { display: none; }
@@ -750,11 +1247,22 @@ body.phone .mission { top: 112px; bottom: auto; right: auto; left: 50%; transfor
   #modalBody { padding: 10px 12px 14px; }
   .garage-pro { grid-template-columns: 1fr; gap: 10px; }
   .g-canvas-box canvas { max-height: 175px; }
-  .menu-wrap { flex-direction: column; overflow-y: auto; padding: 8px 0; justify-content: flex-start; }
-  .menu-hero { flex: 0 0 auto; }
-  .hero-3d-banner { transform: none; padding: 16px; }
-  .hero-car-showcase { max-width: 100%; }
-  .menu-wrap .menu-card { width: 100%; flex: 0 0 auto; }
+
+  .lobby-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      "top"
+      "left"
+      "center"
+      "bottom";
+    overflow-y: auto;
+    pointer-events: auto;
+  }
+  .lobby-right { display: none; }
+  .lobby-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .lobby-bottombar { flex-direction: column; align-items: stretch; }
+  .lobby-enter-btn { width: 100%; }
 }
 
 /* ---- Zamonaviy sozlamalar menyusi ---- */

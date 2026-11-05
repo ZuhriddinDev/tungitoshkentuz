@@ -1,7 +1,9 @@
-// Online rejim (10 tagacha o'yinchi):
-// 1) Render.com yoki Node.js serverda (/api/online/*) — to'g'ridan-to'g'ri tezkor HTTP sinxronizatsiya
-// 2) Statik xostingda (Netlify va h.k.) — PeerJS (WebRTC) orqali P2P ulanish
-export const MAX_PLAYERS = 10;
+// TUNGI TOSHKENT — Real-Vaqt Multiplayer Xona Tizimi (WebSocket + HTTP Fallback + P2P):
+// 1) Ommaviy Server (Public Server — 30 o'yinchigacha har bir zalda, avto-sharding)
+// 2) Do'stlar Xonasi (Private Room — unikal 6 belgili kod bilan, 12 o'yinchigacha)
+// 3) Jonli Server Statistikasi (Total Online, Public, Private Rooms, Ping ms, Auto-Reconnect)
+export const MAX_PLAYERS = 30;
+export const PRIVATE_MAX_PLAYERS = 12;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const PREFIX = 'tt3d-';
 const ICE = {
@@ -16,23 +18,42 @@ const ICE = {
   ],
 };
 
-let mode = 'unknown'; // 'unknown' | 'server' | 'p2p'
+let mode = 'unknown'; // 'unknown' | 'ws' | 'server' | 'p2p'
+let ws = null;
+let wsReconnectTimer = 0;
+let pingTimer = 0;
 let peer = null;
 let myId = '';
 let role = 'none';    // 'none' | 'host' | 'client' | 'room'
 let status = 'off';   // 'off' | 'connecting' | 'ready' | 'joining' | 'connected'
 let hostConn = null;
-let hostId = '';
+let hostId = 'PUBLIC';
+let roomType = 'public'; // 'public' | 'private'
+let roomMax = MAX_PLAYERS;
 let joinReject = null;
 let lastHostMsg = 0;
 let acc = 0;
 let syncBusy = false;
 
 const conns = new Map();   // P2P host: id -> conn
-const players = new Map(); // Boshqa o'yinchilar: id -> state
+const players = new Map(); // Xonadagi boshqa o'yinchilar: id -> state
 const listeners = new Set();
 const seenEventIds = new Set();
+const pendingWsReq = new Map(); // reqId -> { resolve, reject, timer }
+let reqSeq = 1;
+
 export const chatHistory = []; // [{ fromName, text, ts }]
+
+// Kirish sahifasi (Premium Lobby) uchun jonli server statistikasi
+export const serverStats = {
+  status: 'connecting', // 'online' | 'connecting' | 'offline'
+  totalOnline: 1,
+  publicPlayers: 1,
+  publicMax: MAX_PLAYERS,
+  privateRooms: 0,
+  privateMax: PRIVATE_MAX_PLAYERS,
+  pingMs: 18,
+};
 
 const emit = (ev = {}) => listeners.forEach((f) => f(ev));
 export const onOnline = (f) => { listeners.add(f); return () => listeners.delete(f); };
@@ -43,7 +64,7 @@ function genId() {
   return [...a].map((n) => ALPHABET[n % ALPHABET.length]).join('');
 }
 
-// Har bir foydalanuvchi uchun takrorlanmas 6 belgili ID (TT-XXXXXX)
+// Har bir foydalanuvchi uchun takrorlanmas 6 belgili playerId
 export function playerId() {
   let id = localStorage.getItem('tt-pid');
   if (!id || id.length !== 6) {
@@ -54,10 +75,15 @@ export function playerId() {
 }
 
 export const displayId = (id = myId || playerId()) => {
-  if (!id || id === 'LOBBY') return 'UMUMIY ZAL';
-  if (String(id).startsWith('LOBBY')) return 'UMUMIY ZAL #' + String(id).slice(5);
-  return 'TT-' + id;
+  if (!id || id === 'LOBBY' || id === 'PUBLIC') return 'OMMAVIY SERVER';
+  if (String(id).startsWith('PUBLIC')) {
+    const suf = String(id).slice(6);
+    return suf ? `OMMAVIY ZAL ${suf}` : 'OMMAVIY SERVER';
+  }
+  if (String(id).startsWith('LOBBY')) return 'OMMAVIY ZAL #' + String(id).slice(5);
+  return String(id).startsWith('TT-') ? String(id) : 'TT-' + id;
 };
+
 export const normalizeId = (s) =>
   String(s || '')
     .trim()
@@ -71,31 +97,174 @@ export const info = () => ({
   mode,
   id: myId || playerId(),
   host: hostId,
+  roomType,
   count: players.size + 1,
-  max: MAX_PLAYERS,
+  max: roomMax || (roomType === 'private' ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS),
+  pingMs: serverStats.pingMs,
+  serverStats,
 });
 
 export const list = () => [...players.values()];
 
-async function detectServerMode() {
-  if (mode !== 'unknown') return mode;
+function updateServerStats(raw = {}, measuredPing = null) {
+  serverStats.status = 'online';
+  if (typeof raw.totalOnline === 'number') serverStats.totalOnline = Math.max(1, raw.totalOnline);
+  if (typeof raw.publicPlayers === 'number') serverStats.publicPlayers = Math.max(roomType === 'public' ? 1 : 0, raw.publicPlayers);
+  if (typeof raw.publicMax === 'number') serverStats.publicMax = raw.publicMax;
+  if (typeof raw.privateRooms === 'number') serverStats.privateRooms = raw.privateRooms;
+  if (typeof raw.privateMax === 'number') serverStats.privateMax = raw.privateMax;
+  if (typeof measuredPing === 'number' && measuredPing >= 0) {
+    serverStats.pingMs = Math.max(1, Math.round(measuredPing));
+  }
+  emit({ statsUpdated: true });
+}
+
+async function fetchStatsHttp() {
+  const t0 = performance.now();
   try {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 2500);
-    const r = await fetch('/api/online/ping', { signal: ctrl.signal, cache: 'no-store' });
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    const r = await fetch('/api/online/stats', { signal: ctrl.signal, cache: 'no-store' });
     clearTimeout(timer);
     if (r.ok) {
       const data = await r.json();
       if (data && data.ok) {
-        mode = 'server';
-        return mode;
+        updateServerStats(data, performance.now() - t0);
+        return true;
       }
     }
   } catch {
-    // Server API mavjud emas — P2P rejimiga o'tamiz
+    // ignore
+  }
+  return false;
+}
+
+function startPingLoop() {
+  if (pingTimer) clearInterval(pingTimer);
+  pingTimer = setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({ t: 'ping', ts: performance.now() }));
+      } catch { /* */ }
+    } else if (mode === 'server') {
+      fetchStatsHttp();
+    }
+  }, 2500);
+}
+
+function connectWebSocket() {
+  return new Promise((resolve) => {
+    if (ws && ws.readyState === WebSocket.OPEN) return resolve(true);
+    try {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const sock = new WebSocket(`${proto}//${location.host}/ws`);
+      let settled = false;
+      const to = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          try { sock.close(); } catch { /* */ }
+          resolve(false);
+        }
+      }, 2800);
+
+      sock.onopen = () => {
+        clearTimeout(to);
+        ws = sock;
+        mode = 'ws';
+        serverStats.status = 'online';
+        sock.send(JSON.stringify({ t: 'ping', ts: performance.now() }));
+        startPingLoop();
+        if (!settled) {
+          settled = true;
+          resolve(true);
+        }
+      };
+
+      sock.onmessage = (ev) => {
+        let m;
+        try { m = JSON.parse(ev.data); } catch { return; }
+        if (!m || typeof m !== 'object') return;
+
+        if (m.t === 'hello' || m.t === 'pong') {
+          const rtt = typeof m.ts === 'number' ? performance.now() - m.ts : null;
+          if (m.stats) updateServerStats(m.stats, rtt);
+          return;
+        }
+
+        if (m.t === 'sync_ack') {
+          if (m.room) hostId = m.room;
+          if (m.roomType) roomType = m.roomType;
+          if (m.maxPlayers) roomMax = m.maxPlayers;
+          if (m.stats) updateServerStats(m.stats);
+          applyList(m.players || [], m.events || []);
+          return;
+        }
+
+        if (m.reqId && pendingWsReq.has(m.reqId)) {
+          const req = pendingWsReq.get(m.reqId);
+          pendingWsReq.delete(m.reqId);
+          clearTimeout(req.timer);
+          if (m.ok === false || m.error) req.reject(new Error(m.error || 'Server xatosi'));
+          else req.resolve(m);
+        }
+      };
+
+      sock.onclose = () => {
+        if (ws === sock) ws = null;
+        if (!settled) {
+          settled = true;
+          resolve(false);
+          return;
+        }
+        // WebSocket uzilsa HTTP fallback ga tushadi va 3 soniyadan so'ng qayta ulanadi (Reconnect)
+        if (mode === 'ws') mode = 'server';
+        clearTimeout(wsReconnectTimer);
+        wsReconnectTimer = setTimeout(() => {
+          connectWebSocket().catch(() => {});
+        }, 3000);
+      };
+
+      sock.onerror = () => {
+        if (!settled) {
+          clearTimeout(to);
+          settled = true;
+          resolve(false);
+        }
+      };
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+function sendWsRequest(payload, timeoutMs = 4500) {
+  return new Promise((resolve, reject) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return reject(new Error('WebSocket ulanmagan'));
+    }
+    const reqId = 'r' + (reqSeq++);
+    const timer = setTimeout(() => {
+      pendingWsReq.delete(reqId);
+      reject(new Error('Server javob bermadi'));
+    }, timeoutMs);
+    pendingWsReq.set(reqId, { resolve, reject, timer });
+    ws.send(JSON.stringify({ ...payload, reqId }));
+  });
+}
+
+async function detectServerMode() {
+  if (mode === 'ws' && ws && ws.readyState === WebSocket.OPEN) return 'ws';
+  const wsOk = await connectWebSocket();
+  if (wsOk) return 'ws';
+
+  const httpOk = await fetchStatsHttp();
+  if (httpOk) {
+    mode = 'server';
+    startPingLoop();
+    return 'server';
   }
   mode = 'p2p';
-  return mode;
+  return 'p2p';
 }
 
 function loadPeerScript() {
@@ -114,14 +283,17 @@ export async function goOnline() {
   if (status === 'ready' || status === 'connected' || status === 'joining') return myId;
 
   status = 'connecting';
+  serverStats.status = 'connecting';
   emit();
 
   const m = await detectServerMode();
-  if (m === 'server') {
-    // Render.com / Node.js server rejimi: barcha o'yinchilar bir-birini darhol ko'rishi uchun UMUMIY ZAL (LOBBY) ga ulanadi
+  if (m === 'ws' || m === 'server') {
     role = 'room';
-    hostId = 'LOBBY';
+    hostId = hostId || 'PUBLIC';
+    roomType = hostId === 'PUBLIC' || String(hostId).startsWith('PUBLIC') ? 'public' : 'private';
+    roomMax = roomType === 'private' ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS;
     status = 'connected';
+    serverStats.status = 'online';
     emit();
     return myId;
   }
@@ -138,6 +310,7 @@ export async function goOnline() {
         done = true;
         localStorage.setItem('tt-pid', myId);
         status = 'ready';
+        serverStats.status = 'online';
         emit();
         resolve(myId);
       });
@@ -151,6 +324,7 @@ export async function goOnline() {
           try { peer.destroy(); } catch { /* */ }
           if (attempt > 6) {
             status = 'off';
+            serverStats.status = 'offline';
             emit();
             return reject(new Error("ID band, keyinroq urinib ko'ring"));
           }
@@ -161,10 +335,11 @@ export async function goOnline() {
           joinReject = null;
           status = 'ready';
           emit();
-          return r(new Error("Bunday ID topilmadi yoki do'st online emas"));
+          return r(new Error("Bunday xona kodi topilmadi yoki do'st online emas"));
         }
         if (!done) {
           status = 'off';
+          serverStats.status = 'offline';
           emit();
           return reject(new Error("Online serverga ulanib bo'lmadi"));
         }
@@ -175,6 +350,62 @@ export async function goOnline() {
   });
 }
 
+// ---- Yangi: Do'stlar uchun maxsus Private Xona yaratish (6 belgili unikal kod) ----
+export async function createPrivateRoom() {
+  await goOnline();
+  const statePayload = lastLocalState || { id: myId, name: 'Haydovchi' };
+
+  if (mode === 'ws' && ws?.readyState === WebSocket.OPEN) {
+    const res = await sendWsRequest({ t: 'create_room', id: myId, state: statePayload });
+    hostId = res.room;
+    roomType = 'private';
+    roomMax = res.maxPlayers || PRIVATE_MAX_PLAYERS;
+    role = 'room';
+    status = 'connected';
+    players.clear();
+    if (res.stats) updateServerStats(res.stats);
+    emit({ roomChanged: hostId });
+    return hostId;
+  }
+
+  if (mode === 'server') {
+    const r = await fetch('/api/online/create-room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: myId, state: statePayload }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error(data.error || "Xona yaratib bo'lmadi");
+    hostId = data.room;
+    roomType = 'private';
+    roomMax = data.maxPlayers || PRIVATE_MAX_PLAYERS;
+    role = 'room';
+    status = 'connected';
+    players.clear();
+    if (data.stats) updateServerStats(data.stats);
+    emit({ roomChanged: hostId });
+    return hostId;
+  }
+
+  // P2P rejimda o'z ID si private xona kodi hisoblanadi
+  resetRoom();
+  hostId = myId;
+  roomType = 'private';
+  roomMax = PRIVATE_MAX_PLAYERS;
+  emit({ roomChanged: hostId });
+  return hostId;
+}
+
+// ---- Yangi: Ommaviy Serverga (Public Server) kirish ----
+export async function joinPublicServer() {
+  return joinFriend('PUBLIC');
+}
+
+// ---- Yangi: 6 belgili kod orqali Xonaga kirish ----
+export async function joinRoomByCode(code) {
+  return joinFriend(code);
+}
+
 // ---- P2P Host tomoni ----
 function onIncoming(conn) {
   conn.on('open', () => {
@@ -183,7 +414,7 @@ function onIncoming(conn) {
       setTimeout(() => conn.close(), 400);
       return;
     }
-    if (conns.size >= MAX_PLAYERS - 1) {
+    if (conns.size >= PRIVATE_MAX_PLAYERS - 1) {
       conn.send({ t: 'full' });
       setTimeout(() => conn.close(), 400);
       return;
@@ -193,6 +424,7 @@ function onIncoming(conn) {
     role = 'host';
     status = 'connected';
     hostId = myId;
+    roomType = 'private';
     conn.send({ t: 'welcome', host: myId });
     emit();
   });
@@ -220,28 +452,48 @@ function dropClient(id) {
   emit({ leave: p?.name || id });
 }
 
-// ---- Do'st ID siga yoki Umumiy zalga (LOBBY) qo'shilish ----
+// ---- Do'st Xonasiga (6 belgili kod) yoki Ommaviy Serverga (PUBLIC/LOBBY) qo'shilish ----
 export async function joinFriend(raw) {
   const clean = normalizeId(raw);
-  const isLobby = clean === 'LOBBY' || clean === 'UMUMIY';
-  const id = isLobby ? 'LOBBY' : clean;
+  const isPublic = clean === 'LOBBY' || clean === 'UMUMIY' || clean === 'PUBLIC' || clean === '';
+  const id = isPublic ? 'PUBLIC' : clean;
 
-  if (!isLobby && id.length !== 6) {
-    throw new Error("ID 6 ta belgidan iborat bo'lishi kerak (masalan: TT-7K2M9Q)");
-  }
-  if (id === myId) {
-    throw new Error("Bu sizning o'z ID ingiz! Uni do'stingizga yuboring.");
+  if (!isPublic && id.length !== 6) {
+    throw new Error("Xona kodi 6 ta belgidan iborat bo'lishi kerak (masalan: 7K2M9Q)");
   }
 
   await goOnline();
+  const statePayload = lastLocalState || { id: myId, name: 'Haydovchi' };
+
+  if (mode === 'ws' && ws?.readyState === WebSocket.OPEN) {
+    status = 'joining';
+    emit();
+    try {
+      const res = await sendWsRequest({ t: 'join_room', id: myId, room: id, state: statePayload });
+      role = 'room';
+      status = 'connected';
+      hostId = res.room || id;
+      roomType = res.roomType || (isPublic ? 'public' : 'private');
+      roomMax = res.maxPlayers || (roomType === 'private' ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS);
+      players.clear();
+      if (res.stats) updateServerStats(res.stats);
+      applyList(res.players || [], res.events || []);
+      emit({ roomChanged: hostId });
+      return hostId;
+    } catch (e) {
+      status = 'connected';
+      emit();
+      throw e;
+    }
+  }
 
   if (mode === 'server') {
     status = 'joining';
     emit();
-    const r = await fetch('/api/online/sync', {
+    const r = await fetch('/api/online/join-room', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: myId, room: id, state: lastLocalState || { name: 'Haydovchi' } }),
+      body: JSON.stringify({ id: myId, room: id, state: statePayload }),
     });
     const data = await r.json();
     if (!r.ok || data.error) {
@@ -252,14 +504,22 @@ export async function joinFriend(raw) {
     role = 'room';
     status = 'connected';
     hostId = data.room || id;
-    applyList(data.players || []);
-    emit();
+    roomType = data.roomType || (isPublic ? 'public' : 'private');
+    roomMax = data.maxPlayers || (roomType === 'private' ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS);
+    players.clear();
+    if (data.stats) updateServerStats(data.stats);
+    applyList(data.players || [], data.events || []);
+    emit({ roomChanged: hostId });
     return hostId;
   }
 
   // P2P rejimi
-  if (isLobby) {
-    throw new Error("P2P rejimida do'stingizning 6 belgili ID sini kiriting (masalan: TT-7K2M9Q)");
+  if (isPublic) {
+    resetRoom();
+    return myId;
+  }
+  if (id === myId) {
+    throw new Error("Bu sizning o'z xona kodingiz! Uni do'stingizga yuboring.");
   }
   if (role !== 'none') {
     resetRoom();
@@ -287,9 +547,11 @@ export async function joinFriend(raw) {
         role = 'client';
         status = 'connected';
         hostId = id;
-        emit();
+        roomType = 'private';
+        roomMax = PRIVATE_MAX_PLAYERS;
+        emit({ roomChanged: hostId });
         resolve(id);
-      } else if (m.t === 'full') fail(`Xona to'lgan (${MAX_PLAYERS}/${MAX_PLAYERS})`);
+      } else if (m.t === 'full') fail(`Xona to'lgan (${PRIVATE_MAX_PLAYERS}/${PRIVATE_MAX_PLAYERS})`);
       else if (m.t === 'busy') fail("Bu o'yinchi boshqa xonaga ulangan");
       else if (m.t === 'p') applyList(m.list);
     });
@@ -316,7 +578,7 @@ function applyList(l, events = []) {
     seenEventIds.add(ev.eid);
     if (ev.type === 'chat') {
       chatHistory.push({ fromName: ev.fromName, text: ev.text, ts: ev.ts });
-      if (chatHistory.length > 25) chatHistory.shift();
+      if (chatHistory.length > 30) chatHistory.shift();
       if (ev.fromId !== (myId || playerId())) {
         emit({ chat: { name: ev.fromName || 'Haydovchi', text: ev.text } });
       } else {
@@ -328,19 +590,18 @@ function applyList(l, events = []) {
   }
 
   for (const p of l) {
+    if (!p || !p.id || p.id === (myId || playerId())) continue;
     seen.add(p.id);
     const prev = players.get(p.id);
     if (!prev) {
       changed = true;
       emit({ join: p.name });
     } else {
-      // P2P rejimda events bo'lmagani uchun p.chatTs orqali tekshiramiz
-      if (mode !== 'server' && p.chat && p.chatTs && p.chatTs !== prev.chatTs) {
+      if (mode === 'p2p' && p.chat && p.chatTs && p.chatTs !== prev.chatTs) {
         chatHistory.push({ fromName: p.name || 'Haydovchi', text: p.chat, ts: Date.now() });
-        if (chatHistory.length > 25) chatHistory.shift();
+        if (chatHistory.length > 30) chatHistory.shift();
         emit({ chat: { name: p.name || 'Haydovchi', text: p.chat } });
       }
-      // Do'st bizning mashinamizga o'tirganini bildirish
       if (p.ridingWith && p.ridingWith !== prev.ridingWith && p.ridingWith === (myId || playerId())) {
         emit({ passengerJoin: p.name || 'Haydovchi' });
       }
@@ -350,7 +611,6 @@ function applyList(l, events = []) {
   for (const [id, p] of players) {
     if (!seen.has(id)) {
       p.missingCount = (p.missingCount || 0) + 1;
-      // Kamida 8 marta ketma-ket ko'rinmasa va 4 soniyadan oshsa o'chiramiz (yolg'on "o'yindan chiqdi" chiqmasligi uchun)
       if (p.missingCount > 8 && now - p.t > 4500) {
         players.delete(id);
         changed = true;
@@ -369,25 +629,35 @@ function resetRoom() {
   try { hostConn?.close(); } catch { /* */ }
   hostConn = null;
   players.clear();
-  if (mode === 'server') {
+  if (mode === 'ws' && ws?.readyState === WebSocket.OPEN) {
+    try { ws.send(JSON.stringify({ t: 'leave', id: myId })); } catch { /* */ }
+    role = 'room';
+    hostId = 'PUBLIC';
+    roomType = 'public';
+    roomMax = MAX_PLAYERS;
+    status = 'connected';
+  } else if (mode === 'server') {
     fetch('/api/online/leave', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: myId }),
     }).catch(() => {});
     role = 'room';
-    hostId = myId;
+    hostId = 'PUBLIC';
+    roomType = 'public';
+    roomMax = MAX_PLAYERS;
     status = 'connected';
   } else {
     role = 'none';
     hostId = '';
+    roomType = 'public';
     status = peer && !peer.destroyed ? 'ready' : 'off';
   }
 }
 
 export function leave() {
   resetRoom();
-  emit();
+  emit({ roomChanged: hostId });
 }
 
 let lastLocalState = null;
@@ -396,7 +666,7 @@ let myChatTs = 0;
 let pendingEvent = null;
 
 export function sendChat(text, myName = 'Siz') {
-  myChat = String(text || '').trim().slice(0, 56);
+  myChat = String(text || '').trim().slice(0, 64);
   if (!myChat) return;
   myChatTs = Date.now();
   acc = 999; // Darhol yuborish
@@ -423,7 +693,24 @@ export function tick(dt, local) {
   if (acc < 0.06) return;
   acc = 0;
 
-  if (mode === 'server') {
+  // 1. WebSocket rejimi (Eng tezkor va past kechikishli real-vaqt sinxronizatsiya)
+  if (mode === 'ws' && ws && ws.readyState === WebSocket.OPEN) {
+    const evToSend = pendingEvent;
+    pendingEvent = null;
+    try {
+      ws.send(JSON.stringify({
+        t: 'sync',
+        id: myId || playerId(),
+        room: hostId || 'PUBLIC',
+        state: payload,
+        event: evToSend,
+      }));
+    } catch { /* */ }
+    return;
+  }
+
+  // 2. HTTP Server Fallback rejimi
+  if (mode === 'server' || mode === 'ws') {
     if (syncBusy && !pendingEvent && acc < 500) return;
     syncBusy = true;
     const evToSend = pendingEvent;
@@ -433,7 +720,7 @@ export function tick(dt, local) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: myId || playerId(),
-        room: hostId || 'LOBBY',
+        room: hostId || 'PUBLIC',
         state: payload,
         event: evToSend,
       }),
@@ -442,6 +729,9 @@ export function tick(dt, local) {
       .then((data) => {
         if (data && data.ok) {
           hostId = data.room || hostId;
+          if (data.roomType) roomType = data.roomType;
+          if (data.maxPlayers) roomMax = data.maxPlayers;
+          if (data.stats) updateServerStats(data.stats);
           applyList(data.players || [], data.events || []);
         }
       })
@@ -452,7 +742,7 @@ export function tick(dt, local) {
     return;
   }
 
-  // P2P rejimi
+  // 3. P2P rejimi
   if (role === 'none') return;
   const now = performance.now();
   if (role === 'client') {

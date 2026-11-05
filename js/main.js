@@ -1,7 +1,7 @@
-// TUNGI TOSHKENT — asosiy fayl: yuklash, o'yin sikli, 3D Personaj va real-vaqt online tizimlar
+// TUNGI TOSHKENT — asosiy fayl: V4 Premium Game Lobby, 3D Streetwear Personaj (7 animatsiya) va Real-Vaqt Multiplayer Xona Tizimi
 import * as THREE from 'three';
-import { carById, KM_BONUS, DAY_LENGTH_SEC, fmt } from './config.js';
-import { state, activeCar, addMoney, bumpStat, touch, save, setName, canClaimDaily } from './state.js';
+import { CARS, COLORS, TUNING, carById, KM_BONUS, DAY_LENGTH_SEC, fmt } from './config.js';
+import { state, activeCar, addMoney, bumpStat, touch, save, setName, canClaimDaily, claimDaily, onChange } from './state.js';
 import { createRenderer, PRESETS } from './render.js';
 import { buildCity, updateCitySectors, nightMats, waterMat } from './world/city.js';
 import { buildProps, updateProps } from './world/props.js';
@@ -20,7 +20,20 @@ import { drawMinimap } from './map.js';
 import { initUI, toggle, open, closeModal, isOpen, toast } from './ui.js';
 import { updateCamera, updateCharCamera, menuCamera, addShake, camState } from './camera.js';
 import { drawSpeedo, updateHud, setPrompt, setMissionHud } from './hud.js';
-import { goOnline, tick as tickOnline, list as onlineList, info as onlineInfo, displayId, playerId, onOnline, sendChat, chatHistory, MAX_PLAYERS } from './online.js';
+import {
+  goOnline,
+  joinPublicServer,
+  tick as tickOnline,
+  list as onlineList,
+  info as onlineInfo,
+  displayId,
+  playerId,
+  onOnline,
+  sendChat,
+  chatHistory,
+  serverStats,
+  MAX_PLAYERS,
+} from './online.js';
 import { RemoteCars } from './remoteCars.js';
 import { PlayerCharacter } from './character.js';
 
@@ -36,7 +49,8 @@ let smoke, sky, traffic, peds, remotes, model, vehicle, headlight, charCtrl;
 let playing = false, paused = false;
 let playerMode = 'driving'; // 'driving' | 'walking' | 'passenger'
 let ridingWith = '';        // Do'st ID si (agar 'passenger' bo'lsa)
-let hour = 21, waypoint = null, lightsMode = 'auto', kmAcc = 0, fuelWarned = false, pitch = 0, lastV = 0;
+let lobbyLightsOn = true;
+let hour = 21.75, waypoint = null, lightsMode = 'auto', kmAcc = 0, fuelWarned = false, pitch = 0, lastV = 0;
 const progress = (p, t) => { $('loadBar').style.width = p + '%'; $('loadText').textContent = t; return new Promise((r) => setTimeout(r, 30)); };
 
 // Missiyalar, xarita va traffik ishlatadigan o'yinchi ko'rinishi (har doim joriy nuqtani qaytaradi)
@@ -83,6 +97,103 @@ const SOUND_NAMES = {
   v12: '🔊 6.5L V12 F1',
 };
 
+const LANDMARK_COORDS = {
+  'Amir Temur Xiyoboni': { x: blockC(6), z: blockC(6) },
+  'Tashkent City': { x: blockC(5), z: blockC(7) },
+  'Chorsu Bozori': { x: blockC(3), z: blockC(5) },
+  'Minor Masjidi': { x: blockC(7), z: blockC(4) },
+  'Toshkent Teleminorasi': { x: blockC(8), z: blockC(2) },
+};
+
+// =========================================================
+// V4 PREMIUM GAME LOBBY YANGILASH FUNKSIYALARI
+// =========================================================
+function updateLobbyServerUI() {
+  const inf = onlineInfo();
+  if ($('lobTotalOnline')) $('lobTotalOnline').textContent = String(serverStats.totalOnline || inf.count || 1);
+  if ($('lobPublicCount')) $('lobPublicCount').textContent = `${serverStats.publicPlayers || 1}/${serverStats.publicMax || MAX_PLAYERS}`;
+  if ($('lobPrivateRooms')) $('lobPrivateRooms').textContent = String(serverStats.privateRooms || 0);
+  if ($('lobServerStatus')) {
+    const st = serverStats.status === 'online' ? 'Online' : serverStats.status === 'connecting' ? 'Connecting...' : 'Offline';
+    $('lobServerStatus').textContent = st;
+    $('lobServerStatus').className = serverStats.status === 'online' ? 'cyan-txt' : 'gold-txt';
+  }
+  if ($('lobPingMs')) $('lobPingMs').textContent = `(${serverStats.pingMs || 18} ms)`;
+}
+
+function updateLobbyProfileUI() {
+  const km = state.totalKm || 0;
+  const lv = Math.max(1, Math.floor(km / 5) + state.cars.length);
+  const xpPct = Math.min(100, Math.round(((km % 5) / 5) * 100) || 45);
+  const rankTitle = lv >= 12 ? '#1 · Toshkent Legendi' : lv >= 6 ? '#2 · Street Pro' : '#5 · Haydovchi';
+
+  if ($('lobLevel')) $('lobLevel').textContent = `Lv.${lv}`;
+  if ($('lobXpFill')) $('lobXpFill').style.width = `${xpPct}%`;
+  if ($('lobMoney')) $('lobMoney').textContent = fmt(state.money);
+  if ($('lobStatKm')) $('lobStatKm').textContent = `${km.toFixed(1)} km`;
+  if ($('lobStatRank')) $('lobStatRank').textContent = rankTitle;
+  if ($('lobStatLv')) $('lobStatLv').textContent = `Lv. ${lv}`;
+  if ($('lobStatCars')) $('lobStatCars').textContent = `${state.cars.length} / ${CARS.length}`;
+  if ($('lobStatBal')) $('lobStatBal').textContent = fmt(state.money);
+  if ($('lobbyOwnedCount')) $('lobbyOwnedCount').textContent = `Garajda: ${state.cars.length}/${CARS.length}`;
+  if ($('lobDailySub')) {
+    $('lobDailySub').textContent = canClaimDaily() ? '🎁 25 000 000 so\'m bonus tayyor!' : '✅ Bugungi mukofot olingan';
+  }
+}
+
+function renderLobbyCarCarousel() {
+  const strip = $('lobbyCarStrip');
+  if (!strip) return;
+  const curInst = activeCar();
+  strip.innerHTML = CARS.map((c) => {
+    const owned = state.cars.find((x) => x.id === c.id);
+    const isAct = curInst.id === c.id;
+    return `<button type="button" class="lob-car-card ${isAct ? 'active' : ''}" data-lob-car="${c.id}">
+      <div class="lob-car-top">
+        <span style="color:${owned ? 'var(--green)' : 'var(--gold)'}">${owned ? '✔ GARAJDA' : '🔒 SALON'}</span>
+        <span>⚡${c.maxSpeed}</span>
+      </div>
+      <b>${c.name}</b>
+      <small>${owned ? 'Tanlash uchun bosing' : fmt(c.price)}</small>
+    </button>`;
+  }).join('');
+
+  strip.querySelectorAll('[data-lob-car]').forEach((btn) => {
+    btn.onclick = () => {
+      const cid = btn.dataset.lobCar;
+      const owned = state.cars.find((x) => x.id === cid);
+      if (owned) {
+        state.activeUid = owned.uid;
+        touch();
+        changeCar();
+        beep('ok');
+      } else {
+        open('garage');
+      }
+    };
+  });
+}
+
+function renderLobbyColorDots() {
+  const box = $('lobbyColorDots');
+  if (!box) return;
+  const inst = activeCar();
+  const quickColors = COLORS.slice(0, 7);
+  box.innerHTML = quickColors.map((col) =>
+    `<button type="button" class="sr-color-dot ${inst.color === col ? 'on' : ''}" data-lob-col="${col}" style="background:${col}"></button>`
+  ).join('');
+  box.querySelectorAll('[data-lob-col]').forEach((b) => {
+    b.onclick = () => {
+      const instNow = activeCar();
+      instNow.color = b.dataset.lobCol;
+      touch();
+      setCar(true);
+      renderLobbyColorDots();
+      beep('ok');
+    };
+  });
+}
+
 function updateMenuCarInfo() {
   const inst = activeCar();
   const cfg = carById(inst.id);
@@ -90,34 +201,66 @@ function updateMenuCarInfo() {
   if ($('menuCarSpeed')) $('menuCarSpeed').textContent = `⚡ ${cfg.maxSpeed} km/s`;
   if ($('menuCarAccel')) $('menuCarAccel').textContent = `⏱ 0-100: ${(27.8 / cfg.accel).toFixed(1)}s`;
   if ($('menuCarSound')) $('menuCarSound').textContent = SOUND_NAMES[cfg.sound] || '🔊 Sport Motor';
+  renderLobbyCarCarousel();
+  renderLobbyColorDots();
+  updateLobbyProfileUI();
 }
 
+// =========================================================
+// O'YIN REJIMLARI: HAYDASH, PIYODA YURISH VA MASHINAGA KIRISH/TUSHISH
+// =========================================================
 function setModeUI(mode) {
   playerMode = mode;
   const footEl = $('footActions');
   const txtEl = $('hbExitTxt');
+  const useTxtEl = $('hbUseTxt');
   const touchBtn = $('touchExitBtn');
+  const boostTxt = $('touchBoostTxt');
+  const brakeTxt = $('touchBrakeTxt');
+
   if (mode === 'driving') {
     footEl?.classList.add('hidden');
-    if (txtEl) txtEl.textContent = 'Tushish (G)';
+    if (txtEl) txtEl.textContent = 'Tushish (F)';
+    if (useTxtEl) useTxtEl.textContent = 'Xizmat (E)';
     if (touchBtn) touchBtn.textContent = '🚶';
+    if (boostTxt) boostTxt.textContent = 'NITRO';
+    if (brakeTxt) brakeTxt.textContent = 'DRIFT';
   } else if (mode === 'walking') {
     footEl?.classList.remove('hidden');
-    if (txtEl) txtEl.textContent = "O'tirish (G)";
+    if (txtEl) txtEl.textContent = 'Kirish (E)';
+    if (useTxtEl) useTxtEl.textContent = 'Kirish (E)';
     if (touchBtn) touchBtn.textContent = '🚗';
+    if (boostTxt) boostTxt.textContent = 'YUGUR';
+    if (brakeTxt) brakeTxt.textContent = 'SAKRA';
   } else if (mode === 'passenger') {
     footEl?.classList.add('hidden');
-    if (txtEl) txtEl.textContent = 'Tushish (G)';
+    if (txtEl) txtEl.textContent = 'Tushish (F)';
+    if (useTxtEl) useTxtEl.textContent = 'Tushish (F)';
     if (touchBtn) touchBtn.textContent = '🚶';
+    if (boostTxt) boostTxt.textContent = 'NITRO';
+    if (brakeTxt) brakeTxt.textContent = 'DRIFT';
   }
 }
 
-function enterOwnCar() {
+function enterOwnCarImmediate() {
   ridingWith = '';
   charCtrl?.hide();
   setModeUI('driving');
   beep('ok');
   toast(`🚗 ${vehicle.cfg.name} ruliga o'tirdingiz!`, 'ok');
+}
+
+function enterOwnCarAnimated() {
+  if (!charCtrl || !charCtrl.active) {
+    enterOwnCarImmediate();
+    return;
+  }
+  const doorX = vehicle.x - Math.cos(vehicle.heading) * (vehicle.cfg.wid * 0.65 + 0.35);
+  const doorZ = vehicle.z + Math.sin(vehicle.heading) * (vehicle.cfg.wid * 0.65 + 0.35);
+  beep('ok');
+  charCtrl.startEnterCar(doorX, doorZ, vehicle.x, vehicle.z, vehicle.heading, () => {
+    enterOwnCarImmediate();
+  });
 }
 
 function summonOwnCar() {
@@ -127,7 +270,7 @@ function summonOwnCar() {
   vehicle.place(cx, cz, charCtrl.heading);
   model.group.position.set(vehicle.x, groundY(vehicle.x, vehicle.z), vehicle.z);
   model.group.rotation.set(0, vehicle.heading, 0);
-  enterOwnCar();
+  enterOwnCarAnimated();
 }
 
 function sitInFriendCar(friendId) {
@@ -135,29 +278,48 @@ function sitInFriendCar(friendId) {
   if (!p) return toast("Do'stingiz topilmadi", 'err');
   engineOff();
   vehicle.v = 0;
+
+  const rCar = remotes?.map.get(friendId);
+  const fx = rCar ? rCar.x : p.x;
+  const fz = rCar ? rCar.z : p.z;
+  const fh = rCar ? rCar.h : (p.h || 0);
+
+  if (playerMode === 'walking' && charCtrl?.active && Math.hypot(fx - charCtrl.x, fz - charCtrl.z) < 9.5) {
+    const doorX = fx + Math.cos(fh) * 1.3;
+    const doorZ = fz - Math.sin(fh) * 1.3;
+    charCtrl.startEnterCar(doorX, doorZ, fx, fz, fh, () => {
+      charCtrl?.hide();
+      ridingWith = friendId;
+      setModeUI('passenger');
+      beep('ok');
+      toast(`💺 ${p.name || 'Do\'st'} ning mashinasiga o'tirdingiz! (Tushish — F)`, 'cash');
+    });
+    return;
+  }
+
   charCtrl?.hide();
   ridingWith = friendId;
   setModeUI('passenger');
   beep('ok');
-  toast(`💺 ${p.name || 'Do\'st'} ning mashinasiga o'tirdingiz! (Tushish — G)`, 'cash');
+  toast(`💺 ${p.name || 'Do\'st'} ning mashinasiga o'tirdingiz! (Tushish — F)`, 'cash');
 }
 
-function toggleExitEnter() {
+// F tugmasi — Mashinadan tushish (yoki mobil tugma orqali almashish)
+function handleExitOrEnter() {
   if (!playing) return;
   if (playerMode === 'driving') {
-    if (vehicle.kmh > 32) {
+    if (vehicle.kmh > 35) {
       return toast('Mashinadan tushish uchun biroz sekinlashtiring!', 'err');
     }
     engineOff();
     vehicle.v = 0;
-    // Chap eshik yonida personajni chiqarish
-    const doorX = vehicle.x - Math.cos(vehicle.heading) * (vehicle.cfg.wid * 0.85 + 0.55);
-    const doorZ = vehicle.z + Math.sin(vehicle.heading) * (vehicle.cfg.wid * 0.85 + 0.55);
+    const doorX = vehicle.x - Math.cos(vehicle.heading) * (vehicle.cfg.wid * 0.82 + 0.52);
+    const doorZ = vehicle.z + Math.sin(vehicle.heading) * (vehicle.cfg.wid * 0.82 + 0.52);
     charCtrl.setColor?.(vehicle.inst.color);
-    charCtrl.spawnAt(doorX, doorZ, vehicle.heading, groundY(doorX, doorZ));
+    charCtrl.startExitCar(doorX, doorZ, vehicle.heading, groundY(doorX, doorZ));
     setModeUI('walking');
     beep('ok');
-    toast("🚶 Mashinadan tushdingiz! Do'st mashinasiga yoki o'z mashinangizga o'tirish — G", 'ok');
+    toast("🚶 Mashinadan tushdingiz! (Mashinaga kirish — E)", 'ok');
     return;
   }
 
@@ -166,20 +328,27 @@ function toggleExitEnter() {
     const hx = host ? host.x : vehicle.x;
     const hz = host ? host.z : vehicle.z;
     const hh = host ? (host.h || 0) : vehicle.heading;
-    const outX = hx + Math.cos(hh) * 2.2;
-    const outZ = hz - Math.sin(hh) * 2.2;
+    const outX = hx + Math.cos(hh) * 2.1;
+    const outZ = hz - Math.sin(hh) * 2.1;
     ridingWith = '';
-    charCtrl.spawnAt(outX, outZ, hh, groundY(outX, outZ));
+    charCtrl.startExitCar(outX, outZ, hh, groundY(outX, outZ));
     setModeUI('walking');
     beep('ok');
     toast("🚶 Do'stingiz mashinasidan tushdingiz!", 'ok');
     return;
   }
 
-  // playerMode === 'walking'
+  // Agar piyoda bo'lsa -> yaqin mashinaga kirish
+  handleEnterCarOnFoot();
+}
+
+// E tugmasi — Piyoda rejimda mashinaga kirish (EnterCar animatsiyasi bilan!)
+function handleEnterCarOnFoot() {
+  if (!playing || playerMode !== 'walking' || !charCtrl) return;
+
   // 1. Yaqin atrofdagi do'st mashinasini tekshiramiz
   const peers = onlineList();
-  let nearestPeer = null, minPeerDist = 9.0;
+  let nearestPeer = null, minPeerDist = 8.5;
   for (const p of peers) {
     if (p.ridingWith) continue;
     const rCar = remotes?.map.get(p.id);
@@ -198,7 +367,7 @@ function toggleExitEnter() {
     return;
   }
   if (myCarDist < 12) {
-    enterOwnCar();
+    enterOwnCarAnimated();
   } else {
     summonOwnCar();
   }
@@ -230,11 +399,11 @@ async function changeCar(soft = false) {
   const cfg = carById(activeCar().id);
   if (!soft && !isCarReady(cfg)) await withBusy(cfg.name, 'Mashina modeli yuklanmoqda...', (setP) => preloadCar(cfg, setP));
   setCar(soft);
-  if (playerMode !== 'driving') enterOwnCar();
+  if (playing && playerMode !== 'driving') enterOwnCarImmediate();
 }
 
 function tow() {
-  enterOwnCar();
+  enterOwnCarImmediate();
   vehicle.place(SPAWN.x, SPAWN.z, SPAWN.heading);
 }
 function endRental(silent) {
@@ -252,9 +421,24 @@ const nearestBlock = (v) => Math.max(0, Math.min(N - 1, Math.round((v - blockC(0
 
 const nearPoi = () => POIS.find((p) => Math.hypot(p.x - player.x, p.z - player.z) < p.r && player.kmh < 20);
 function keyGuard(fn) { return () => { if (playing) fn(); }; }
-onKey('KeyG', keyGuard(toggleExitEnter));
-onKey('KeyE', keyGuard(() => (nearPoi()?.type === 'gas' ? toggle('gas') : toggle('service'))));
-onKey('KeyF', keyGuard(() => toggle('garage')));
+
+// E — Piyoda rejimda mashinaga kirish (EnterCar); mashinada esa Zapravka yoki Xizmat paneli
+onKey('KeyE', keyGuard(() => {
+  if (playerMode === 'walking') {
+    handleEnterCarOnFoot();
+    return;
+  }
+  const poi = nearPoi();
+  if (poi?.type === 'gas') toggle('gas');
+  else if (poi?.type === 'garage') toggle('garage');
+  else toggle('service');
+}));
+
+// F — Mashinadan tushish (ExitCar)
+onKey('KeyF', keyGuard(handleExitOrEnter));
+
+// G — Garaj va Avtosalon
+onKey('KeyG', keyGuard(() => toggle('garage')));
 onKey('KeyM', keyGuard(() => toggle('map')));
 onKey('KeyR', keyGuard(() => toggle('race')));
 onKey('KeyT', keyGuard(() => toggle('jobs')));
@@ -287,12 +471,13 @@ function syncOnlineNow(dt) {
     braking: playerMode === 'driving' ? vehicle.braking : false,
     lights: lightsOn,
     drifting: playerMode === 'driving' ? vehicle.drifting : false,
-    onFoot: playerMode === 'walking',
+    onFoot: playing && playerMode === 'walking',
     px: charCtrl ? charCtrl.x : vehicle.x,
     py: charCtrl ? charCtrl.y : 0,
     pz: charCtrl ? charCtrl.z : vehicle.z,
     ph: charCtrl ? charCtrl.heading : vehicle.heading,
     pv: charCtrl ? charCtrl.v : 0,
+    animState: charCtrl ? charCtrl.animState : 'idle',
     emote: charCtrl ? charCtrl.emote : '',
     ridingWith: playerMode === 'passenger' ? ridingWith : '',
   });
@@ -332,7 +517,7 @@ function step(dt, t, sub = 1) {
     });
     updateCamera(camera, vehicle, input.boost, dt);
   } else if (playerMode === 'walking') {
-    // Mashina to'xtab turadi, 3D Personaj harakatlanadi
+    // Mashina to'xtab turadi, 3D Streetwear Personaj harakatlanadi
     g.position.set(vehicle.x, groundY(vehicle.x, vehicle.z), vehicle.z);
     model.setBrake(false);
     charCtrl.step(dt, input, groundY(charCtrl.x, charCtrl.z));
@@ -343,7 +528,7 @@ function step(dt, t, sub = 1) {
     const hostPeer = onlineList().find((x) => x.id === ridingWith);
     if (!hostCar && !hostPeer) {
       toast("Do'stingiz xonadan chiqdi", 'err');
-      enterOwnCar();
+      enterOwnCarImmediate();
     } else {
       const hx = hostCar ? hostCar.x : hostPeer.x;
       const hz = hostCar ? hostCar.z : hostPeer.z;
@@ -393,7 +578,7 @@ function step(dt, t, sub = 1) {
   const poi = nearPoi();
   if (playerMode === 'passenger') {
     const hostPeer = onlineList().find((x) => x.id === ridingWith);
-    setPrompt(`<span class="key">G</span>💺 Siz <b>${hostPeer?.name || 'Do\'st'}</b> mashinasidasiz · Tushish`);
+    setPrompt(`<span class="key">F</span>💺 Siz <b>${hostPeer?.name || 'Do\'st'}</b> mashinasidasiz · Tushish`);
   } else if (playerMode === 'walking') {
     let nearFriend = null, minD = 8.5;
     for (const p of onlineList()) {
@@ -404,21 +589,21 @@ function step(dt, t, sub = 1) {
     }
     const myD = Math.hypot(vehicle.x - charCtrl.x, vehicle.z - charCtrl.z);
     if (nearFriend && minD < myD) {
-      setPrompt(`<span class="key">G</span>💺 <b>${nearFriend.name || 'Do\'st'}</b> mashinasiga o'tirish`);
-    } else if (myD < 10) {
-      setPrompt(`<span class="key">G</span>🚗 O'z mashinangizga o'tirish (${vehicle.cfg.name})`);
+      setPrompt(`<span class="key">E</span>💺 <b>${nearFriend.name || 'Do\'st'}</b> mashinasiga kirish`);
+    } else if (myD < 11) {
+      setPrompt(`<span class="key">E</span>🚗 Mashinaga kirish (<b>${vehicle.cfg.name}</b>)`);
     } else {
-      setPrompt(`<span class="key">G</span>🔑 Mashinani chaqirish va rulga o'tirish`);
+      setPrompt(`<span class="key">E</span>🔑 Mashinani chaqirish va rulga o'tirish`);
     }
   } else if (vehicle.nearBorder && vehicle.borderMsg) {
     setPrompt(`<span class="key">👮 YPX</span>${vehicle.borderMsg}`);
   } else {
-    setPrompt(poi ? (poi.type === 'gas' ? '<span class="key">E</span>Benzin quyish' : '<span class="key">F</span>Garaj va avtosalon') : '');
+    setPrompt(poi ? (poi.type === 'gas' ? '<span class="key">E</span>⛽ Benzin quyish' : '<span class="key">G</span>🚗 Garaj va avtosalon') : '');
   }
 }
 
 const clock = new THREE.Clock();
-let fps = 60, frames = 0, fpsT = 0, hudT = 0, mapT = 0, peerHudT = 0;
+let fps = 60, frames = 0, fpsT = 0, hudT = 0, mapT = 0, peerHudT = 0, lobbyMapT = 0;
 
 function updateOnlinePeersHud() {
   const el = $('onlinePeersHud');
@@ -444,7 +629,7 @@ function updateOnlinePeersHud() {
     e.stopPropagation();
     const p = peers.find((x) => x.id === b.dataset.tpHud);
     if (!p) return;
-    if (playerMode !== 'driving') enterOwnCar();
+    if (playerMode !== 'driving') enterOwnCarImmediate();
     vehicle.place(p.x + 3.5, p.z + 3.5, p.h || 0);
     toast(`${p.name || 'Do\'st'} yoniga o'tdingiz!`, 'ok');
   }));
@@ -467,16 +652,48 @@ function loop() {
   frames++; fpsT += raw; if (fpsT > 0.5) { fps = Math.round(frames / fpsT); frames = 0; fpsT = 0; }
   const dt = Math.min(raw, 0.2), sub = Math.ceil(dt / (1 / 30));
 
-  // Online sinxronizatsiya har doim (hatto modal oyna ochiqligida ham!) uzluksiz ishlaydi
+  // Online sinxronizatsiya har doim (hatto modal oyna yoki lobby ochiqligida ham!) uzluksiz ishlaydi
   syncOnlineNow(dt);
 
-  if (playing && !paused) step(dt, t, sub);
-  else if (!playing) {
-    hour = 21.5; sky.update(hour, model.group.position, R.preset.shadows);
+  if (playing && !paused) {
+    step(dt, t, sub);
+  } else if (!playing) {
+    // PREMIUM 3D LOBBY SHOWROOM REJIMI:
+    // Markazda 3D Avtomobil va uning chap yonida 3D Streetwear Personaj jonli turadi
+    hour = 21.75;
+    const gy = groundY(vehicle.x, vehicle.z);
+    model.group.position.set(vehicle.x, gy, vehicle.z);
+    model.group.rotation.set(0, vehicle.heading, 0);
+    model.setLights(lobbyLightsOn);
+    headlight.intensity = lobbyLightsOn ? 95 : 0;
+
+    if (charCtrl) {
+      const rightX = Math.cos(vehicle.heading), rightZ = -Math.sin(vehicle.heading);
+      const fwdX = Math.sin(vehicle.heading), fwdZ = Math.cos(vehicle.heading);
+      const cx = vehicle.x - rightX * (vehicle.cfg.wid * 0.78 + 0.55) + fwdX * 0.25;
+      const cz = vehicle.z - rightZ * (vehicle.cfg.wid * 0.78 + 0.55) + fwdZ * 0.25;
+      charCtrl.model.group.visible = true;
+      charCtrl.model.group.position.set(cx, gy, cz);
+      charCtrl.model.group.rotation.set(0, vehicle.heading + 0.38, 0);
+      charCtrl.model.animate(dt, 0, 'idle');
+    }
+
+    sky.update(hour, model.group.position, R.preset.shadows);
     for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * sky.night;
-    updateProps(t, sky.night); traffic.setNight(sky.night); traffic.update(dt, t, player); peds.update(dt, t, player);
-    model.setLights(true); headlight.intensity = 95; menuCamera(camera, vehicle, t);
+    updateProps(t, sky.night);
+    updateCitySectors(vehicle.x, vehicle.z, 950);
+    traffic.setNight(sky.night); traffic.update(dt, t, player);
+    peds.update(dt, t, player);
+    for (const f of animated) f(t);
+    menuCamera(camera, vehicle, t, dt);
+
+    if ((lobbyMapT += dt) > 0.4) {
+      lobbyMapT = 0;
+      const lmc = $('lobbyMapCanvas');
+      if (lmc) drawMinimap(lmc, player, mapExtra());
+    }
   }
+
   if (playing) {
     const dispKmh = playerMode === 'passenger'
       ? Math.round(Math.abs(onlineList().find((x) => x.id === ridingWith)?.v || 0) * 3.6)
@@ -495,36 +712,52 @@ const mapExtra = () => ({
     ...rivals().map((r) => ({ x: r.x, z: r.z, name: 'Raqib' })),
     ...onlineList().map((p) => ({ x: p.onFoot ? (p.px || p.x) : p.x, z: p.onFoot ? (p.pz || p.z) : p.z, name: `${p.name} (${displayId(p.id)})` })),
   ],
-  traffic: traffic.cars,
+  traffic: traffic ? traffic.cars : [],
   target: mission.target,
   waypoint,
 });
-function onModal(open) {
-  paused = open; setEnabled(!open);
-  if (open) engineOff();
+
+function onModal(openState) {
+  paused = openState; setEnabled(!openState);
+  if (openState) engineOff();
+}
+
+function returnToLobby() {
+  engineOff();
+  if (playerMode !== 'driving') {
+    ridingWith = '';
+    charCtrl?.hide();
+    setModeUI('driving');
+  }
+  playing = false;
+  paused = false;
+  $('hud').classList.add('hidden');
+  $('menu').classList.add('show');
+  updateMenuCarInfo();
+  updateLobbyServerUI();
 }
 
 function setQuality(q, prev) {
   const a = PRESETS[q], b = PRESETS[prev];
   if (!sky) return;
-  if (a.traffic !== b.traffic) { save(true); toast('Sifat o\'zgardi, qayta yuklanmoqda...'); setTimeout(() => location.reload(), 600); return; }
+  if (a.traffic !== b.traffic) { save(true); toast("Sifat o'zgardi, qayta yuklanmoqda..."); setTimeout(() => location.reload(), 600); return; }
   sky.sun.shadow.mapSize.set(a.map, a.map); sky.sun.shadow.map?.dispose(); sky.sun.shadow.map = null;
   R.apply(q);
 }
 
 async function boot() {
   const q = state.settings.quality, preset = PRESETS[q] || PRESETS.high;
-  await progress(10, 'Osmon va yorug\'lik...');
+  await progress(10, "Osmon va tungi yorug'lik...");
   sky = createSky(scene);
   const s = sky.sun.shadow; s.mapSize.set(preset.map, preset.map);
   Object.assign(s.camera, { left: -90, right: 90, top: 90, bottom: -90, near: 10, far: 700 }); s.bias = -0.0004; s.normalBias = 0.6;
-  await progress(30, 'Binolar va ko\'chalar qurilmoqda...');
+  await progress(30, "Toshkent binolari va ko'chalari qurilmoqda...");
   buildCity(scene, q);
   await progress(55, 'Chiroqlar, svetoforlar, daraxtlar...');
   buildProps(scene, q);
   await progress(70, 'Teleminora, Chorsu, Toshkent Siti...');
   buildLandmarks(scene);
-  await progress(80, '3D avtomobil va personaj yuklanmoqda...');
+  await progress(80, '3D avtomobil va 3D Streetwear Personaj yuklanmoqda...');
   charCtrl = new PlayerCharacter(scene, activeCar().color);
   preloadCar(carById(activeCar().id));
   setCar();
@@ -534,13 +767,23 @@ async function boot() {
   remotes = new RemoteCars(scene);
   initMissions({ scene, player, toast, hud: setMissionHud });
   initUI({
-    onModal, tow, endRental, changeCar, save: () => save(true), setQuality,
+    onModal,
+    tow,
+    endRental,
+    changeCar,
+    returnToLobby,
+    save: () => save(true),
+    setQuality,
     teleportTo: (x, z, h = 0) => {
-      if (playerMode !== 'driving') enterOwnCar();
+      if (playerMode !== 'driving') enterOwnCarImmediate();
       vehicle.place(x, z, h);
     },
     sitInFriendCar,
-    player: () => player, hour: () => hour, mapExtra, waypoint: () => waypoint, setWaypoint: (w) => { waypoint = w; },
+    player: () => player,
+    hour: () => hour,
+    mapExtra,
+    waypoint: () => waypoint,
+    setWaypoint: (w) => { waypoint = w; },
   });
   initInput(canvas, () => {
     const s = state.settings;
@@ -555,7 +798,16 @@ async function boot() {
     if (state.settings.control === 'auto') applyControl('auto', state.settings.steerType, state.settings.touchScale);
   });
 
-  // Personaj (piyoda) tugmalari: Salomlashish, Raqs, Mashinani chaqirish
+  onChange(() => {
+    updateLobbyProfileUI();
+    renderLobbyCarCarousel();
+  });
+
+  // Personaj (piyoda) tugmalari: Mashinaga kirish, Salomlashish, Raqs, Mashinani chaqirish
+  if ($('enterNearCarBtn')) $('enterNearCarBtn').onclick = (e) => {
+    e.stopPropagation();
+    handleEnterCarOnFoot();
+  };
   document.querySelectorAll('[data-emote]').forEach((b) => (b.onclick = (e) => {
     e.stopPropagation();
     const em = b.dataset.emote;
@@ -591,6 +843,7 @@ async function boot() {
     if (e.key === 'Enter') $('hudChatSend')?.click();
   });
 
+  // Lobby: ID nusxalash
   const myCode = displayId(playerId());
   if ($('menuMyId')) $('menuMyId').textContent = myCode;
   if ($('hudMyId')) $('hudMyId').textContent = myCode;
@@ -598,6 +851,25 @@ async function boot() {
     navigator.clipboard?.writeText(myCode);
     toast(`Sizning ID nusxalandi: ${myCode}`, 'ok');
   };
+
+  // Lobby: 3D Showroom tezkor Disk va Fara tugmalari
+  if ($('lobbyRimBtn')) $('lobbyRimBtn').onclick = () => {
+    const inst = activeCar();
+    const opts = TUNING.rims.options.map((o) => o.id);
+    const idx = (opts.indexOf(inst.rims || 'std') + 1) % opts.length;
+    inst.rims = opts[idx];
+    touch();
+    setCar(true);
+    beep('ok');
+    toast(`🛞 Disk: ${TUNING.rims.options[idx].name}`, 'ok');
+  };
+  if ($('lobbyLightBtn')) $('lobbyLightBtn').onclick = () => {
+    lobbyLightsOn = !lobbyLightsOn;
+    beep('ok');
+    toast(lobbyLightsOn ? '💡 Faralar yoqildi' : "💡 Faralar o'chirildi", 'ok');
+  };
+
+  // Lobby: MASHINA TANLANG oldinga/orqaga tugmalari
   const cycleMenuCar = (dir) => {
     if (state.cars.length < 2) {
       open('garage');
@@ -611,40 +883,97 @@ async function boot() {
   };
   if ($('menuPrevCar')) $('menuPrevCar').onclick = () => cycleMenuCar(-1);
   if ($('menuNextCar')) $('menuNextCar').onclick = () => cycleMenuCar(1);
+
+  // Lobby: O'YIN BOSHLASH (Ommaviy serverga kirish)
+  if ($('btnStartPublic')) $('btnStartPublic').onclick = async () => {
+    await joinPublicServer().catch(() => {});
+    play();
+  };
+
+  // Lobby: KUNLIK MUKOFOT
+  if ($('btnLobbyDaily')) $('btnLobbyDaily').onclick = () => {
+    if (claimDaily()) {
+      beep('cash');
+      toast('🎁 Kunlik mukofot: +25 000 000 so\'m olindi!', 'cash');
+      updateLobbyProfileUI();
+    } else {
+      open('service');
+    }
+  };
+
+  // Lobby: Toshkent Xaritasi tezkor lokatsiya tugmalari
+  document.querySelectorAll('[data-lob-poi]').forEach((b) => {
+    b.onclick = () => {
+      const name = b.dataset.lobPoi;
+      const pt = LANDMARK_COORDS[name];
+      if (pt) {
+        waypoint = { x: pt.x, z: pt.z };
+        beep('ok');
+        toast(`📍 GPS manzil belgilandi: ${name}`, 'ok');
+      }
+    };
+  });
+
+  // Lobby: To'liq ekran / Chiqish tugmasi
+  if ($('btnLobbyExit')) $('btnLobbyExit').onclick = () => {
+    save(true);
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+      toast("To'liq ekran rejimi yoqildi", 'ok');
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  };
+
   onOnline((ev) => {
     const inf = onlineInfo();
-    if ($('hudOnline')) $('hudOnline').textContent = `🌐 Online: ${inf.count}/${MAX_PLAYERS}`;
+    if ($('hudOnline')) $('hudOnline').textContent = `🌐 Online: ${inf.count}/${inf.max || MAX_PLAYERS}`;
     if ($('hudMyId')) $('hudMyId').textContent = displayId(inf.host || inf.id);
+    updateLobbyServerUI();
     if (ev.chat || ev.chatUpdated) updateHudChatLog();
     if (playing) updateOnlinePeersHud();
   });
-  goOnline().catch(() => {});
+
+  goOnline().then(() => updateLobbyServerUI()).catch(() => {});
   await progress(100, 'Tayyor!');
-  $('loading').classList.add('hidden'); $('menuForm').classList.remove('hidden');
-  $('nameInput').value = state.name;
+  $('loading').classList.add('hidden');
+  $('menuForm').classList.remove('hidden');
+  $('nameInput').value = state.name || 'Haydovchi';
+  updateMenuCarInfo();
+  updateLobbyServerUI();
   loop();
 }
 
 async function play() {
-  const name = $('nameInput').value.trim();
-  if (!name) { $('nameInput').focus(); return toast('Ismingizni kiriting', 'err'); }
+  let name = $('nameInput').value.trim();
+  if (!name) {
+    name = 'Haydovchi';
+    $('nameInput').value = name;
+  }
   setName(name);
   const cfg0 = carById(activeCar().id);
   if (!isCarReady(cfg0)) await withBusy(cfg0.name, 'Mashina modeli yuklanmoqda...', (setP) => preloadCar(cfg0, setP));
   initAudio(state.settings.volume);
-  $('menu').classList.remove('show'); $('hud').classList.remove('hidden');
+  if (playerMode === 'driving') charCtrl?.hide();
+  $('menu').classList.remove('show');
+  $('hud').classList.remove('hidden');
   $('hudName').textContent = name;
-  playing = true; clock.getDelta();
+  playing = true;
+  clock.getDelta();
   toast(`Xush kelibsiz, ${name}! Balans: ${fmt(state.money)}`, 'cash');
   if (canClaimDaily()) setTimeout(() => toast('🎁 Kunlik bonus tayyor — E tugmasini bosing', 'ok'), 1500);
 }
 
 $('playBtn').onclick = play;
+$('nameInput').addEventListener('change', () => {
+  const v = $('nameInput').value.trim();
+  if (v) setName(v);
+});
 $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') play(); });
 document.addEventListener('visibilitychange', () => { suspend(document.hidden); if (document.hidden) save(true); });
 addEventListener('beforeunload', () => save(true));
 
 boot().catch((e) => {
   console.error(e);
-  $('loadText').textContent = 'Xatolik: ' + e.message + '. Brauzer WebGL ni qo\'llab-quvvatlashini va internet ulanishini tekshiring.';
+  $('loadText').textContent = 'Xatolik: ' + e.message + ". Brauzer WebGL ni qo'llab-quvvatlashini va internet ulanishini tekshiring.";
 });

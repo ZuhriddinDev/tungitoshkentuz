@@ -7,7 +7,7 @@ import { beep, setVolume } from './audio.js';
 import { openGarage } from './ui-garage.js';
 import { stopGarage } from './garage3d.js';
 import { applyControl } from './input.js';
-import { goOnline, joinFriend, leave, info as onlineInfo, list as onlineList, displayId, onOnline, sendChat, sendOnlineEvent, chatHistory, MAX_PLAYERS } from './online.js';
+import { goOnline, joinFriend, createPrivateRoom, joinRoomByCode, joinPublicServer, leave, info as onlineInfo, list as onlineList, displayId, onOnline, sendChat, sendOnlineEvent, chatHistory, serverStats, MAX_PLAYERS, PRIVATE_MAX_PLAYERS } from './online.js';
 import { blockC } from './world/layout.js';
 
 const $ = (s) => document.querySelector(s);
@@ -175,18 +175,33 @@ function bindStart(body) {
 // ---------- Pauza (ESC), sozlamalar, yordam ----------
 function pause() {
   const inf = onlineInfo();
-  const body = showModal('pause', '⏸ Pauza', `
+  const body = showModal('pause', '⏸ Pauza va Boshqaruv Markazi', `
     <div class="grid">
-      <button class="btn primary big" data-a="resume">▶ Davom etish</button>
-      <button class="btn big" data-a="online">🌐 Online (${inf.count}/${MAX_PLAYERS})</button>
+      <button class="btn primary big" data-a="resume">▶ O'yinni davom ettirish</button>
+      <button class="btn gold big" data-a="lobby">🏠 Bosh menyuga (Lobby) qaytish</button>
+      <button class="btn big" data-a="online">🌐 Online Xona (${inf.count}/${inf.max || MAX_PLAYERS})</button>
+      <button class="btn big" data-a="garage">🚗 Garaj va Tuning</button>
       <button class="btn big" data-a="settings">⚙ Sozlamalar</button>
       <button class="btn big" data-a="help">⌨ Boshqaruv</button>
       <button class="btn big" data-a="save">💾 Saqlash</button>
     </div>
-    <div class="section-title">Statistika</div>
-    <div class="list"><div><span>Haydovchi</span><b>${state.name} (${displayId()})</b></div><div><span>Jami masofa</span><b>${state.totalKm.toFixed(1)} km</b></div>
-    <div><span>Garajdagi mashinalar</span><b>${state.cars.length} / ${CARS.length}</b></div><div><span>Balans</span><b class="plus">${fmt(state.money)}</b></div></div>`);
-  const act = { resume: closeModal, online, settings, help, save: () => { game.save(); toast('O\'yin saqlandi', 'ok'); } };
+    <div class="section-title">Joriy Sessiya va Statistika</div>
+    <div class="list">
+      <div><span>Haydovchi</span><b>${state.name || 'Haydovchi'} (${displayId(inf.id)})</b></div>
+      <div><span>Joriy Xona</span><b style="color:var(--cyan)">${displayId(inf.host || 'PUBLIC')} (${inf.roomType === 'private' ? '🔒 Private' : '🌍 Ommaviy'})</b></div>
+      <div><span>Jami masofa</span><b>${state.totalKm.toFixed(1)} km</b></div>
+      <div><span>Garajdagi mashinalar</span><b>${state.cars.length} / ${CARS.length}</b></div>
+      <div><span>Balans</span><b class="plus">${fmt(state.money)}</b></div>
+    </div>`);
+  const act = {
+    resume: closeModal,
+    lobby: () => { closeModal(); game.returnToLobby?.(); },
+    online,
+    garage: () => open('garage'),
+    settings,
+    help,
+    save: () => { game.save(); toast("O'yin saqlandi", 'ok'); },
+  };
   body.querySelectorAll('[data-a]').forEach((b) => (b.onclick = act[b.dataset.a]));
 }
 
@@ -194,48 +209,72 @@ function online() {
   const inf = onlineInfo();
   const peers = onlineList();
   const myCode = displayId(inf.id);
+  const roomCode = inf.host || 'PUBLIC';
+  const isPrivate = inf.roomType === 'private' && roomCode !== 'PUBLIC' && !String(roomCode).startsWith('PUBLIC');
+  const maxCap = inf.max || (isPrivate ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS);
   const myCar = carById(activeCar().id);
+
   const statusBadge = {
     off: '<span class="minus">🔴 Ulanmagan</span>',
     connecting: '<span style="color:var(--gold)">🟡 Serverga ulanmoqda...</span>',
-    ready: '<span class="plus">🟢 Online (Do\'stlar sizning ID orqali ulanishi mumkin)</span>',
+    ready: '<span class="plus">🟢 Online tayyor</span>',
     joining: '<span style="color:var(--gold)">🟡 Xonaga ulanmoqda...</span>',
-    connected: `<span class="plus">🟢 Xonada faol · ${displayId(inf.host || inf.id)} (${inf.count}/${MAX_PLAYERS})</span>`,
+    connected: isPrivate
+      ? `<span class="plus">🔒 Do'stlar Xonasi · Kod: <b>${roomCode}</b> (${inf.count}/${maxCap})</span>`
+      : `<span class="plus">🌍 Ommaviy Server · ${displayId(roomCode)} (${inf.count}/${maxCap})</span>`,
   }[inf.status] || '';
 
-  const body = showModal('online', `🌐 Online rejim (${inf.count}/${MAX_PLAYERS} o'yinchi)`, `
+  const body = showModal('online', `🌐 Multiplayer Xona Tizimi (${inf.count}/${maxCap})`, `
+    <!-- Jonli Server Statistikasi -->
+    <div class="list" style="margin-bottom:12px">
+      <div style="flex-wrap:wrap;gap:8px;background:rgba(0,229,255,0.08);border:1px solid var(--line)">
+        <span>🟢 Jami Online: <b>${serverStats.totalOnline}</b></span>
+        <span>🌍 Ommaviy Server: <b>${serverStats.publicPlayers}/${serverStats.publicMax}</b></span>
+        <span>🔒 Private Xonalar: <b>${serverStats.privateRooms}</b></span>
+        <span>⚡ Ping: <b style="color:var(--cyan)">${serverStats.pingMs} ms</b></span>
+      </div>
+    </div>
+
     <div class="set-grid">
       <section class="set-card">
-        <h3>🪪 Sizning profilingiz va takrorlanmas ID</h3>
+        <h3>🌍 Ommaviy Server va Do'stlar Xonasi</h3>
         <div class="id-box">
           <div>
-            <small>Do'stlaringizga shu ID ni yuboring:</small>
-            <strong id="myIdCode">${myCode}</strong>
+            <small>${isPrivate ? "Do'stlaringizga shu 6 belgili XONA KODINI yuboring:" : 'Joriy ulangan server:'}</small>
+            <strong id="myIdCode">${isPrivate ? roomCode : displayId(roomCode)}</strong>
           </div>
-          <button class="btn primary" id="copyIdBtn">📋 ID nusxalash</button>
+          <button class="btn primary" id="copyIdBtn">📋 ${isPrivate ? 'Xona kodini nusxalash' : 'ID nusxalash'}</button>
         </div>
-        <label class="online-lbl">Ismingiz
+
+        <div class="row" style="margin-top:8px">
+          <button class="btn gold" id="createPrivateBtn">🔒 Do'stlar xonasi yaratish</button>
+          <button class="btn primary" id="joinLobbyBtn">🌍 Ommaviy serverga kirish</button>
+        </div>
+        ${isPrivate ? `<button class="btn danger" id="leaveRoomBtn" style="width:100%;margin-top:8px">🚪 Private xonadan chiqish</button>` : ''}
+
+        <label class="online-lbl" style="margin-top:10px">Haydovchi ismingiz (ID: <b>${myCode}</b>)
           <div class="row" style="margin-top:6px">
             <input id="onlineName" maxlength="18" value="${state.name}" placeholder="Ismingiz..." style="margin:0" />
             <button class="btn" id="saveNameBtn" style="flex:0 0 auto">Saqlash</button>
           </div>
         </label>
-        <p class="hint" style="margin-top:10px">Holat: ${statusBadge}</p>
+        <p class="hint" style="margin-top:8px">Holat: ${statusBadge}</p>
       </section>
 
       <section class="set-card">
-        <h3>🤝 Do'stlar bilan ulanish (10 kishigacha)</h3>
-        <label class="online-lbl">Do'stingizning ID kodini kiriting:
+        <h3>🔑 Xona kodi orqali ulanish</h3>
+        <label class="online-lbl">6 belgili Xona kodini kiriting:
           <div class="row" style="margin-top:6px">
-            <input id="friendIdInput" maxlength="12" placeholder="Masalan: TT-7K2M9Q" style="margin:0;text-transform:uppercase" />
-            <button class="btn primary" id="joinFriendBtn" style="flex:0 0 auto">🔗 Qo'shilish</button>
+            <input id="friendIdInput" maxlength="12" placeholder="Masalan: 7K2M9Q" style="margin:0;text-transform:uppercase;font-weight:800;letter-spacing:1.5px" />
+            <button class="btn primary" id="joinFriendBtn" style="flex:0 0 auto">🔗 Xonaga kirish</button>
           </div>
         </label>
-        <div class="row" style="margin-top:12px">
-          <button class="btn gold" id="joinLobbyBtn">🌍 Umumiy zalga kirish (10 kishi)</button>
-          ${inf.host && inf.host !== inf.id ? `<button class="btn danger" id="leaveRoomBtn">🚪 Xonadan chiqish</button>` : ''}
+        <div class="list" style="margin-top:12px;font-size:12px">
+          <div><span>1️⃣ Do'stlar xonasi yaratish</span><b>6 belgili kod beriladi</b></div>
+          <div><span>2️⃣ Kodni do'stlarga ulashish</span><b>📋 Nusxalab yuboring</b></div>
+          <div><span>3️⃣ Bo'sh xonalar tozalanishi</span><b>2 daqiqada avtomatik</b></div>
         </div>
-        <p class="hint">Do'stingiz o'yinga kirib o'zining <b>TT-XXXXXX</b> kodini sizga yuboradi, siz esa shu yerga yozib «Qo'shilish» tugmasini bosasiz (1 ta xonaga 10 tagacha o'yinchi sig'adi).</p>
+        <p class="hint">Faqat bitta xonadagi o'yinchilar bir-birini ko'radi va birga Toshkentda hayday oladi.</p>
       </section>
     </div>
 
@@ -245,13 +284,13 @@ function online() {
         ${['👋 Salom!', '💺 Mashinamga o\'tiring!', '🏁 Poyga o\'ynaymiz!', '🔥 Driftga qarang!', '📍 Yonimga keling!', '👍 Zo\'r mashina!'].map((q) => `<button class="btn sm-btn" data-qchat="${q}">${q}</button>`).join('')}
       </div>
       <div class="row" style="margin-top:6px">
-        <input id="chatInput" maxlength="48" placeholder="Do'stlarga xabar yozing (3D mashina ustida ko'rinadi)..." style="margin:0" />
+        <input id="chatInput" maxlength="56" placeholder="Xonadagi do'stlarga xabar yozing (3D mashina va personaj ustida ko'rinadi)..." style="margin:0" />
         <button class="btn primary" id="sendChatBtn" style="flex:0 0 auto">💬 Yuborish</button>
       </div>
       <div id="onlineChatLog" class="list" style="margin-top:8px;max-height:110px;overflow-y:auto">
         ${chatHistory.length === 0 ? '<div style="color:var(--muted);justify-content:center">Suhbat tarixi shu yerda ko\'rinadi</div>' : chatHistory.slice(-8).map((m) => `<div><span>💬 <b>${m.fromName}:</b> ${m.text}</span><small style="color:var(--muted)">${new Date(m.ts).toLocaleTimeString('uz').slice(0, 5)}</small></div>`).join('')}
       </div>
-      <div class="section-title" style="margin-top:8px">🏁 Do'stlar bilan Online Poyga (Barchaga umumiy GPS marra yuborish)</div>
+      <div class="section-title" style="margin-top:8px">🏁 Xonadagi do'stlar bilan Online Poyga (Umumiy GPS marra)</div>
       <div class="opts" style="margin:0">
         <button class="btn sm-btn gold" data-orace="Tashkent City" data-rx="${blockC(5)}" data-rz="${blockC(7)}">🏙️ Tashkent City gacha!</button>
         <button class="btn sm-btn gold" data-orace="Chorsu Bozori" data-rx="${blockC(3)}" data-rz="${blockC(5)}">🏛️ Chorsu bozorigacha!</button>
@@ -260,13 +299,13 @@ function online() {
       </div>
     </div>
 
-    <div class="section-title">Xonadagi o'yinchilar (${inf.count} / ${MAX_PLAYERS})</div>
+    <div class="section-title">Xonadagi o'yinchilar (${inf.count} / ${maxCap})</div>
     <div class="list" id="onlinePeersList">
       <div>
         <span>🟢 <b>${state.name || 'Siz'}</b> <small style="color:var(--cyan)">(${myCode} · Siz)</small></span>
         <b>${myCar.name}</b>
       </div>
-      ${peers.length === 0 ? `<div style="color:var(--muted);justify-content:center">Hozircha xonada boshqa o'yinchi yo'q — do'stingiz o'yinga kirsa avtomatik shu yerda paydo bo'ladi!</div>` : peers.map((p) => {
+      ${peers.length === 0 ? `<div style="color:var(--muted);justify-content:center">Hozircha xonada boshqa o'yinchi yo'q — do'stingiz xona kodini kiritsa shu yerda paydo bo'ladi!</div>` : peers.map((p) => {
         const c = carById(p.car);
         const spd = Math.round(Math.abs(p.v || 0) * 3.6);
         return `<div>
@@ -283,8 +322,9 @@ function online() {
   `);
 
   body.querySelector('#copyIdBtn').onclick = () => {
-    navigator.clipboard?.writeText(myCode);
-    toast(`Sizning ID nusxalandi: ${myCode}`, 'ok');
+    const codeToCopy = isPrivate ? roomCode : inf.id;
+    navigator.clipboard?.writeText(codeToCopy);
+    toast(`Nusxalandi: ${codeToCopy}`, 'ok');
   };
   body.querySelector('#saveNameBtn').onclick = () => {
     const v = body.querySelector('#onlineName').value.trim();
@@ -295,27 +335,49 @@ function online() {
     toast(`Ism saqlandi: ${v}`, 'ok');
     online();
   };
-  const doJoin = async (code) => {
+  body.querySelector('#createPrivateBtn').onclick = async () => {
     try {
-      await joinFriend(code);
-      toast(`Xonaga ulandingiz: ${displayId(code)}`, 'ok');
+      const newCode = await createPrivateRoom();
+      navigator.clipboard?.writeText(newCode).catch(() => {});
+      beep('ok');
+      toast(`🔒 Do'stlar xonasi yaratildi! Kod: ${newCode} (nusxalandi)`, 'cash');
       if (current === 'online') online();
     } catch (e) {
+      toast(e.message || "Xona yaratib bo'lmadi", 'err');
+    }
+  };
+  const doJoin = async (code) => {
+    try {
+      const joined = await joinRoomByCode(code);
+      beep('ok');
+      toast(`Xonaga ulandingiz: ${displayId(joined)}`, 'ok');
+      if (current === 'online') online();
+    } catch (e) {
+      beep('err');
       toast(e.message || 'Ulanishda xatolik', 'err');
       if (current === 'online') online();
     }
   };
   body.querySelector('#joinFriendBtn').onclick = () => {
     const code = body.querySelector('#friendIdInput').value.trim();
-    if (!code) return toast("Do'stingizning ID kodini kiriting", 'err');
+    if (!code) return toast("6 belgili xona kodini kiriting", 'err');
     doJoin(code);
   };
   body.querySelector('#friendIdInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') body.querySelector('#joinFriendBtn').click();
   });
-  body.querySelector('#joinLobbyBtn').onclick = () => doJoin('LOBBY');
+  body.querySelector('#joinLobbyBtn').onclick = async () => {
+    try {
+      await joinPublicServer();
+      beep('ok');
+      toast('🌍 Ommaviy serverga ulandingiz!', 'ok');
+      if (current === 'online') online();
+    } catch (e) {
+      toast(e.message || 'Xatolik', 'err');
+    }
+  };
   const lv = body.querySelector('#leaveRoomBtn');
-  if (lv) lv.onclick = () => { leave(); toast("O'z xonangizga qaytdingiz", 'ok'); online(); };
+  if (lv) lv.onclick = () => { leave(); toast('🌍 Ommaviy serverga qaytdingiz', 'ok'); online(); };
 
   body.querySelectorAll('[data-tp]').forEach((b) => (b.onclick = () => {
     const p = peers.find((x) => x.id === b.dataset.tp);
@@ -464,11 +526,56 @@ function ideas() {
     </div>`);
 }
 function help() {
-  const keys = [['W / ↑', 'Oldinga (haydash / yurish)'], ['S / ↓', 'Tormoz / orqaga'], ['A / ←', 'Chapga'], ['D / →', "O'ngga"], ['G', "Mashinadan tushish / Do'st mashinasiga o'tirish"], ['Shift', 'Nitro / Yugurish'], ['Space', "Qo'l tormozi / drift"], ['E', 'Xizmat paneli / zapravka'], ['F', 'Garaj va avtosalon'], ['M', 'Katta xarita'], ['R', 'Poygalar'], ['T', 'Yetkazib berish, taksi, ijara'], ['O', 'Online xona va suhbat'], ['L', 'Faralar'], ['H', 'Signal'], ['C', "Kamera ko'rinishi"], ['ESC', 'Pauza'], ['Sichqoncha', 'Kamerani 360° aylantirish, g\'ildirak — masofa']];
-  showModal('help', '⌨ Boshqaruv', `<div class="keys">${keys.map(([k, d]) => `<div><span class="key">${k}</span>${d}</div>`).join('')}</div>`);
+  const keys = [
+    ['W A S D / ↑↓←→', 'Haydash (mashinada) / Yurish (piyoda)'],
+    ['Shift', 'Nitro (mashinada) / Yugurish (piyoda)'],
+    ['Space', "Qo'l tormozi va Drift / Sakrash (piyoda)"],
+    ['E', 'Mashinaga kirish (piyoda) / Xizmat paneli va Zapravka'],
+    ['F', 'Mashinadan tushish (ExitCar animatsiyasi bilan)'],
+    ['G', 'Garaj, Avtosalon va 3D Tuning'],
+    ['M', 'Toshkent katta xaritasi va GPS'],
+    ['R', 'Poygalar va Tungi Drift musobaqalari'],
+    ['T', 'Taksi, Yetkazib berish va Avto-ijara'],
+    ['O', "Online Multiplayer va Do'stlar xonasi"],
+    ['L', 'Faralarni yoqish / o\'chirish'],
+    ['H', 'Avtomobil signali'],
+    ['C', "Kamera ko'rinishini almashtirish"],
+    ['ESC', 'Pauza va Boshqaruv Markazi'],
+    ['Sichqoncha / Surish', 'Kamerani 360° aylantirish, g\'ildirak — masofa'],
+  ];
+  showModal('help', '⌨ Boshqaruv va Tugmalar', `<div class="keys">${keys.map(([k, d]) => `<div><span class="key">${k}</span>${d}</div>`).join('')}</div>`);
 }
 
-const PANELS = { gas: gasStation, service, garage: () => openGarage({ showModal, toast, closeModal, game }), map: bigMap, race: races, jobs, pause, online, settings, help, about, ideas };
+function leaderboard() {
+  const peers = onlineList();
+  const myKm = state.totalKm || 0;
+  const rows = [
+    { name: state.name || 'Siz (Haydovchi)', car: carById(activeCar().id).name, km: myKm, wins: state.stats?.raceWins || 0, isMe: true },
+    ...peers.map((p, idx) => ({
+      name: p.name || 'Haydovchi',
+      car: carById(p.car).name,
+      km: Math.max(2.5, (idx + 1) * 8.4),
+      wins: Math.max(1, 3 - idx),
+      isMe: false,
+    })),
+    { name: 'Sardor_UZ', car: 'Lamborghini Aventador', km: 142.8, wins: 19, isMe: false },
+    { name: 'Jasur_M4', car: 'BMW M4 GTS', km: 98.4, wins: 14, isMe: false },
+    { name: 'Toshkent_King', car: 'Mercedes-AMG G 63', km: 76.2, wins: 11, isMe: false },
+    { name: 'Temur_Drift', car: 'BMW M5 CS', km: 54.0, wins: 8, isMe: false },
+  ].sort((a, b) => b.km - a.km);
+
+  showModal('leaderboard', '🏆 Toshkent Top Haydovchilari Reytingi', `
+    <p style="color:var(--muted);margin-bottom:10px">Toshkent ko'chalarida eng ko'p masofa bosib o'tgan va poygalarda g'olib bo'lgan yetakchi haydovchilar:</p>
+    <div class="list">
+      ${rows.map((r, i) => `<div style="${r.isMe ? 'border:1px solid var(--cyan);background:rgba(0,229,255,0.12)' : ''}">
+        <span><b>#${i + 1}</b> · <b>${r.name}</b> ${r.isMe ? '<small style="color:var(--cyan)">(Siz)</small>' : ''} <small style="color:var(--muted)">· ${r.car}</small></span>
+        <span>🏆 <b>${r.wins}</b> g'alaba · <b class="plus">${r.km.toFixed(1)} km</b></span>
+      </div>`).join('')}
+    </div>
+  `);
+}
+
+const PANELS = { gas: gasStation, service, garage: () => openGarage({ showModal, toast, closeModal, game }), map: bigMap, race: races, jobs, pause, online, settings, help, leaderboard, about, ideas };
 
 function renderModalChatLog() {
   const logEl = document.getElementById('onlineChatLog');

@@ -207,7 +207,7 @@ export class RemoteCars {
       }
 
       // 2. Agar o'yinchi mashinadan tushib yurgan bo'lsa (p.onFoot && !p.ridingWith), 3D Personajini ko'rsatamiz
-      const showChar = !!p.onFoot && !p.ridingWith && !far;
+      const showChar = (!!p.onFoot || p.animState === 'enterCar' || p.animState === 'exitCar') && !p.ridingWith && !far;
       r.charModel.group.visible = showChar;
       if (showChar) {
         const tpx = (p.px || r.x) + Math.sin(p.ph || 0) * (p.pv || 0) * age;
@@ -220,11 +220,12 @@ export class RemoteCars {
         r.px += (tpx - r.px) * k;
         r.pz += (tpz - r.pz) * k;
         r.ph += angDiff(p.ph || 0, r.ph) * k;
-        r.py += ((p.py || 0) - r.py) * Math.min(1, dt * 12);
+        r.py += ((p.py || 0) - r.py) * Math.min(1, dt * 16);
 
         r.charModel.group.position.set(r.px, r.py, r.pz);
         r.charModel.group.rotation.set(0, r.ph, 0);
-        r.charModel.animate(dt, p.pv || 0, p.emote || '');
+        const remAnim = p.emote || p.animState || '';
+        r.charModel.animate(dt, p.pv || 0, remAnim, 0.5);
 
         if (r.label.parent !== r.charModel.group) {
           r.charModel.group.add(r.label);

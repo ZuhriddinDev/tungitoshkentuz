@@ -80,23 +80,31 @@ export function updateCharCamera(camera, ch, dt) {
   camera.lookAt(look);
 }
 
-// Bosh menyu fonida AAA o'yinlar uslubidagi kinematik 3D kamera
-export function menuCamera(camera, v, t) {
-  const targetFov = 50;
+// Bosh menyu (Premium Game Lobby) fonida 360° interaktiv va avto-aylanuvchi 3D Showroom kamerasi
+let lobbyAutoAngle = 0.58;
+export function menuCamera(camera, v, t, dt = 0.016) {
+  const targetFov = 46;
   fov += (targetFov - fov) * 0.08;
   camera.fov = fov;
   camera.updateProjectionMatrix();
 
-  const ang = v.heading + 0.65 + Math.sin(t * 0.32) * 0.75 + t * 0.14;
-  const dist = 6.2 + Math.sin(t * 0.45) * 0.7;
-  const h = 1.45 + Math.sin(t * 0.38) * 0.38;
+  const userDragging = performance.now() - cam.lastMove < 4500;
+  if (!userDragging) {
+    // Avtomatik ohista tebranish va aylanish
+    lobbyAutoAngle = 0.56 + Math.sin(t * 0.35) * 0.38;
+    cam.yaw *= Math.pow(0.08, dt);
+  }
+  const ang = v.heading + lobbyAutoAngle + cam.yaw;
+  const dist = (userDragging ? Math.max(4.6, Math.min(8.5, cam.dist * 0.65)) : 5.65 + Math.sin(t * 0.45) * 0.28);
+  const pitchOffset = userDragging ? Math.max(-0.08, Math.min(0.45, cam.pitch - 0.15)) : 0;
+  const h = 1.32 + Math.sin(t * 0.4) * 0.12 + pitchOffset * 2.4;
+
   camera.position.set(
     v.x + Math.sin(ang) * dist,
-    h,
+    Math.max(0.75, h),
     v.z + Math.cos(ang) * dist
   );
-  // Mashina ekran markazida/chaprog'ida yirik va salobatli ko'rinishi uchun
-  const rightX = Math.cos(ang), rightZ = -Math.sin(ang);
-  const offset = innerWidth > 820 ? 1.15 : 0;
-  camera.lookAt(v.x + rightX * offset, 0.85, v.z + rightZ * offset);
+  // Mashina va uning chap tomonida turgan 3D Personaj ekran markazida ko'rinishi uchun
+  const rightX = Math.cos(v.heading), rightZ = -Math.sin(v.heading);
+  camera.lookAt(v.x - rightX * 0.35, 0.88, v.z - rightZ * 0.35);
 }
