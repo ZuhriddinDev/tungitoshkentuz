@@ -73,6 +73,8 @@ export const GLB_SPECS = {
   },
 };
 
+for (const [k, v] of Object.entries(GLB_SPECS)) v.id = k;
+
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/draco/gltf/');
 dracoLoader.preload();
@@ -163,7 +165,7 @@ function prepareGlbTemplate(origScene, cfg, spec) {
 }
 
 /** Shablonni klonlash va dinamik materiallarni har bir mashina uchun alohida nusxalash */
-function instantiateGlb(cached, spec) {
+function instantiateGlb(cached, spec, cfg) {
   const root = cached.templateGroup.clone(true);
   const matClones = new Map();
   const paintMats = [];
@@ -219,64 +221,125 @@ function instantiateGlb(cached, spec) {
   // ============================================================
   // REAL 3D GLB G'ILDIRAKLAR VA BALLONLARNING HAQIQIY AYLANISHI (WHEEL RIG)
   // ============================================================
-  const glbWheels = setupGlbWheels(root);
+  const { wheels: glbWheels, radius: glbRadius } = setupGlbWheels(root, spec, cfg);
 
-  return { root, paintMats, rimMats, headMats, tailMats, wheels: glbWheels, radius: cached.radius, rearTop: cached.rearTop };
+  return {
+    root,
+    paintMats,
+    rimMats,
+    headMats,
+    tailMats,
+    wheels: glbWheels,
+    radius: glbRadius || cached.radius,
+    rearTop: cached.rearTop
+  };
 }
 
 /**
- * 3D GLB modelidagi barcha g'ildirak (tire, rim, disc) qismlarini topib,
- * markaziy pivotlariga o'rnatish: mashina yurganda g'ildiraklar oldinga
- * tabiiy aylanadi, burilganda esa old g'ildiraklar silliq buriladi!
+ * 3D GLB modelidagi barcha g'ildirak (tire, rim, disc) va kaliper (tormoz) qismlarini topib,
+ * markaziy pivotlariga o'rnatish:
+ * - Shina va disklar (rim + tire + center cap) aylanish o'qiga (spin) ulanadi va oldinga tabiiy aylanadi.
+ * - Kaliperlar (caliper/brake) esa aylanmaydi (spin'ga EMAS, pivot'ga ulanadi),
+ *   lekin rul burilganda old g'ildiraklar bilan birga silliq buriladi!
+ * - Klaster markazi butun g'ildirak AABB markazidan olinadi (tebranishsiz/wobble-free).
  */
-function setupGlbWheels(root) {
+function setupGlbWheels(root, spec, cfg) {
   root.updateMatrixWorld(true);
   const wheelMeshes = [];
-  const isWheelPattern = /tire|tyre|wheel|rim|felge|reifen/i;
+  const caliperMeshes = [];
+
+  const rimMats = new Set(spec?.rimMats || []);
+  const isCaliperPattern = /caliper|calliper|brakedisk|brake/i;
+  const isSpinPattern = /tire|tyre|wheel|rim|felge|reifen/i;
+  const isBodyPart = /(?:^|[_: -])(steering|bumper|mirror|door|hood|trunk|wing|exhaust|light|glass|interior|seat|carpet|body|fgrll|license|chassis|lip)(?:[_: -]|$)/i;
+  const carId = spec?.id || cfg?.id || '';
 
   root.traverse((o) => {
     if (!o.isMesh) return;
     const name = o.name || '';
     const matName = o.material ? (Array.isArray(o.material) ? o.material.map((m) => m.name).join(' ') : o.material.name) : '';
-    if (isWheelPattern.test(name + ' ' + matName) && !/steering/i.test(name)) {
-      const box = new THREE.Box3().setFromObject(o);
-      const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
-      // Mashina rulini yoki butun kuzovni noto'g'ri tanlab olmaslik uchun tekshiruv
-      if (Math.max(size.x, size.y, size.z) < 2.5 && Math.abs(center.x) > 0.35) {
-        wheelMeshes.push({ mesh: o, center, size });
-      }
+    const full = name + ' ' + matName;
+
+    const isCaliper = isCaliperPattern.test(full);
+    if (isBodyPart.test(full) && !isCaliper) return;
+
+    const isSpin = (isSpinPattern.test(full) || rimMats.has(matName)) && !isCaliper;
+    const isGentraCap = carId === 'gentra' && /chrome/i.test(matName);
+
+    if (!isCaliper && !isSpin && !isGentraCap) return;
+
+    const box = new THREE.Box3().setFromObject(o);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+
+    // G'ildiraklar va kaliperlar mashina markazidan chetda (g'ildirak o'qlarida) joylashgan
+    if (Math.abs(center.x) < 0.35 || maxDim > 2.5) return;
+    if (isGentraCap && maxDim > 0.4) return; // Gentra faqat kichik xrom markaziy qalpoqchalari
+
+    if (isCaliper) {
+      caliperMeshes.push({ mesh: o, center, size });
+    } else {
+      wheelMeshes.push({ mesh: o, center, size });
     }
   });
 
-  if (wheelMeshes.length === 0) return null;
+  if (wheelMeshes.length === 0) return { wheels: null, radius: null };
 
   // 4 ta g'ildirak klasteriga ajratish (Old-Chap, Old-O'ng, Orqa-Chap, Orqa-O'ng)
   const clusters = { FL: [], FR: [], RL: [], RR: [] };
+  const caliperClusters = { FL: [], FR: [], RL: [], RR: [] };
+
   for (const item of wheelMeshes) {
     const isFwd = item.center.z > 0;
     const isLeft = item.center.x < 0;
     const key = (isFwd ? 'F' : 'R') + (isLeft ? 'L' : 'R');
     clusters[key].push(item);
   }
+  for (const item of caliperMeshes) {
+    const isFwd = item.center.z > 0;
+    const isLeft = item.center.x < 0;
+    const key = (isFwd ? 'F' : 'R') + (isLeft ? 'L' : 'R');
+    caliperClusters[key].push(item);
+  }
 
   const glbWheels = [];
+  let detectedRadius = null;
+
   for (const [key, items] of Object.entries(clusters)) {
     if (items.length === 0) continue;
-    // Klaster markazini hisoblash
-    const avgCenter = new THREE.Vector3();
-    for (const it of items) avgCenter.add(it.center);
-    avgCenter.divideScalar(items.length);
+
+    // Klasterdagi BARCHA detallar (shina, disk, qalpoq) bo'yicha to'liq 3D AABB markazi:
+    // Bu g'ildirak o'qining 100% aniq geometrik o'qi bo'ladi (hech qanday tebranishsiz/wobble-free)
+    const clusterBox = new THREE.Box3();
+    for (const it of items) clusterBox.expandByObject(it.mesh);
+    const exactCenter = clusterBox.getCenter(new THREE.Vector3());
+    const clusterSize = clusterBox.getSize(new THREE.Vector3());
+    const r = Math.max(clusterSize.y, clusterSize.z) / 2;
+    if (r > 0.18 && r < 0.65) {
+      if (!detectedRadius || Math.abs(r - (cfg?.len || 4.5) * 0.08) < Math.abs(detectedRadius - (cfg?.len || 4.5) * 0.08)) {
+        detectedRadius = r;
+      }
+    }
 
     const pivot = new THREE.Group();
-    pivot.position.copy(avgCenter);
+    pivot.position.copy(exactCenter);
     const spin = new THREE.Group();
     pivot.add(spin);
 
     root.add(pivot);
+    root.updateMatrixWorld(true);
 
     for (const it of items) {
       spin.attach(it.mesh);
+    }
+
+    // Kaliperlar (tormoz kolodkalari): spin'ga EMAS, pivot'ga biriktiriladi.
+    // Mashina yurganda kaliper aylanmaydi (joyida qoladi),
+    // rul burilganda esa old g'ildiraklar bilan birga buriladi!
+    const cals = caliperClusters[key] || [];
+    for (const cal of cals) {
+      pivot.attach(cal.mesh);
     }
 
     glbWheels.push({
@@ -286,17 +349,17 @@ function setupGlbWheels(root) {
     });
   }
 
-  return glbWheels.length > 0 ? glbWheels : null;
+  return { wheels: glbWheels.length > 0 ? glbWheels : null, radius: detectedRadius };
 }
 
 function loadGlb(id, cfg, priority = false) {
   const spec = GLB_SPECS[id];
   if (!spec) return Promise.resolve(null);
-  if (glbCache.has(id)) return Promise.resolve(instantiateGlb(glbCache.get(id), spec));
+  if (glbCache.has(id)) return Promise.resolve(instantiateGlb(glbCache.get(id), spec, cfg));
   if (glbLoading.has(id)) {
     if (priority) { const i = loadQueue.findIndex((q) => q.id === id && !q.pri); if (i >= 0) { const [q] = loadQueue.splice(i, 1); q.pri = true; loadQueue.unshift(q); pumpQueue(); } }
   }
-  if (glbLoading.has(id)) return glbLoading.get(id).then((cached) => (cached ? instantiateGlb(cached, spec) : null));
+  if (glbLoading.has(id)) return glbLoading.get(id).then((cached) => (cached ? instantiateGlb(cached, spec, cfg) : null));
 
   const p = new Promise((resolve) => {
     const task = () =>
@@ -329,7 +392,7 @@ function loadGlb(id, cfg, priority = false) {
   });
 
   glbLoading.set(id, p);
-  return p.then((cached) => (cached ? instantiateGlb(cached, spec) : null));
+  return p.then((cached) => (cached ? instantiateGlb(cached, spec, cfg) : null));
 }
 
 /** O'yin boshlanishida o'yinchi mashinasini oldindan yuklash */
@@ -540,7 +603,7 @@ export function buildCar(cfg, look = {}, opts = {}) {
   const spec = GLB_SPECS[cfg.id];
   if (spec) {
     if (glbCache.has(cfg.id)) {
-      api._applyGlb(instantiateGlb(glbCache.get(cfg.id), spec));
+      api._applyGlb(instantiateGlb(glbCache.get(cfg.id), spec, cfg));
     } else {
       loadGlb(cfg.id, cfg, isPriority).then((inst) => {
         if (inst) api._applyGlb(inst);
