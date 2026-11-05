@@ -1,0 +1,14 @@
+# Statik sayt: build kerak emas, papkaning o'zi joylanadi
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/car/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+

@@ -1,0 +1,10 @@
+{
+  "name": "tungi-toshkent-3d",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "TUNGI TOSHKENT — brauzerda ishlaydigan 3D avtomobil simulyatori",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

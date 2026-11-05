@@ -1,0 +1,6 @@
+node_modules/
+.netlify/
+car/chevrolet_spark.glb
+car/daewoo__gentra.glb
+car/2019_chevrolet_malibu_premier.glb
+car/2023_chevrolet_traverse_rs.glb

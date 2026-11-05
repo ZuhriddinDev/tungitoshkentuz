@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>TUNGI TOSHKENT — 3D Open World</title>
+  <meta name="description" content="Toshkent ko'chalarida 3D avtomobil simulyatori va ochiq dunyo o'yini" />
+  <meta name="theme-color" content="#05060f" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Yuklanish va bosh menyu -->
+  <div id="menu" class="screen show">
+    <div class="menu-bg"><i></i><i></i><i></i></div>
+    <div class="menu-wrap">
+      <div class="menu-hero">
+        <div class="badge">🌃 3D OCHIQ DUNYO</div>
+        <h1 class="logo">TUNGI <span>TOSHKENT</span></h1>
+        <p class="tag">Tungi Toshkent ko'chalarida haydang: poyga, drift, taksi va yetkazib berish.</p>
+        <div class="chips"><b>🚗 8 ta 3D mashina</b><b>🌐 Online 10 kishi</b><b>🌗 Kun va tun</b><b>💨 Drift</b></div>
+      </div>
+      <div class="menu-card panel3d">
+        <div id="loading" class="loading"><div class="bar"><i id="loadBar"></i></div><span id="loadText">Shahar qurilmoqda...</span></div>
+        <div id="menuForm" class="hidden">
+          <div class="id-banner">
+            <span>Sizning takrorlanmas ID:</span>
+            <b id="menuMyId">TT-......</b>
+            <button type="button" class="btn sm-btn" id="copyMenuId" title="ID nusxalash">📋 Nusxalash</button>
+          </div>
+          <label>Haydovchi ismi<input id="nameInput" maxlength="18" placeholder="Masalan: Jasur" autocomplete="off" /></label>
+          <button id="playBtn" class="btn primary big pulse">▶ O'YINNI BOSHLASH</button>
+          <div class="menu-grid">
+            <button class="btn" data-open="online"><i>🌐</i>Online (10 kishi)</button>
+            <button class="btn" data-open="settings"><i>⚙️</i>Sozlamalar</button>
+            <button class="btn" data-open="help"><i>⌨️</i>Boshqaruv</button>
+            <button class="btn" data-open="about"><i>ℹ️</i>O'yin haqida</button>
+          </div>
+          <p class="ver">v2.5 · Online Multiplayer (10 kishi) · Kompyuter va Telefon</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Yuklash qatlami (mashina sotib olish / almashtirish) -->
+  <div id="busy" class="busy">
+    <div class="busy-card">
+      <div class="spinner"></div>
+      <h3 id="busyTitle">Yuklanmoqda...</h3>
+      <p id="busySub"></p>
+      <div class="busy-bar"><i id="busyBar" class="indet"></i></div>
+      <small id="busyPct"></small>
+    </div>
+  </div>
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="top">
+      <div class="chip player"><b id="hudName">—</b><small id="hudFps">60 FPS</small></div>
+      <button class="chip online-chip" data-hotkey="KeyO" title="Online xona (O)"><b id="hudOnline">🌐 Online: 1/10</b><small id="hudMyId">TT-......</small></button>
+      <div class="chip money" id="hudMoney">0 so'm</div>
+      <div class="chip clock"><span id="hudTime">00:00</span><small id="hudStreet">—</small></div>
+      <button class="chip iconbtn" data-hotkey="Escape" title="Menyu (ESC)">☰</button>
+    </div>
+    <canvas id="minimap" width="200" height="200"></canvas>
+    <div id="missionHud" class="mission hidden"></div>
+    <div class="dash">
+      <div class="carname" id="hudCar">—</div>
+      <div class="speedo"><canvas id="speedo" width="220" height="220"></canvas><div class="kmh"><b id="hudSpeed">0</b><small>km/soat</small></div></div>
+      <div class="gauges">
+        <div class="gauge"><span>⛽ <b id="hudFuelText">0 l</b> <small id="hudFuelType"></small></span><div class="meter"><i id="hudFuel"></i></div></div>
+        <div class="gauge"><span>🔧 Holat <b id="hudDmgText">100%</b></span><div class="meter hp"><i id="hudDmg"></i></div></div>
+        <div class="gauge"><span>📏 <b id="hudKm">0.0</b> km · keyingi bonus <b id="hudNextBonus">10</b> km</span></div>
+      </div>
+    </div>
+    <div id="prompt" class="prompt hidden"></div>
+    <div class="hotbar">
+      <button data-hotkey="KeyE">E<small>Xizmat</small></button>
+      <button data-hotkey="KeyF">F<small>Garaj</small></button>
+      <button data-hotkey="KeyM">M<small>Xarita</small></button>
+      <button data-hotkey="KeyR">R<small>Poyga</small></button>
+      <button data-hotkey="KeyT">T<small>Ish</small></button>
+      <button data-hotkey="KeyO">O<small>Online</small></button>
+      <button data-hotkey="KeyL">L<small>Fara</small></button>
+      <button data-hotkey="KeyH">H<small>Signal</small></button>
+    </div>
+    <div class="touch">
+      <div class="pad left"><button data-touch="left">◀</button><button data-touch="right">▶</button></div>
+      <div class="pad right"><button data-touch="boost" class="sm">NITRO</button><button data-touch="brake" class="sm">DRIFT</button><button data-touch="down">▼</button><button data-touch="up" class="gas">▲</button></div>
+    </div>
+  </div>
+
+  <div id="toasts"></div>
+
+  <!-- Modal oynalar -->
+  <div id="modal" class="screen">
+    <div class="panel3d modal-card">
+      <div class="modal-head"><h2 id="modalTitle"></h2><button class="close" id="modalClose">✕</button></div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
+
+
