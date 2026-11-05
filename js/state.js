@@ -30,7 +30,7 @@ function fresh() {
     tx: [],
     settings: {
       volume: 0.6,
-      quality: matchMedia('(pointer: coarse)').matches ? 'low' : 'medium',
+      quality: 'high',
       sens: 1,
       control: 'auto',
       steerType: 'wheel', // 'wheel' (Aylanuvchi rul) | 'buttons' (Chap-O'ng tugmalar)
@@ -38,6 +38,7 @@ function fresh() {
       smoke: true,
     },
     mapVer: 2,
+    gfxVer: 2,
     pos: null,
   };
 }
@@ -55,6 +56,10 @@ function load() {
       if (!s.cars.some((c) => c.uid === s.activeUid)) s.activeUid = s.cars[0].uid;
       if (s.rental && !validIds.has(s.rental.car?.id)) s.rental = null;
       if (s.mapVer !== 2) { s.pos = null; s.mapVer = 2; }
+      if (s.gfxVer !== 2) {
+        if (s.settings && s.settings.quality === 'low') s.settings.quality = 'high';
+        s.gfxVer = 2;
+      }
       return { ...fresh(), ...s, settings: { ...fresh().settings, ...s.settings } };
     }
   } catch (e) { /* buzilgan saqlov */ }

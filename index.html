@@ -18,33 +18,71 @@
 <body>
   <canvas id="game"></canvas>
 
-  <!-- Yuklanish va bosh menyu -->
+  <!-- AAA 3D Kirish Banneri va Bosh Menyu -->
   <div id="menu" class="screen show">
     <div class="menu-bg"><i></i><i></i><i></i></div>
     <div class="menu-wrap">
+      <!-- Chap tomon: 3D Gologramma Banner va Jonli 3D Mashina Ko'rgazmasi -->
       <div class="menu-hero">
-        <div class="badge">🌃 3D OCHIQ DUNYO</div>
-        <h1 class="logo">TUNGI <span>TOSHKENT</span></h1>
-        <p class="tag">Tungi Toshkent ko'chalarida haydang: poyga, drift, taksi va yetkazib berish.</p>
-        <div class="chips"><b>🚗 8 ta 3D mashina</b><b>🌐 Online 10 kishi</b><b>🌗 Kun va tun</b><b>💨 Drift</b></div>
+        <div class="hero-3d-banner">
+          <div class="banner-top-row">
+            <span class="badge">🌃 3D OPEN WORLD · V3.0</span>
+            <span class="live-pill"><i class="pulse-dot"></i>ONLINE MULTIPLAYER</span>
+          </div>
+          <div class="logo-3d-wrap">
+            <h1 class="logo">TUNGI <span>TOSHKENT</span></h1>
+            <div class="logo-sub">HAQIQIY SHAHAR · REAL MOTOR OVOZI · 10 KISHILIK ONLINE</div>
+          </div>
+          <p class="tag">Amir Temur xiyoboni, Tashkent City, Chorsu, Minor masjidi va Teleminora bo'ylab do'stlaringiz bilan real vaqtda haydang!</p>
+          <div class="chips">
+            <b>🏎️ 8 ta 3D GLB Avto</b>
+            <b>🌐 Real-Vaqt Online</b>
+            <b>🔊 V8 / V12 / Turbo Ovoz</b>
+            <b>🛞 Mobil Rul + Drift</b>
+          </div>
+        </div>
+
+        <!-- Bosh menyudagi jonli 3D mashina ma'lumot paneli -->
+        <div class="hero-car-showcase" id="menuCarShowcase">
+          <button type="button" class="car-nav-btn" id="menuPrevCar" title="Oldingi mashina">◀</button>
+          <div class="car-showcase-info">
+            <small>TANLANGAN 3D AVTOMOBIL</small>
+            <strong id="menuCarName">Chevrolet Gentra</strong>
+            <div class="car-showcase-stats">
+              <span id="menuCarSpeed">⚡ 200 km/s</span>
+              <span id="menuCarAccel">⏱ 0-100: 6.6s</span>
+              <span id="menuCarSound">🔊 I4 Atmosfera</span>
+            </div>
+          </div>
+          <button type="button" class="car-nav-btn" id="menuNextCar" title="Keyingi mashina">▶</button>
+        </div>
       </div>
+
+      <!-- O'ng tomon: Boshlash va Boshqaruv Dok-Paneli -->
       <div class="menu-card panel3d">
-        <div id="loading" class="loading"><div class="bar"><i id="loadBar"></i></div><span id="loadText">Shahar qurilmoqda...</span></div>
+        <div id="loading" class="loading">
+          <div class="bar"><i id="loadBar"></i></div>
+          <span id="loadText">3D Toshkent shahri qurilmoqda...</span>
+        </div>
         <div id="menuForm" class="hidden">
           <div class="id-banner">
-            <span>Sizning takrorlanmas ID:</span>
-            <b id="menuMyId">TT-......</b>
-            <button type="button" class="btn sm-btn" id="copyMenuId" title="ID nusxalash">📋 Nusxalash</button>
+            <div>
+              <small style="display:block;color:var(--muted);font-size:10px">SIZNING ONLINE ID KODINGIZ</small>
+              <b id="menuMyId">TT-......</b>
+            </div>
+            <button type="button" class="btn sm-btn" id="copyMenuId" title="ID nusxalash">📋 Nusxa</button>
           </div>
-          <label>Haydovchi ismi<input id="nameInput" maxlength="18" placeholder="Masalan: Jasur" autocomplete="off" /></label>
-          <button id="playBtn" class="btn primary big pulse">▶ O'YINNI BOSHLASH</button>
+          <label>Haydovchi ismi
+            <input id="nameInput" maxlength="18" placeholder="Masalan: Jasur" autocomplete="off" />
+          </label>
+          <button id="playBtn" class="btn primary big pulse">▶ SHAHARGA KIRISH</button>
           <div class="menu-grid">
+            <button class="btn" data-open="garage"><i>🚗</i>Garaj & Salon</button>
             <button class="btn" data-open="online"><i>🌐</i>Online (10 kishi)</button>
             <button class="btn" data-open="settings"><i>⚙️</i>Sozlamalar</button>
             <button class="btn" data-open="help"><i>⌨️</i>Boshqaruv</button>
-            <button class="btn" data-open="about"><i>ℹ️</i>O'yin haqida</button>
           </div>
-          <p class="ver">v3.0 · Haqiqiy Toshkent 3D Xaritasi · Online 10 kishi · Kompyuter va Telefon</p>
+          <p class="ver">v3.0 Ultra · Yuqori Tiniqlikdagi Grafika · Telefon va Kompyuter</p>
         </div>
       </div>
     </div>
@@ -53,7 +91,7 @@
   <!-- Telefonni gorizontal (landscape) aylantirish tavsiyasi -->
   <div id="rotateHint" class="rotate-hint">
     <span>📱🔄 Telefonni gorizontal (yotiq) aylantirib o'ynang!</span>
-    <button type="button" class="btn sm-btn primary" data-fullscreen="1">⛶ Gorizontal Ekran</button>
+    <button type="button" class="btn sm-btn primary" data-fullscreen="1">⛶ Gorizontal</button>
     <button type="button" class="rotate-close" id="closeRotateHint" title="Yopish">✕</button>
   </div>
 
@@ -67,37 +105,52 @@
       <small id="busyPct"></small>
     </div>
   </div>
+
   <!-- HUD -->
   <div id="hud" class="hidden">
     <div class="top">
       <div class="chip player"><b id="hudName">—</b><small id="hudFps">60 FPS</small></div>
-      <button class="chip online-chip" data-hotkey="KeyO" title="Online xona (O)"><b id="hudOnline">🌐 Online: 1/10</b><small id="hudMyId">TT-......</small></button>
+      <button class="chip online-chip" data-hotkey="KeyO" title="Online xona (O)"><b id="hudOnline">🌐 Online: 1/10</b><small id="hudMyId">UMUMIY ZAL</small></button>
       <div class="chip money" id="hudMoney">0 so'm</div>
       <div class="chip clock"><span id="hudTime">00:00</span><small id="hudStreet">—</small></div>
       <button class="chip iconbtn" data-hotkey="Escape" title="Menyu (ESC)">☰</button>
     </div>
+
+    <!-- Real-vaqtda online o'yinchilar radari (do'stlar ulanganda ko'rinadi) -->
+    <div id="onlinePeersHud" class="online-peers-hud hidden"></div>
+
     <canvas id="minimap" width="200" height="200"></canvas>
     <div id="missionHud" class="mission hidden"></div>
+
     <div class="dash">
       <div class="carname" id="hudCar">—</div>
-      <div class="speedo"><canvas id="speedo" width="220" height="220"></canvas><div class="kmh"><b id="hudSpeed">0</b><small>km/soat · <span id="hudGear" class="gear-badge">N</span></small></div></div>
+      <div class="speedo">
+        <canvas id="speedo" width="220" height="220"></canvas>
+        <div class="kmh">
+          <b id="hudSpeed">0</b>
+          <small>km/s · <span id="hudGear" class="gear-badge">N</span></small>
+        </div>
+      </div>
       <div class="gauges">
         <div class="gauge"><span>⛽ <b id="hudFuelText">0 l</b> <small id="hudFuelType"></small></span><div class="meter"><i id="hudFuel"></i></div></div>
         <div class="gauge"><span>🔧 Holat <b id="hudDmgText">100%</b></span><div class="meter hp"><i id="hudDmg"></i></div></div>
-        <div class="gauge"><span>📏 <b id="hudKm">0.0</b> km · keyingi bonus <b id="hudNextBonus">10</b> km</span></div>
+        <div class="gauge km-gauge"><span>📏 <b id="hudKm">0.0</b> km · bonus <b id="hudNextBonus">10</b> km</span></div>
       </div>
     </div>
+
     <div id="prompt" class="prompt hidden"></div>
+
     <div class="hotbar">
-      <button data-hotkey="KeyE">E<small>Xizmat</small></button>
-      <button data-hotkey="KeyF">F<small>Garaj</small></button>
-      <button data-hotkey="KeyM">M<small>Xarita</small></button>
-      <button data-hotkey="KeyR">R<small>Poyga</small></button>
-      <button data-hotkey="KeyT">T<small>Ish</small></button>
-      <button data-hotkey="KeyO">O<small>Online</small></button>
-      <button data-hotkey="KeyL">L<small>Fara</small></button>
-      <button data-hotkey="KeyH">H<small>Signal</small></button>
+      <button data-hotkey="KeyF" class="hb-garage">🚗<small>Garaj (F)</small></button>
+      <button data-hotkey="KeyE">🛠<small>Xizmat (E)</small></button>
+      <button data-hotkey="KeyM">🗺<small>Xarita (M)</small></button>
+      <button data-hotkey="KeyR">🏁<small>Poyga (R)</small></button>
+      <button data-hotkey="KeyT">📦<small>Ish (T)</small></button>
+      <button data-hotkey="KeyO">🌐<small>Online (O)</small></button>
+      <button data-hotkey="KeyL">💡<small>Fara (L)</small></button>
+      <button data-hotkey="KeyH">📯<small>Signal (H)</small></button>
     </div>
+
     <div class="touch">
       <div class="touch-col left-col">
         <div class="touch-mini">
@@ -111,15 +164,12 @@
         <div class="wheel-pad" id="wheelPad" title="Barmoq bilan rulni aylantiring">
           <div class="wheel-ring" id="wheelDisc">
             <svg viewBox="0 0 120 120" class="wheel-svg">
-              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(0,229,255,0.35)" stroke-width="10" />
+              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(0,229,255,0.4)" stroke-width="10" />
               <circle cx="60" cy="60" r="52" fill="none" stroke="#182246" stroke-width="7" />
-              <!-- Yuqori markaziy belgi (qizil sport chizig'i) -->
               <path d="M 55 8 L 65 8" stroke="#ff2bd6" stroke-width="8" stroke-linecap="round" />
-              <!-- Rul spikalari (3 ta) -->
               <path d="M 14 56 L 44 58 L 46 66 L 16 68 Z" fill="#1e2a54" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" />
               <path d="M 106 56 L 76 58 L 74 66 L 104 68 Z" fill="#1e2a54" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" />
               <path d="M 54 74 L 66 74 L 64 108 L 56 108 Z" fill="#1e2a54" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" />
-              <!-- Markaziy gupchak -->
               <circle cx="60" cy="60" r="18" fill="#0d132a" stroke="#00e5ff" stroke-width="2.5" />
               <text x="60" y="64" text-anchor="middle" fill="#00e5ff" font-size="11" font-weight="900">UZ</text>
             </svg>
@@ -132,6 +182,7 @@
           <button type="button" data-touch="right">▶</button>
         </div>
       </div>
+
       <div class="touch-col right-col">
         <div class="touch-sub">
           <button type="button" data-touch="boost" class="sm nitro-btn">⚡<span>NITRO</span></button>
@@ -158,5 +209,3 @@
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
-
-

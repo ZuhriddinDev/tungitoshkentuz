@@ -43,8 +43,27 @@ const player = {
   locked: false,
 };
 
+const SOUND_NAMES = {
+  i4: '🔊 I4 Atmosfera',
+  turbo4: '🔊 2.0L Turbo',
+  bmwi6: '🔊 I6 Twin-Turbo',
+  bmwv8: '🔊 M V8 Twin-Turbo',
+  amgv8: '🔊 AMG V8 Biturbo',
+  v12: '🔊 6.5L V12 F1',
+};
+
+function updateMenuCarInfo() {
+  const inst = activeCar();
+  const cfg = carById(inst.id);
+  if ($('menuCarName')) $('menuCarName').textContent = cfg.name;
+  if ($('menuCarSpeed')) $('menuCarSpeed').textContent = `⚡ ${cfg.maxSpeed} km/s`;
+  if ($('menuCarAccel')) $('menuCarAccel').textContent = `⏱ 0-100: ${(27.8 / cfg.accel).toFixed(1)}s`;
+  if ($('menuCarSound')) $('menuCarSound').textContent = SOUND_NAMES[cfg.sound] || '🔊 Sport Motor';
+}
+
 function setCar(soft = false) {
   const inst = activeCar(), cfg = carById(inst.id);
+  updateMenuCarInfo();
   if (soft && model && model.cfg.id === cfg.id) { model.setColor(inst.color); model.setTuning(inst); return; }
   const prev = vehicle;
   if (model) scene.remove(model.group);
@@ -128,15 +147,22 @@ function step(dt, t, sub = 1) {
   peds.update(dt, t, player);
   tickOnline(dt, {
     id: playerId(),
-    name: state.name,
+    name: state.name || 'Haydovchi',
     car: vehicle.cfg.id,
     color: vehicle.inst.color,
+    rims: vehicle.inst.rims,
+    spoiler: vehicle.inst.spoiler,
+    neon: vehicle.inst.neon,
     x: vehicle.x,
     y: g.position.y,
     z: vehicle.z,
     h: vehicle.heading,
     v: vehicle.v,
     steer: vehicle.steer,
+    yawRate: vehicle.yawRate,
+    braking: vehicle.braking,
+    lights: lightsOn,
+    drifting: vehicle.drifting,
   });
   remotes?.update(dt, onlineList(), player, night);
   updateMission(dt);
@@ -170,7 +196,34 @@ function step(dt, t, sub = 1) {
 }
 
 const clock = new THREE.Clock();
-let fps = 60, frames = 0, fpsT = 0, hudT = 0, mapT = 0;
+let fps = 60, frames = 0, fpsT = 0, hudT = 0, mapT = 0, peerHudT = 0;
+
+function updateOnlinePeersHud() {
+  const el = $('onlinePeersHud');
+  if (!el) return;
+  const peers = onlineList();
+  if (!peers.length) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  el.classList.remove('hidden');
+  el.innerHTML = peers.slice(0, 5).map((p) => {
+    const d = Math.round(Math.hypot((p.x || 0) - vehicle.x, (p.z || 0) - vehicle.z));
+    return `<div class="peer-pill">
+      <span>🟢 <b>${p.name || 'Haydovchi'}</b> <small>${d}m</small></span>
+      <button type="button" data-tp-hud="${p.id}" title="Yoniga o'tish">📍</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-tp-hud]').forEach((b) => (b.onclick = (e) => {
+    e.stopPropagation();
+    const p = peers.find((x) => x.id === b.dataset.tpHud);
+    if (!p) return;
+    vehicle.place(p.x + 3.5, p.z + 3.5, p.h || 0);
+    toast(`${p.name || 'Do\'st'} yoniga o'tdingiz!`, 'ok');
+  }));
+}
+
 function loop() {
   requestAnimationFrame(loop);
   const raw = clock.getDelta(), t = clock.elapsedTime;
@@ -182,12 +235,13 @@ function loop() {
     hour = 21.5; sky.update(hour, model.group.position, R.preset.shadows);
     for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * sky.night;
     updateProps(t, sky.night); traffic.setNight(sky.night); traffic.update(dt, t, player); peds.update(dt, t, player);
-    model.setLights(true); headlight.intensity = 90; menuCamera(camera, vehicle, t);
+    model.setLights(true); headlight.intensity = 95; menuCamera(camera, vehicle, t);
   }
   if (playing) {
     drawSpeedo(vehicle.kmh, vehicle.cfg.maxSpeed, vehicle.rpm);
     if ((hudT += dt) > 0.1) { hudT = 0; updateHud(vehicle, hour, waypoint, fps); }
     if ((mapT += dt) > 0.05) { mapT = 0; drawMinimap($('minimap'), player, mapExtra()); }
+    if ((peerHudT += dt) > 0.35) { peerHudT = 0; updateOnlinePeersHud(); }
     if (!paused) { state.pos = { x: vehicle.x, z: vehicle.z, h: vehicle.heading }; save(); }
   }
   R.render(sky.night);
@@ -259,10 +313,24 @@ async function boot() {
     navigator.clipboard?.writeText(myCode);
     toast(`Sizning ID nusxalandi: ${myCode}`, 'ok');
   };
+  const cycleMenuCar = (dir) => {
+    if (state.cars.length < 2) {
+      open('garage');
+      return;
+    }
+    const idx = Math.max(0, state.cars.findIndex((c) => c.uid === state.activeUid));
+    const next = state.cars[(idx + dir + state.cars.length) % state.cars.length];
+    state.activeUid = next.uid;
+    touch();
+    changeCar();
+  };
+  if ($('menuPrevCar')) $('menuPrevCar').onclick = () => cycleMenuCar(-1);
+  if ($('menuNextCar')) $('menuNextCar').onclick = () => cycleMenuCar(1);
   onOnline(() => {
     const inf = onlineInfo();
     if ($('hudOnline')) $('hudOnline').textContent = `🌐 Online: ${inf.count}/${MAX_PLAYERS}`;
     if ($('hudMyId')) $('hudMyId').textContent = displayId(inf.host || inf.id);
+    if (playing) updateOnlinePeersHud();
   });
   goOnline().catch(() => {});
   await progress(100, 'Tayyor!');

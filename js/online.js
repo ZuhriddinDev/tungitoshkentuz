@@ -51,7 +51,11 @@ export function playerId() {
   return id;
 }
 
-export const displayId = (id = myId || playerId()) => (id === 'LOBBY' ? 'UMUMIY ZAL' : 'TT-' + id);
+export const displayId = (id = myId || playerId()) => {
+  if (!id || id === 'LOBBY') return 'UMUMIY ZAL';
+  if (String(id).startsWith('LOBBY')) return 'UMUMIY ZAL #' + String(id).slice(5);
+  return 'TT-' + id;
+};
 export const normalizeId = (s) =>
   String(s || '')
     .trim()
@@ -112,9 +116,9 @@ export async function goOnline() {
 
   const m = await detectServerMode();
   if (m === 'server') {
-    // Render.com / Node.js server rejimi: darhol tayyor va o'z ID xonasini faollashtiradi
+    // Render.com / Node.js server rejimi: barcha o'yinchilar bir-birini darhol ko'rishi uchun UMUMIY ZAL (LOBBY) ga ulanadi
     role = 'room';
-    hostId = myId;
+    hostId = 'LOBBY';
     status = 'connected';
     emit();
     return myId;
@@ -362,14 +366,14 @@ export function sendChat(text) {
   myChatTs = Date.now();
 }
 
-// Har kadrda chaqiriladi; holat sekundiga ~8 marta yuboriladi
+// Har kadrda chaqiriladi; holat sekundiga ~15 marta (har 65 ms da) real vaqtda yuboriladi
 export function tick(dt, local) {
   const activeChat = myChat && Date.now() - myChatTs < 7000 ? myChat : '';
   const payload = { ...local, chat: activeChat, chatTs: activeChat ? myChatTs : 0 };
   lastLocalState = payload;
   if (status === 'off' || status === 'connecting') return;
   acc += dt;
-  if (acc < 0.12) return;
+  if (acc < 0.065) return;
   acc = 0;
 
   if (mode === 'server') {
@@ -380,7 +384,7 @@ export function tick(dt, local) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: myId || playerId(),
-        room: hostId || myId || playerId(),
+        room: hostId || 'LOBBY',
         state: payload,
       }),
     })

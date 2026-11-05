@@ -28,7 +28,7 @@ function showMarker(p, color) {
 }
 
 // Yo'l tarmog'i bo'ylab tasodifiy marshrut (chorrahalar orqali)
-function route(fromX, fromZ, hops, minLen = 0) {
+function route(fromX, fromZ, hops, minLen = 0, attempt = 0) {
   let i = nearestRoad(fromX), k = nearestRoad(fromZ), last = null;
   const pts = [];
   for (let n = 0; n < hops; n++) {
@@ -38,16 +38,20 @@ function route(fromX, fromZ, hops, minLen = 0) {
     for (let s = 0; s < steps && i + dx >= 0 && k + dz >= 0 && i + dx <= N && k + dz <= N; s++) { i += dx; k += dz; }
     last = [dx, dz]; pts.push({ x: roadC(i), z: roadC(k) });
   }
-  if (minLen && Math.hypot(pts.at(-1).x - fromX, pts.at(-1).z - fromZ) < minLen) return route(fromX, fromZ, hops, minLen);
+  if (minLen && attempt < 12 && Math.hypot(pts.at(-1).x - fromX, pts.at(-1).z - fromZ) < minLen) return route(fromX, fromZ, hops, minLen, attempt + 1);
   return pts;
 }
 const randomRoadPoint = (x, z, minD, maxD) => {
-  for (;;) {
-    const i = Math.floor(Math.random() * (N + 1)), k = Math.floor(Math.random() * (N + 1));
-    const p = { x: roadC(i) + (Math.random() < 0.5 ? ROAD * 2 : -ROAD * 2), z: roadC(k) };
+  let best = { x: roadC(Math.floor(N / 2)), z: roadC(Math.floor(N / 2)) };
+  for (let tries = 0; tries < 60; tries++) {
+    const i = 1 + Math.floor(Math.random() * (N - 1)), k = 1 + Math.floor(Math.random() * (N - 1));
+    const offset = (Math.random() < 0.5 ? 1 : -1) * ROAD * 1.4;
+    const p = Math.random() < 0.5 ? { x: roadC(i) + offset, z: roadC(k) } : { x: roadC(i), z: roadC(k) + offset };
+    best = p;
     const d = Math.hypot(p.x - x, p.z - z);
     if (d > minD && d < maxD) return p;
   }
+  return best;
 };
 
 export const MISSIONS = {

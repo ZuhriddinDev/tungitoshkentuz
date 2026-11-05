@@ -1,4 +1,4 @@
-﻿// 3D avtomobil modellari: /car/ papkasidagi GLB modellarni xatosiz va tez yuklash,
+// 3D avtomobil modellari: /car/ papkasidagi GLB modellarni xatosiz va tez yuklash,
 // rang, diska, spoyler, neon va faralarni boshqarish
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -185,8 +185,9 @@ function instantiateGlb(cached, spec) {
         cloned = o.material.clone();
         cloned.side = THREE.DoubleSide;
         if (isPaint.has(mName)) {
-          cloned.metalness = 0.65;
-          cloned.roughness = 0.24;
+          cloned.metalness = 0.72;
+          cloned.roughness = 0.18;
+          cloned.envMapIntensity = 1.45;
           paintMats.push(cloned);
         }
         if (isRim.has(mName)) {

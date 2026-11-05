@@ -96,12 +96,31 @@ async function handleApi(req, res, urlPath) {
     const id = String(body.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
     if (!id) return sendJson(res, 400, { error: 'ID kerak' });
 
-    // Qaysi xonaga ulanishi: targetRoom (do'st ID si yoki LOBBY) yoki o'zining ID si
-    let targetRoom = String(body.room || id).toUpperCase().replace(/^TT-/, '').replace(/[^A-Z0-9]/g, '').slice(0, 12) || id;
+    // Qaysi xonaga ulanishi: targetRoom (do'st ID si yoki LOBBY)
+    let targetRoom = String(body.room || 'LOBBY').toUpperCase().replace(/^TT-/, '').replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'LOBBY';
 
     // Agar targetRoom boshqa o'yinchining ID si bo'lsa va u o'yinchi allaqachon biror xonada bo'lsa, o'sha xonaga yo'naltiramiz
-    if (playerRoom.has(targetRoom)) {
+    if (targetRoom !== 'LOBBY' && playerRoom.has(targetRoom)) {
       targetRoom = playerRoom.get(targetRoom);
+    }
+
+    // Agar LOBBY to'lgan bo'lsa (10 kishi), avtomatik keyingi LOBBY2, LOBBY3 xonasiga joylashtiramiz
+    if (targetRoom === 'LOBBY') {
+      const curRoom = playerRoom.get(id);
+      if (curRoom && curRoom.startsWith('LOBBY') && rooms.get(curRoom)?.has(id)) {
+        targetRoom = curRoom;
+      } else {
+        let idx = 1;
+        while (idx < 50) {
+          const candidate = idx === 1 ? 'LOBBY' : `LOBBY${idx}`;
+          const m = rooms.get(candidate);
+          if (!m || m.has(id) || m.size < MAX_PLAYERS) {
+            targetRoom = candidate;
+            break;
+          }
+          idx++;
+        }
+      }
     }
 
     let roomMap = rooms.get(targetRoom);
@@ -130,12 +149,19 @@ async function handleApi(req, res, urlPath) {
       name: String(state.name || 'Haydovchi').slice(0, 18),
       car: String(state.car || 'gentra'),
       color: String(state.color || '#f5f5f5'),
+      rims: String(state.rims || 'std'),
+      spoiler: String(state.spoiler || 'none'),
+      neon: String(state.neon || 'none'),
       x: Number(state.x) || 0,
       y: Number(state.y) || 0,
       z: Number(state.z) || 0,
       h: Number(state.h) || 0,
       v: Number(state.v) || 0,
       steer: Number(state.steer) || 0,
+      yawRate: Number(state.yawRate) || 0,
+      braking: !!state.braking,
+      lights: state.lights !== undefined ? !!state.lights : true,
+      drifting: !!state.drifting,
       chat,
       chatTs,
       updatedAt: Date.now(),
@@ -149,12 +175,19 @@ async function handleApi(req, res, urlPath) {
           name: p.name,
           car: p.car,
           color: p.color,
+          rims: p.rims,
+          spoiler: p.spoiler,
+          neon: p.neon,
           x: p.x,
           y: p.y,
           z: p.z,
           h: p.h,
           v: p.v,
           steer: p.steer,
+          yawRate: p.yawRate,
+          braking: p.braking,
+          lights: p.lights,
+          drifting: p.drifting,
           chat: Date.now() - (p.chatTs || 0) < 7000 ? p.chat : '',
           chatTs: p.chatTs || 0,
         });

@@ -46,8 +46,23 @@ export function updateCamera(camera, v, boost, dt) {
   camera.lookAt(look);
 }
 
-// Bosh menyu fonida mashina atrofida aylanadigan kamera
+// Bosh menyu fonida AAA o'yinlar uslubidagi kinematik 3D kamera
 export function menuCamera(camera, v, t) {
-  camera.position.set(v.x + Math.sin(t * 0.15) * 11, 3.2, v.z + Math.cos(t * 0.15) * 11);
-  camera.lookAt(v.x, 1, v.z);
+  const targetFov = 50;
+  fov += (targetFov - fov) * 0.08;
+  camera.fov = fov;
+  camera.updateProjectionMatrix();
+
+  const ang = v.heading + 0.65 + Math.sin(t * 0.32) * 0.75 + t * 0.14;
+  const dist = 6.2 + Math.sin(t * 0.45) * 0.7;
+  const h = 1.45 + Math.sin(t * 0.38) * 0.38;
+  camera.position.set(
+    v.x + Math.sin(ang) * dist,
+    h,
+    v.z + Math.cos(ang) * dist
+  );
+  // Mashina ekran markazida/chaprog'ida yirik va salobatli ko'rinishi uchun
+  const rightX = Math.cos(ang), rightZ = -Math.sin(ang);
+  const offset = innerWidth > 820 ? 1.15 : 0;
+  camera.lookAt(v.x + rightX * offset, 0.85, v.z + rightZ * offset);
 }
