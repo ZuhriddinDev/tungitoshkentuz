@@ -298,6 +298,45 @@ export function setName(n) {
   syncEconomyWithServer().catch(() => {});
 }
 
+export async function claimUsernameServer(rawName) {
+  const clean = String(rawName || '').replace(/\s+/g, ' ').trim().slice(0, 18);
+  if (!clean || clean.toLowerCase() === 'haydovchi') {
+    state.name = 'Haydovchi';
+    emit();
+    return { ok: true, name: 'Haydovchi' };
+  }
+  if (clean.length < 2) {
+    return { ok: false, taken: false, error: "Ism kamida 2 ta belgidan iborat bo'lishi kerak!" };
+  }
+  try {
+    const res = await fetch('/api/economy/set-name', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: state.playerId,
+        name: clean,
+        secret: state.secret,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      return {
+        ok: false,
+        taken: !!data.taken,
+        error: data.error || `❌ «${clean}» nomi allaqachon band! Boshqa ism tanlang.`,
+      };
+    }
+    state.name = data.name || clean;
+    emit();
+    return { ok: true, name: state.name };
+  } catch {
+    // Offline fallback
+    state.name = clean;
+    emit();
+    return { ok: true, name: clean };
+  }
+}
+
 export function touch() { emit(); }
 
 export function today() {
@@ -453,6 +492,9 @@ export async function syncEconomyWithServer(extra = {}) {
         // Agar lokal balans 5 mlrd bo'lsa va serverdan kelgan balans aniq bo'lsa
         setMoneyInternal(data.money);
       }
+      if (data.nameTaken && data.name) {
+        state.name = data.name;
+      }
       if (data.daily) {
         state.daily7 = {
           streak: data.daily.streak ?? state.daily7.streak,
@@ -575,23 +617,6 @@ export async function redeemPromocodeServer(code) {
       reason: `Promokod (${data.code}): ${data.reward?.title || ''}`,
     });
     emit();
-    return data;
-  } catch {
-    return { ok: false, error: "Server bilan aloqa yo'q" };
-  }
-}
-
-export async function adminPromocodeServer(payload) {
-  try {
-    const res = await fetch('/api/economy/promocode/admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      return { ok: false, error: data.error || 'Admin xatosi' };
-    }
     return data;
   } catch {
     return { ok: false, error: "Server bilan aloqa yo'q" };

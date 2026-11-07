@@ -9,6 +9,7 @@ import {
   touch,
   save,
   setName,
+  claimUsernameServer,
   canClaimDaily,
   onChange,
   syncEconomyWithServer,
@@ -759,7 +760,16 @@ async function play(openFriendsModal = false) {
     name = 'Haydovchi';
     $('nameInput').value = name;
   }
-  setName(name);
+  const claimRes = await claimUsernameServer(name);
+  if (!claimRes.ok) {
+    beep('err');
+    toast(claimRes.error || `❌ «${name}» nomi allaqachon band! Boshqa ism tanlang.`, 'err');
+    $('nameInput')?.focus();
+    $('nameInput')?.select?.();
+    return;
+  }
+  name = claimRes.name || name;
+  $('nameInput').value = name;
   try {
     screen.orientation?.lock?.('landscape').catch(() => {});
   } catch { /* */ }
@@ -794,9 +804,15 @@ $('playBtn').onclick = () => play(false);
 if ($('playFriendsBtn')) {
   $('playFriendsBtn').onclick = () => play(true);
 }
-$('nameInput').addEventListener('change', () => {
+$('nameInput').addEventListener('change', async () => {
   const v = $('nameInput').value.trim();
-  if (v) setName(v);
+  if (!v) return;
+  const res = await claimUsernameServer(v);
+  if (!res.ok) {
+    beep('err');
+    toast(res.error || `❌ «${v}» nomi band! Boshqa ism tanlang.`, 'err');
+    $('nameInput').focus();
+  }
 });
 $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') play(false); });
 document.addEventListener('visibilitychange', () => { suspend(document.hidden); if (document.hidden) save(true); });

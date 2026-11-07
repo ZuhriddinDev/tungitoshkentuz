@@ -49,7 +49,31 @@ const wsClients = new Map();
 
 const DEPOSIT_RACE_BONUS_RATE = 1.0; // +100% O'yin bonusi (sozlanadigan)
 const START_MONEY = 5_000_000_000;   // 5 milliard virtual pul (V9 boshlang'ich balans)
-const ADMIN_PASSKEYS = new Set(['TOSHKENT2026', 'ADMIN777', process.env.ADMIN_KEY || 'TOSHKENT2026']);
+
+// Maxfiy 20 ta Promokod (50 mln so'mdan 850 mln so'mgacha) — faqat SHA-256 xesh ko'rinishida saqlanadi,
+// shunda hech kim kodni manba kodidan yoki brauzerdan ko'ra olmaydi.
+const SECRET_PROMOS_V9 = [
+  { id: 'P01', hash: '9993ef86a86254751c46db4a3370fa91a5e239bd315dfd4b950d74b7bfc49728', money: 50_000_000,  title: "50 000 000 so'm Maxsus Bonus" },
+  { id: 'P02', hash: '9811ca89e7d80afb1720b0272be348ad5128dbded97ba4c1598d35b10fce928e', money: 75_000_000,  title: "75 000 000 so'm Maxsus Bonus" },
+  { id: 'P03', hash: '190b463b3fc0e180583d4c6b4f680c8faef2b939a42ce6b60ad9ba4cd2674572', money: 100_000_000, title: "100 000 000 so'm Maxsus Bonus" },
+  { id: 'P04', hash: '61188679c81ca8a83c255d0e80afb7702c980c03e52f0715ec54eed2f9cfce46', money: 125_000_000, title: "125 000 000 so'm Maxsus Bonus" },
+  { id: 'P05', hash: '76c6dcca279dc6e1439a1ab8672eef26db5385bafe12f20224588be8a8409472', money: 150_000_000, title: "150 000 000 so'm Maxsus Bonus" },
+  { id: 'P06', hash: '7a287159e454b6d17fd86298dbd6ab7086fdd21753770be7e0cdc4f8bc9da3e9', money: 180_000_000, title: "180 000 000 so'm Maxsus Bonus" },
+  { id: 'P07', hash: '6b599085ec6cd845fc4809789c2bd5c35ab78bbb3c6008e8af539decf891aa9a', money: 210_000_000, title: "210 000 000 so'm Maxsus Bonus" },
+  { id: 'P08', hash: '7a987285b8e27d27ec03aff9ceb0c9efe315bbbc24414d46e0885b8befdef53e', money: 250_000_000, title: "250 000 000 so'm Maxsus Bonus" },
+  { id: 'P09', hash: '229a3522798efab75ae1f70071275696dfc55cd75cdea7386c0253b8fc2798bc', money: 290_000_000, title: "290 000 000 so'm Maxsus Bonus" },
+  { id: 'P10', hash: 'c4dd230287521b09b82d0227c10766e809dc9bcbb8641df3d00e65bd2d158398', money: 330_000_000, title: "330 000 000 so'm Maxsus Bonus" },
+  { id: 'P11', hash: '07feb9148a0c1cc9219f3b4e659b6387d4c4b58a50361128521a49a661a3823f', money: 380_000_000, title: "380 000 000 so'm Maxsus Bonus" },
+  { id: 'P12', hash: '529494def852401695820d1f4128c66520dc9ae4f3142a82fae2ba17ec6dd2eb', money: 420_000_000, title: "420 000 000 so'm Maxsus Bonus" },
+  { id: 'P13', hash: '0e5ae9b42b74eb184e9ad97fff4b4f66ac2caa5be7895e3806290eeef910cd50', money: 470_000_000, title: "470 000 000 so'm Maxsus Bonus" },
+  { id: 'P14', hash: '838c192eee35f1285bf4219c9c750283295d75573231b846da4a2eec684de3d6', money: 520_000_000, title: "520 000 000 so'm Maxsus Bonus" },
+  { id: 'P15', hash: 'e337687b00fe415344aa85d56a7e22ada9eda3e3e156fdde7e970b9e85121ace', money: 580_000_000, title: "580 000 000 so'm Maxsus Bonus" },
+  { id: 'P16', hash: '63f9d31f3e4ac9d5e984c76bfd076253e9e38d9de0190963425d8943155cdfe3', money: 630_000_000, title: "630 000 000 so'm Maxsus Bonus" },
+  { id: 'P17', hash: 'afdd529e170dfae433653d27dc1667f727f0c542be77a42b2dd1bf4570aaa9d5', money: 690_000_000, title: "690 000 000 so'm Maxsus Bonus" },
+  { id: 'P18', hash: 'f2aae808a6cf935a8910ddffe4c85ea633a6442aab18ea8daf62de79e31b7fde', money: 740_000_000, title: "740 000 000 so'm Maxsus Bonus" },
+  { id: 'P19', hash: '4209a970e605433304a9314ebba018d1bbe2523560d98feec81399ef1d9c97e7', money: 800_000_000, title: "800 000 000 so'm VIP Bonus" },
+  { id: 'P20', hash: '94decf139981d14b790c9068c5ed4b20598603073d6ac698ddb0d8488d2ba4f6', money: 850_000_000, title: "850 000 000 so'm Maksimal VIP Bonus" },
+];
 
 const DAILY_REWARDS_SERVER = [
   { day: 1, money: 25_000_000,  car: null,   title: "25 000 000 so'm" },
@@ -63,8 +87,8 @@ const DAILY_REWARDS_SERVER = [
 
 // accounts: Map<playerId, { id, name, secret, money, econVer, cars: string[], daily: { streak, lastClaimDay, lastClaimTs }, usedPromos: string[], transfers: Array, processedOps: string[], updatedAt }>
 const accounts = new Map();
-// promocodes: Map<code, { code, money, car, title, maxUses, usedCount, expiresAt, usedBy: string[], createdAt }>
-const promocodes = new Map();
+// usernameToId: Map<lowerUsername, playerId> — har bir foydalanuvchi nomi (username) yagona bo'lishini ta'minlaydi
+const usernameToId = new Map();
 // processedTxIds: Set<string>
 const processedTxIds = new Set();
 // transferRateLimit: Map<playerId, number>
@@ -73,25 +97,82 @@ const transferRateLimit = new Map();
 const DATA_DIR = path.join(ROOT, 'data');
 const ECON_FILE = path.join(DATA_DIR, 'economy.json');
 
-function seedDefaultPromocodes() {
-  const defaults = [
-    { code: 'TOSHKENT2026', money: 250_000_000, car: null,    title: "250 000 000 so'm Tungi Toshkent Bonusi", maxUses: 100000, expiresAt: Date.now() + 365 * 86400_000 },
-    { code: 'TUNGI500',     money: 500_000_000, car: null,    title: "500 000 000 so'm VIP Bonus",            maxUses: 50000,  expiresAt: Date.now() + 365 * 86400_000 },
-    { code: 'GELIK777',     money: 300_000_000, car: null,    title: "300 000 000 so'm Gelik Fondi",          maxUses: 50000,  expiresAt: Date.now() + 365 * 86400_000 },
-    { code: 'MALIBU',       money: 150_000_000, car: null,    title: "150 000 000 so'm Malibu Bonusi",        maxUses: 100000, expiresAt: Date.now() + 365 * 86400_000 },
-    { code: 'VIPUZB',       money: 1_000_000_000, car: null,  title: "1 000 000 000 so'm Mega Bonus",         maxUses: 25000,  expiresAt: Date.now() + 365 * 86400_000 },
-    { code: 'SUPRA2026',    money: 200_000_000, car: 'supra', title: "Toyota GR Supra + 200 mln so'm",        maxUses: 25000,  expiresAt: Date.now() + 365 * 86400_000 },
-  ];
-  for (const p of defaults) {
-    if (!promocodes.has(p.code)) {
-      promocodes.set(p.code, {
-        ...p,
-        usedCount: 0,
-        usedBy: [],
-        createdAt: Date.now(),
-      });
+function normalizeUsername(raw) {
+  return String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 18);
+}
+
+function isGenericUsername(name) {
+  if (!name) return true;
+  const lower = name.toLowerCase();
+  return lower === 'haydovchi' || lower === 'siz' || /^haydovchi[\s_-]*\d*$/i.test(lower);
+}
+
+function findUsernameOwnerId(rawName, excludePid = null) {
+  const clean = normalizeUsername(rawName);
+  if (isGenericUsername(clean)) return null;
+  const lower = clean.toLowerCase();
+
+  const mappedOwner = usernameToId.get(lower);
+  if (mappedOwner && mappedOwner !== excludePid) {
+    return mappedOwner;
+  }
+  for (const acc of accounts.values()) {
+    if (acc.id !== excludePid && acc.name && acc.name.toLowerCase() === lower) {
+      usernameToId.set(lower, acc.id);
+      return acc.id;
     }
   }
+  for (const r of rooms.values()) {
+    for (const [pid, p] of r.players.entries()) {
+      if (pid !== excludePid && p.name && p.name.toLowerCase() === lower) {
+        usernameToId.set(lower, pid);
+        return pid;
+      }
+    }
+  }
+  return null;
+}
+
+function checkAndClaimUsername(pid, rawName) {
+  const clean = normalizeUsername(rawName);
+  if (!clean || isGenericUsername(clean)) {
+    return { ok: true, name: 'Haydovchi' };
+  }
+  if (clean.length < 2) {
+    return { ok: false, taken: false, error: "Ism kamida 2 ta belgidan iborat bo'lishi kerak!" };
+  }
+  const ownerId = findUsernameOwnerId(clean, pid);
+  if (ownerId && ownerId !== pid) {
+    return {
+      ok: false,
+      taken: true,
+      error: `❌ «${clean}» nomi allaqachon band! Boshqa ism tanlang.`,
+    };
+  }
+
+  // Agar foydalanuvchining eski nomi boshqa bo'lsa, eski bandlovni bo'shatamiz
+  const acc = accounts.get(pid);
+  if (acc && acc.name && !isGenericUsername(acc.name)) {
+    const oldLower = acc.name.toLowerCase();
+    if (oldLower !== clean.toLowerCase() && usernameToId.get(oldLower) === pid) {
+      usernameToId.delete(oldLower);
+    }
+  }
+
+  usernameToId.set(clean.toLowerCase(), pid);
+  if (acc) {
+    acc.name = clean;
+    acc.updatedAt = Date.now();
+    scheduleSaveEconomy();
+  }
+  // Aktiv xonadagi nomini ham darhol yangilaymiz
+  const rId = playerRoom.get(pid);
+  const r = rId ? rooms.get(rId) : null;
+  if (r && r.players.has(pid)) {
+    r.players.get(pid).name = clean;
+  }
+
+  return { ok: true, name: clean };
 }
 
 function loadEconomyStore() {
@@ -100,12 +181,21 @@ function loadEconomyStore() {
       const raw = JSON.parse(fs.readFileSync(ECON_FILE, 'utf8'));
       if (Array.isArray(raw.accounts)) {
         for (const a of raw.accounts) {
-          if (a && a.id) accounts.set(a.id, a);
-        }
-      }
-      if (Array.isArray(raw.promocodes)) {
-        for (const p of raw.promocodes) {
-          if (p && p.code) promocodes.set(p.code, p);
+          if (a && a.id) {
+            // Eski ommaviy promokodlarni tozalab, faqat V9 maxfiy promokod tizimini qoldiramiz
+            if (Array.isArray(a.usedPromos)) {
+              a.usedPromos = a.usedPromos.filter((x) => String(x).startsWith('P') || String(x).includes('****'));
+            }
+            accounts.set(a.id, a);
+            if (a.name && !isGenericUsername(a.name)) {
+              const lower = a.name.toLowerCase();
+              if (!usernameToId.has(lower)) {
+                usernameToId.set(lower, a.id);
+              } else if (usernameToId.get(lower) !== a.id) {
+                a.name = 'Haydovchi';
+              }
+            }
+          }
         }
       }
       if (Array.isArray(raw.processedTxIds)) {
@@ -113,7 +203,6 @@ function loadEconomyStore() {
       }
     }
   } catch { /* ignore corrupt file */ }
-  seedDefaultPromocodes();
 }
 loadEconomyStore();
 
@@ -126,7 +215,6 @@ function scheduleSaveEconomy() {
       if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
       const payload = {
         accounts: Array.from(accounts.values()).slice(-5000),
-        promocodes: Array.from(promocodes.values()),
         processedTxIds: Array.from(processedTxIds).slice(-5000),
       };
       fs.writeFileSync(ECON_FILE, JSON.stringify(payload), 'utf8');
@@ -148,10 +236,14 @@ function getYesterdayKeyServer() {
 
 function getOrCreateAccount(id, name = 'Haydovchi', secret = '') {
   let acc = accounts.get(id);
+  const reqCleanName = normalizeUsername(name);
+  const canUseReqName = !isGenericUsername(reqCleanName) && !findUsernameOwnerId(reqCleanName, id);
+
   if (!acc) {
+    const finalName = canUseReqName ? reqCleanName : 'Haydovchi';
     acc = {
       id,
-      name: String(name || 'Haydovchi').trim().slice(0, 18) || 'Haydovchi',
+      name: finalName,
       secret: String(secret || '').slice(0, 64),
       money: START_MONEY,
       econVer: 9,
@@ -163,9 +255,14 @@ function getOrCreateAccount(id, name = 'Haydovchi', secret = '') {
       updatedAt: Date.now(),
     };
     accounts.set(id, acc);
+    if (!isGenericUsername(finalName)) {
+      usernameToId.set(finalName.toLowerCase(), id);
+    }
     scheduleSaveEconomy();
   } else {
-    if (name && name !== 'Haydovchi') acc.name = String(name).trim().slice(0, 18);
+    if (canUseReqName && acc.name !== reqCleanName) {
+      checkAndClaimUsername(id, reqCleanName);
+    }
     if (!acc.secret && secret) acc.secret = String(secret).slice(0, 64);
     if ((acc.econVer || 0) < 9) {
       acc.money = Math.max(Number(acc.money) || 0, START_MONEY);
@@ -278,12 +375,16 @@ function sanitizePlayerState(id, raw = {}, prev = null) {
   const now = Date.now();
   const chat = raw.chat ? String(raw.chat).slice(0, 64) : (prev && now - (prev.chatTs || 0) < 8000 ? prev.chat : '');
   const chatTs = raw.chat ? Number(raw.chatTs) || now : (prev?.chatTs || 0);
-  const name = String(raw.name || prev?.name || 'Haydovchi').trim().slice(0, 18) || 'Haydovchi';
-
-  // Foydalanuvchi akkauntida ismini yangilab boramiz (qidiruv ishlashi uchun)
+  const rawName = normalizeUsername(raw.name || prev?.name || 'Haydovchi') || 'Haydovchi';
   const acc = accounts.get(id);
-  if (acc && name && name !== 'Haydovchi') {
-    acc.name = name;
+
+  // Username boshqa o'yinchi tomonidan band qilingan bo'lsa, uni o'zlashtirib olishga ruxsat bermaymiz
+  let name = rawName;
+  const ownerId = findUsernameOwnerId(rawName, id);
+  if (ownerId && ownerId !== id) {
+    name = (acc && acc.name && !findUsernameOwnerId(acc.name, id)) ? acc.name : (prev?.name && !findUsernameOwnerId(prev.name, id) ? prev.name : 'Haydovchi');
+  } else if (!isGenericUsername(rawName)) {
+    checkAndClaimUsername(id, rawName);
   }
 
   return {
@@ -1073,12 +1174,35 @@ async function handleApi(req, res, urlPath) {
   // ==========================================================================
   // V9 ECONOMY, P2P TRANSFER, PROMOCODE & 7-DAY DAILY BONUS ENDPOINTS
   // ==========================================================================
+  if (urlPath === '/api/economy/set-name' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const id = sanitizeId(body.id);
+    if (!id) return sendJson(res, 400, { ok: false, error: 'Player ID topilmadi' });
+
+    getOrCreateAccount(id, 'Haydovchi', body.secret);
+    const result = checkAndClaimUsername(id, body.name);
+    if (!result.ok) {
+      return sendJson(res, 409, {
+        ok: false,
+        taken: !!result.taken,
+        error: result.error || 'Ushbu ism band!',
+      });
+    }
+    sendJson(res, 200, {
+      ok: true,
+      name: result.name,
+    });
+    return;
+  }
+
   if (urlPath === '/api/economy/sync' && req.method === 'POST') {
     const body = await parseBody(req);
     const id = sanitizeId(body.id);
     if (!id) return sendJson(res, 400, { ok: false, error: 'Player ID topilmadi' });
 
-    const acc = getOrCreateAccount(id, body.name, body.secret);
+    const reqCleanName = normalizeUsername(body.name);
+    const nameTakenByOther = !isGenericUsername(reqCleanName) && !!findUsernameOwnerId(reqCleanName, id);
+    const acc = getOrCreateAccount(id, nameTakenByOther ? 'Haydovchi' : body.name, body.secret);
     // Mashinalar ro'yxatini birlashtirish
     if (Array.isArray(body.cars)) {
       for (const c of body.cars) {
@@ -1120,6 +1244,7 @@ async function handleApi(req, res, urlPath) {
       ok: true,
       id: acc.id,
       name: acc.name,
+      nameTaken: nameTakenByOther,
       money: acc.money,
       cars: acc.cars,
       daily: {
@@ -1328,102 +1453,42 @@ async function handleApi(req, res, urlPath) {
     const id = sanitizeId(body.id);
     if (!id) return sendJson(res, 400, { ok: false, error: 'Player ID topilmadi' });
 
-    const code = String(body.code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
-    if (!code) return sendJson(res, 400, { ok: false, error: 'Promokodni kiriting!' });
+    const rawInput = String(body.code || '').trim().toUpperCase().slice(0, 24);
+    const cleanCode = rawInput.replace(/[^A-Z0-9]/g, '');
+    if (!cleanCode) return sendJson(res, 400, { ok: false, error: 'Promokodni kiriting!' });
 
-    const promo = promocodes.get(code);
+    const codeHash = crypto.createHash('sha256').update('tt_v9_promo_' + cleanCode).digest('hex');
+    const promo = SECRET_PROMOS_V9.find((p) => p.hash === codeHash);
     if (!promo) {
-      return sendJson(res, 404, { ok: false, error: `«${code}» promokodi mavjud emas!` });
-    }
-    if (promo.expiresAt && Date.now() > promo.expiresAt) {
-      return sendJson(res, 400, { ok: false, error: `«${code}» promokodining amal qilish muddati tugagan!` });
-    }
-    if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) {
-      return sendJson(res, 400, { ok: false, error: `«${code}» promokodi foydalanish limiti tugagan!` });
+      return sendJson(res, 404, { ok: false, error: 'Promokod noto‘g‘ri yoki mavjud emas!' });
     }
 
     const acc = getOrCreateAccount(id, body.name, body.secret);
-    if (acc.usedPromos.includes(code) || (Array.isArray(promo.usedBy) && promo.usedBy.includes(id))) {
-      return sendJson(res, 400, { ok: false, error: `Siz «${code}» promokodidan allaqachon foydalangansiz!` });
+    const maskedCode = cleanCode.slice(0, 4) + '-****';
+    if (acc.usedPromos.includes(promo.id) || acc.usedPromos.includes(maskedCode)) {
+      return sendJson(res, 400, { ok: false, error: 'Siz ushbu promokoddan allaqachon foydalangansiz!' });
     }
 
-    promo.usedCount = (promo.usedCount || 0) + 1;
-    if (!Array.isArray(promo.usedBy)) promo.usedBy = [];
-    promo.usedBy.push(id);
-    acc.usedPromos.push(code);
+    acc.usedPromos.push(promo.id);
 
     const moneyReward = Math.max(0, Number(promo.money) || 0);
     acc.money += moneyReward;
-    let carReward = null;
-    if (promo.car) {
-      carReward = String(promo.car);
-      if (!acc.cars.includes(carReward)) acc.cars.push(carReward);
-    }
     acc.updatedAt = Date.now();
     scheduleSaveEconomy();
 
     sendJson(res, 200, {
       ok: true,
-      code,
+      code: maskedCode,
+      promoId: promo.id,
       reward: {
         money: moneyReward,
-        car: carReward,
+        car: null,
         title: promo.title || `${moneyReward.toLocaleString('ru-RU')} so'm`,
       },
       money: acc.money,
       cars: acc.cars,
       usedPromos: acc.usedPromos,
     });
-    return;
-  }
-
-  if (urlPath === '/api/economy/promocode/admin' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const adminKey = String(body.adminKey || '').trim();
-    if (!ADMIN_PASSKEYS.has(adminKey)) {
-      return sendJson(res, 403, { ok: false, error: "Admin kaliti noto'g'ri!" });
-    }
-
-    const action = String(body.action || 'list').trim();
-    if (action === 'create') {
-      const code = String(body.code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
-      if (!code || code.length < 3) {
-        return sendJson(res, 400, { ok: false, error: 'Promokod kamida 3 ta belgidan iborat bo\'lishi kerak' });
-      }
-      const money = clampNum(body.money, 0, 50_000_000_000, 100_000_000);
-      const car = body.car ? String(body.car).trim().slice(0, 16) : null;
-      const maxUses = clampNum(body.maxUses, 1, 1_000_000, 1000);
-      const daysValid = clampNum(body.daysValid, 1, 3650, 30);
-      const title = String(body.title || `${money.toLocaleString('ru-RU')} so'm${car ? ` + ${car.toUpperCase()}` : ''}`).slice(0, 64);
-
-      promocodes.set(code, {
-        code,
-        money,
-        car,
-        title,
-        maxUses,
-        usedCount: 0,
-        usedBy: [],
-        expiresAt: Date.now() + daysValid * 86400_000,
-        createdAt: Date.now(),
-      });
-      scheduleSaveEconomy();
-    } else if (action === 'delete') {
-      const code = String(body.code || '').trim().toUpperCase();
-      promocodes.delete(code);
-      scheduleSaveEconomy();
-    }
-
-    const list = Array.from(promocodes.values()).map((p) => ({
-      code: p.code,
-      money: p.money,
-      car: p.car,
-      title: p.title,
-      maxUses: p.maxUses,
-      usedCount: p.usedCount || 0,
-      expiresAt: p.expiresAt,
-    }));
-    sendJson(res, 200, { ok: true, promocodes: list });
     return;
   }
 

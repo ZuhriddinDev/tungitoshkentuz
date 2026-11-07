@@ -140,8 +140,8 @@ export function createRenderer(canvas, quality) {
         window.scrollTo(0, 0);
       }
       const vv = window.visualViewport;
-      const rawW = vv && vv.width > 0 ? vv.width : (document.documentElement.clientWidth || window.innerWidth);
-      const rawH = vv && vv.height > 0 ? vv.height : (document.documentElement.clientHeight || window.innerHeight);
+      const rawW = vv && vv.width > 0 ? vv.width : (window.innerWidth || document.documentElement.clientWidth);
+      const rawH = vv && vv.height > 0 ? vv.height : (window.innerHeight || document.documentElement.clientHeight);
 
       const isPhoneDevice = IS_MOBILE || document.body.classList.contains('phone');
       const autoRotateToLandscape = isPhoneDevice && rawH > rawW;
@@ -153,6 +153,7 @@ export function createRenderer(canvas, quality) {
 
       document.documentElement.style.setProperty('--app-w', `${w}px`);
       document.documentElement.style.setProperty('--app-h', `${h}px`);
+      document.documentElement.classList.toggle('auto-landscape-html', autoRotateToLandscape);
       document.body.classList.toggle('auto-landscape-rot', autoRotateToLandscape);
       document.body.classList.remove('is-portrait');
       document.body.classList.add('is-landscape');

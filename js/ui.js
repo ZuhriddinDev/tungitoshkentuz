@@ -11,10 +11,10 @@ import {
   dailyTasks,
   resetSave,
   setName,
+  claimUsernameServer,
   lookupPlayerServer,
   transferMoneyServer,
   redeemPromocodeServer,
-  adminPromocodeServer,
   applyServerTransferPush,
 } from './state.js';
 import { MISSIONS, mission, startMission, cancelMission } from './missions.js';
@@ -409,108 +409,42 @@ function transferModal() {
   };
 }
 
-// ---------- 7. PROMOKOD TIZIMI VA ADMIN PANEL ----------
-let unlockedAdminKey = '';
-let adminPromoList = [];
-
+// ---------- 7. MAXFIY PROMOKOD TIZIMI (FAQAT KIRITISH OYNASI) ----------
 function promocodeModal() {
-  const body = showModal('promocode', '🎟️ Promokod va Bonuslar Markazi', `
-    <div class="set-grid">
-      <section class="set-card">
-        <h3>🎁 Promokod Kiritish</h3>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:10px">
-          Maxsus promokodni kiriting va virtual pul yoki eksklyuziv avtomobil sovg‘asiga ega bo‘ling!
-        </p>
-        <div class="row">
-          <input id="promoCodeInput" maxlength="24" placeholder="PROMOKODNI KIRITING..." style="margin:0;text-transform:uppercase;font-weight:900;letter-spacing:1.5px;font-size:16px" autocomplete="off" />
-          <button type="button" class="btn gold" id="redeemPromoBtn" style="flex:0 0 auto">🎉 Faollashtirish</button>
-        </div>
+  const usedCount = Array.isArray(state.usedPromos) ? state.usedPromos.length : 0;
+  const body = showModal('promocode', '🎟️ Maxfiy Promokod Markazi', `
+    <div class="card" style="max-width:560px;margin:0 auto;padding:18px;border:1.5px solid rgba(0,229,255,0.38)">
+      <h3 style="margin-bottom:6px;color:var(--gold)">🎁 Maxsus Promokod Kiritish</h3>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+        Faqat rasmiy berilgan maxfiy promokodni kiriting va <b>50 000 000 so‘mdan 850 000 000 so‘mgacha</b> virtual pul mukofotiga ega bo‘ling!
+      </p>
+      <div class="row">
+        <input id="promoCodeInput" maxlength="24" placeholder="PROMOKODNI TERING..." style="margin:0;text-transform:uppercase;font-weight:900;letter-spacing:2px;font-size:16px" autocomplete="off" />
+        <button type="button" class="btn gold" id="redeemPromoBtn" style="flex:0 0 auto">🎉 Faollashtirish</button>
+      </div>
 
-        <div id="promoResultBox" class="card hidden" style="margin-top:10px;border-color:var(--green)"></div>
+      <div id="promoResultBox" class="card hidden" style="margin-top:12px;border-color:var(--green)"></div>
 
-        <div class="section-title" style="margin-top:14px">🔥 Faol rasmiy promokodlar (bosing va oling)</div>
-        <div class="opts">
-          ${['TOSHKENT2026', 'TUNGI500', 'GELIK777', 'MALIBU', 'VIPUZB', 'SUPRA2026'].map((code) => {
-            const used = state.usedPromos?.includes(code);
-            return `<button type="button" class="btn sm-btn ${used ? '' : 'primary'}" data-fill-promo="${code}" ${used ? 'disabled' : ''}>
-              ${used ? '✅' : '🎟️'} ${code}
-            </button>`;
-          }).join('')}
-        </div>
-
-        <div class="section-title" style="margin-top:14px">Foydalanilgan promokodlar (${state.usedPromos?.length || 0})</div>
-        <div class="list">
-          ${(!state.usedPromos || state.usedPromos.length === 0)
-            ? '<div style="color:var(--muted);justify-content:center">Hali promokod ishlatilmagan</div>'
-            : state.usedPromos.map((c) => `<div><span>✅ <b>${c}</b></span><small style="color:var(--green)">Faollashtirilgan</small></div>`).join('')}
-        </div>
-      </section>
-
-      <section class="set-card">
-        <h3>🔐 Admin Panel (Promokod Boshqaruvi)</h3>
-        ${!unlockedAdminKey ? `
-          <p style="font-size:12px;color:var(--muted);margin-bottom:8px">
-            Yangi promokod yaratish, limit belgilash yoki o‘chirish uchun Admin kalitini kiriting:
-          </p>
-          <div class="row">
-            <input type="password" id="adminKeyInput" placeholder="Admin kaliti..." style="margin:0" />
-            <button type="button" class="btn primary" id="unlockAdminBtn" style="flex:0 0 auto">🔓 Kirish</button>
-          </div>
-        ` : `
-          <div class="card" style="margin-bottom:10px">
-            <h4 style="margin-bottom:6px;color:var(--cyan)">➕ Yangi Promokod Yaratish</h4>
-            <div class="row" style="margin-bottom:6px">
-              <input id="admNewCode" maxlength="20" placeholder="KOD (masalan: BONUS999)" style="margin:0;text-transform:uppercase;font-weight:800" />
-              <input type="number" id="admNewMoney" value="250000000" step="50000000" placeholder="Pul mukofoti (so'm)" style="margin:0" />
-            </div>
-            <div class="row" style="margin-bottom:6px">
-              <select id="admNewCar" style="margin:0">
-                <option value="">🚗 Mashina sovg'asi yo'q (Faqat pul)</option>
-                ${CARS.map((c) => `<option value="${c.id}">🎁 + ${c.name}</option>`).join('')}
-              </select>
-              <input type="number" id="admNewMaxUses" value="500" min="1" placeholder="Limit (ta)" style="margin:0;max-width:110px" />
-            </div>
-            <button type="button" class="btn gold" id="admCreatePromoBtn" style="width:100%">➕ Promokodni Saqlash</button>
-          </div>
-
-          <div class="section-title">Serverdagi barcha promokodlar (${adminPromoList.length})</div>
-          <div class="list" style="max-height:220px;overflow-y:auto">
-            ${adminPromoList.map((p) => `
-              <div>
-                <span>
-                  <b>${p.code}</b> · <small style="color:var(--gold)">${p.title}</small>
-                  <br/><small style="color:var(--muted)">Ishlatildi: ${p.usedCount}/${p.maxUses}</small>
-                </span>
-                <button type="button" class="btn sm-btn danger" data-del-promo="${p.code}">🗑</button>
-              </div>
-            `).join('')}
-          </div>
-        `}
-      </section>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:10px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)">
+        <span>🎟️ Siz faollashtirgan maxfiy promokodlar:</span>
+        <b style="color:var(--cyan)">${usedCount} / 20</b>
+      </div>
     </div>
   `);
 
   const codeInp = body.querySelector('#promoCodeInput');
   const redeemBtn = body.querySelector('#redeemPromoBtn');
-  const resBox = body.querySelector('#promoResultBox');
 
-  body.querySelectorAll('[data-fill-promo]').forEach((b) => {
-    b.onclick = () => {
-      codeInp.value = b.dataset.fillPromo;
-      redeemBtn.click();
-    };
-  });
-
-  redeemBtn.onclick = async () => {
+  const doRedeem = async () => {
     const code = codeInp.value.trim().toUpperCase();
     if (!code) return toast('Promokodni kiriting!', 'err');
     redeemBtn.disabled = true;
-    redeemBtn.textContent = '⏳...';
+    redeemBtn.textContent = '⏳ Tekshirilmoqda...';
 
     const res = await redeemPromocodeServer(code);
     if (!res.ok) {
       beep('err');
-      toast(res.error || 'Promokod xatosi', 'err');
+      toast(res.error || "Promokod noto'g'ri yoki ishlatilgan!", 'err');
       redeemBtn.disabled = false;
       redeemBtn.textContent = '🎉 Faollashtirish';
       return;
@@ -520,73 +454,18 @@ function promocodeModal() {
     if (res.reward?.car) {
       await game.changeCar?.();
     }
-    toast(`🎉 Promokod (${res.code}) faollashtirildi: ${res.reward?.title}!`, 'cash');
+    toast(`🎉 Promokod faollashtirildi! +${res.reward?.title}!`, 'cash');
     promocodeModal();
     const box = document.getElementById('promoResultBox');
     if (box) {
       box.classList.remove('hidden');
-      box.innerHTML = `✅ <b>${res.code}</b> muvaffaqiyatli faollashtirildi! Mukofot: <b style="color:var(--gold)">${res.reward?.title}</b>`;
+      box.innerHTML = `✅ Promokod muvaffaqiyatli faollashtirildi! Mukofot: <b style="color:var(--gold)">+${res.reward?.title}</b>`;
     }
   };
 
-  const unlockBtn = body.querySelector('#unlockAdminBtn');
-  if (unlockBtn) {
-    unlockBtn.onclick = async () => {
-      const key = body.querySelector('#adminKeyInput')?.value.trim();
-      if (!key) return toast('Admin kalitini kiriting', 'err');
-      const res = await adminPromocodeServer({ adminKey: key, action: 'list' });
-      if (!res.ok) {
-        beep('err');
-        return toast(res.error || "Admin kaliti noto'g'ri!", 'err');
-      }
-      unlockedAdminKey = key;
-      adminPromoList = res.promocodes || [];
-      beep('ok');
-      toast('🔓 Admin panel ochildi', 'ok');
-      promocodeModal();
-    };
-  }
-
-  const createBtn = body.querySelector('#admCreatePromoBtn');
-  if (createBtn) {
-    createBtn.onclick = async () => {
-      const code = body.querySelector('#admNewCode')?.value.trim().toUpperCase();
-      const money = Number(body.querySelector('#admNewMoney')?.value) || 0;
-      const car = body.querySelector('#admNewCar')?.value || null;
-      const maxUses = Number(body.querySelector('#admNewMaxUses')?.value) || 500;
-      if (!code || code.length < 3) return toast("Promokod kamida 3 ta belgidan iborat bo'lsin", 'err');
-
-      const res = await adminPromocodeServer({
-        adminKey: unlockedAdminKey,
-        action: 'create',
-        code,
-        money,
-        car,
-        maxUses,
-        daysValid: 90,
-      });
-      if (!res.ok) return toast(res.error || 'Xatolik', 'err');
-      adminPromoList = res.promocodes || [];
-      beep('cash');
-      toast(`✅ Promokod «${code}» yaratildi!`, 'cash');
-      promocodeModal();
-    };
-  }
-
-  body.querySelectorAll('[data-del-promo]').forEach((b) => {
-    b.onclick = async () => {
-      const code = b.dataset.delPromo;
-      const res = await adminPromocodeServer({
-        adminKey: unlockedAdminKey,
-        action: 'delete',
-        code,
-      });
-      if (res.ok) {
-        adminPromoList = res.promocodes || [];
-        toast(`🗑 «${code}» o'chirildi`, 'ok');
-        promocodeModal();
-      }
-    };
+  redeemBtn.onclick = doRedeem;
+  codeInp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doRedeem();
   });
 }
 
@@ -858,11 +737,19 @@ function bigMap() {
     dragStart = null;
     if (wasMoved) return;
 
-    const cw = Math.max(100, cv.clientWidth);
-    const ch = Math.max(100, cv.clientHeight);
+    const rect = cv.getBoundingClientRect();
+    let nx = 0.5;
+    let ny = 0.5;
+    if (document.body.classList.contains('auto-landscape-rot')) {
+      nx = (e.clientY - rect.top) / Math.max(1, rect.height);
+      ny = (rect.right - e.clientX) / Math.max(1, rect.width);
+    } else {
+      nx = (e.clientX - rect.left) / Math.max(1, rect.width);
+      ny = (e.clientY - rect.top) / Math.max(1, rect.height);
+    }
     const [wx, wz] = bigMapToWorld(
-      (e.offsetX / cw) * cv.width,
-      (e.offsetY / ch) * cv.height,
+      nx * cv.width,
+      ny * cv.height,
       cv.width
     );
     const hitPoi = findMapItemAt(wx, wz, 55 / Math.sqrt(mapState.zoom || 1));
@@ -1212,13 +1099,26 @@ function online() {
     navigator.clipboard?.writeText(codeToCopy);
     toast(`Nusxalandi: ${codeToCopy}`, 'ok');
   };
-  body.querySelector('#saveNameBtn').onclick = () => {
-    const v = body.querySelector('#onlineName').value.trim();
-    if (!v) return toast('Ismingizni kiriting', 'err');
-    setName(v);
-    const hn = document.getElementById('hudName'); if (hn) hn.textContent = v;
-    const mn = document.getElementById('nameInput'); if (mn) mn.value = v;
-    toast(`Ism saqlandi: ${v}`, 'ok');
+  body.querySelector('#saveNameBtn').onclick = async () => {
+    const inp = body.querySelector('#onlineName');
+    const saveBtn = body.querySelector('#saveNameBtn');
+    const v = inp.value.trim();
+    if (!v) return toast('Ismingizni kiriting!', 'err');
+    saveBtn.disabled = true;
+    saveBtn.textContent = '⏳...';
+    const res = await claimUsernameServer(v);
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Saqlash';
+    if (!res.ok) {
+      beep('err');
+      toast(res.error || `❌ «${v}» nomi allaqachon band! Boshqa ism tanlang.`, 'err');
+      inp.focus();
+      return;
+    }
+    const hn = document.getElementById('hudName'); if (hn) hn.textContent = res.name;
+    const mn = document.getElementById('nameInput'); if (mn) mn.value = res.name;
+    beep('ok');
+    toast(`✅ Ism saqlandi: ${res.name}`, 'ok');
     online();
   };
   body.querySelector('#createPrivateBtn').onclick = async () => {
