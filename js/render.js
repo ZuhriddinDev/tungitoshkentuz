@@ -142,17 +142,20 @@ export function createRenderer(canvas, quality) {
       const vv = window.visualViewport;
       const rawW = vv && vv.width > 0 ? vv.width : (document.documentElement.clientWidth || window.innerWidth);
       const rawH = vv && vv.height > 0 ? vv.height : (document.documentElement.clientHeight || window.innerHeight);
-      const w = Math.max(240, Math.round(rawW));
-      const h = Math.max(180, Math.round(rawH));
+
+      const isPhoneDevice = IS_MOBILE || document.body.classList.contains('phone');
+      const autoRotateToLandscape = isPhoneDevice && rawH > rawW;
+
+      // Telefon va iPhone'da har doim gorizontal (landscape) o'lcham ishlatiladi:
+      // Agar telefon vertikal ushlangan bo'lsa ham, avtomatik 90° gorizontal rejimga o'tadi!
+      const w = Math.max(240, Math.round(autoRotateToLandscape ? rawH : rawW));
+      const h = Math.max(180, Math.round(autoRotateToLandscape ? rawW : rawH));
 
       document.documentElement.style.setProperty('--app-w', `${w}px`);
       document.documentElement.style.setProperty('--app-h', `${h}px`);
-      const isPortrait = h > w;
-      document.body.classList.toggle('is-portrait', isPortrait);
-      document.body.classList.toggle('is-landscape', !isPortrait);
-      if (!isPortrait) {
-        document.getElementById('rotateHint')?.classList.remove('dismissed');
-      }
+      document.body.classList.toggle('auto-landscape-rot', autoRotateToLandscape);
+      document.body.classList.remove('is-portrait');
+      document.body.classList.add('is-landscape');
 
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;

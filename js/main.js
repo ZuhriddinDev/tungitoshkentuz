@@ -760,6 +760,10 @@ async function play(openFriendsModal = false) {
     $('nameInput').value = name;
   }
   setName(name);
+  try {
+    screen.orientation?.lock?.('landscape').catch(() => {});
+  } catch { /* */ }
+  R.resize();
   joinPublicServer().catch(() => {});
   const cfg0 = carById(activeCar().id);
   if (!isCarReady(cfg0)) {

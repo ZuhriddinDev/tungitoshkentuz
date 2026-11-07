@@ -58,14 +58,16 @@ function init() {
 
 function bindDrag(canvas) {
   canvas.style.touchAction = 'pan-y';
+  const getX = (e) => (document.body.classList.contains('auto-landscape-rot') ? e.clientY : e.clientX);
   canvas.onpointerdown = (e) => {
-    drag = e.clientX;
+    drag = getX(e);
     try { canvas.setPointerCapture(e.pointerId); } catch { /* */ }
   };
   canvas.onpointermove = (e) => {
     if (drag !== null) {
-      angle -= (e.clientX - drag) * 0.012;
-      drag = e.clientX;
+      const curX = getX(e);
+      angle -= (curX - drag) * 0.012;
+      drag = curX;
     }
   };
   canvas.onpointerup = canvas.onpointercancel = () => { drag = null; };

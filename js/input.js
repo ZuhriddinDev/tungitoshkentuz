@@ -1,9 +1,24 @@
-// Klaviatura, sichqoncha (360° kamera) va iPhone/Android uchun zamonaviy tugmali sensorli boshqaruv (V9)
+// Klaviatura, sichqoncha (360° kamera) va iPhone/Android uchun avtomatik gorizontal (landscape) tugmali boshqaruv (V9)
 const keys = new Set();
 const touch = { up: 0, down: 0, left: 0, right: 0, boost: 0, brake: 0, drift: 0 };
 const hot = new Map();
 export const cam = { yaw: 0, pitch: 0.25, dist: 9, lastMove: 0 };
 let enabled = true;
+
+// Telefon avtomatik 90° gorizontal rejimda (auto-landscape-rot) bo'lganda barmoq koordinatalarini o'girish
+export function getLandscapePointerXY(e) {
+  if (document.body.classList.contains('auto-landscape-rot')) {
+    const vw = window.visualViewport?.width || window.innerWidth;
+    return {
+      x: e.clientY,
+      y: vw - e.clientX,
+    };
+  }
+  return {
+    x: e.clientX,
+    y: e.clientY,
+  };
+}
 
 export function onKey(code, fn) { hot.set(code, fn); }
 export function setEnabled(v) {
@@ -32,19 +47,23 @@ export function initInput(canvas) {
     document.querySelectorAll('[data-touch].on').forEach((b) => b.classList.remove('on'));
   });
 
-  // Sichqoncha / barmoq: bo'sh joyni bosib sudrash — kamerani 360° aylantirish
+  // Sichqoncha / barmoq: bo'sh joyni bosib sudrash — kamerani 360° aylantirish (avtomatik gorizontal rejimga mos)
   let drag = null;
   canvas.addEventListener('pointerdown', (e) => {
     if (drag) return;
-    drag = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    const pt = getLandscapePointerXY(e);
+    drag = { x: pt.x, y: pt.y, id: e.pointerId };
     try { canvas.setPointerCapture(e.pointerId); } catch { /* */ }
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!drag || drag.id !== e.pointerId) return;
+    const pt = getLandscapePointerXY(e);
     const s = (window.__sens || 1) * 0.005;
-    cam.yaw -= (e.clientX - drag.x) * s;
-    cam.pitch = Math.max(-0.05, Math.min(1.2, cam.pitch + (e.clientY - drag.y) * s));
-    drag.x = e.clientX; drag.y = e.clientY; cam.lastMove = performance.now();
+    cam.yaw -= (pt.x - drag.x) * s;
+    cam.pitch = Math.max(-0.05, Math.min(1.2, cam.pitch + (pt.y - drag.y) * s));
+    drag.x = pt.x;
+    drag.y = pt.y;
+    cam.lastMove = performance.now();
   });
   const end = (e) => { if (drag && drag.id === e.pointerId) drag = null; };
   canvas.addEventListener('pointerup', end);
@@ -84,18 +103,20 @@ export function initInput(canvas) {
     b.addEventListener('lostpointercapture', off);
   });
 
-  // Chap/O'ng tugmalarda barmoqni uzmasdan surish (Slide-to-steer)
+  // Chap/O'ng tugmalarda barmoqni uzmasdan surish (Slide-to-steer — har qanday orientatsiyada aniq ishlaydi)
   const steerPad = document.getElementById('steerPad');
   if (steerPad) {
     const leftBtn = steerPad.querySelector('[data-touch="left"]');
     const rightBtn = steerPad.querySelector('[data-touch="right"]');
     steerPad.addEventListener('pointermove', (e) => {
       const entry = activePointers.get(e.pointerId);
-      if (!entry || (entry.k !== 'left' && entry.k !== 'right')) return;
-      const rect = steerPad.getBoundingClientRect();
-      const mid = rect.left + rect.width / 2;
-      const wantKey = e.clientX < mid ? 'left' : 'right';
-      if (wantKey !== entry.k && leftBtn && rightBtn) {
+      if (!entry || (entry.k !== 'left' && entry.k !== 'right') || !leftBtn || !rightBtn) return;
+      const lr = leftBtn.getBoundingClientRect();
+      const rr = rightBtn.getBoundingClientRect();
+      const dLeft = Math.hypot(e.clientX - (lr.left + lr.width / 2), e.clientY - (lr.top + lr.height / 2));
+      const dRight = Math.hypot(e.clientX - (rr.left + rr.width / 2), e.clientY - (rr.top + rr.height / 2));
+      const wantKey = dLeft <= dRight ? 'left' : 'right';
+      if (wantKey !== entry.k) {
         touch[entry.k] = 0;
         entry.el.classList.remove('on');
         entry.k = wantKey;
@@ -103,15 +124,6 @@ export function initInput(canvas) {
         touch[wantKey] = 1;
         entry.el.classList.add('on');
       }
-    });
-  }
-
-  // Portret eslatmasini yopish
-  const closeRotate = document.getElementById('closeRotateHint');
-  if (closeRotate) {
-    closeRotate.addEventListener('click', (e) => {
-      e.stopPropagation();
-      document.getElementById('rotateHint')?.classList.add('dismissed');
     });
   }
 
@@ -169,14 +181,24 @@ export const isTouch = () =>
   /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
   (navigator.maxTouchPoints > 0 && Math.min(innerWidth, innerHeight) < 950);
 
-// Boshqaruv turi va mobil tugma o'lchami sozlamalarini qo'llash (V9: doimo tugmali boshqaruv)
+// Boshqaruv turi va telefon uchun avtomatik gorizontal (landscape) rejimni qo'llash
 export function applyControl(mode = 'auto', _steerType = 'buttons', touchScale = 'normal') {
-  const phone = mode === 'phone' || (mode === 'auto' && isTouch());
-  const isPortrait = innerHeight > innerWidth;
+  const phone = mode === 'phone' || (mode === 'auto' && isTouch()) || isTouch();
+  const vv = window.visualViewport;
+  const rawW = vv && vv.width > 0 ? vv.width : (document.documentElement.clientWidth || window.innerWidth);
+  const rawH = vv && vv.height > 0 ? vv.height : (document.documentElement.clientHeight || window.innerHeight);
+  const autoRotateToLandscape = phone && rawH > rawW;
+
+  const w = Math.max(240, Math.round(autoRotateToLandscape ? rawH : rawW));
+  const h = Math.max(180, Math.round(autoRotateToLandscape ? rawW : rawH));
+  document.documentElement.style.setProperty('--app-w', `${w}px`);
+  document.documentElement.style.setProperty('--app-h', `${h}px`);
+
   document.body.classList.toggle('phone', phone);
   document.body.classList.toggle('pc', !phone);
-  document.body.classList.toggle('is-portrait', isPortrait);
-  document.body.classList.toggle('is-landscape', !isPortrait);
+  document.body.classList.toggle('auto-landscape-rot', autoRotateToLandscape);
+  document.body.classList.remove('is-portrait');
+  document.body.classList.add('is-landscape');
   document.body.classList.remove('steer-wheel');
   document.body.classList.add('steer-buttons');
   document.body.classList.toggle('scale-large', touchScale === 'large');

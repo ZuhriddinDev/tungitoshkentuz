@@ -22,7 +22,7 @@ import { drawBigMap, bigMapToWorld, mapState, MAP_CATEGORIES, findNearestPOI, fi
 import { beep, setVolume } from './audio.js';
 import { openGarage } from './ui-garage.js';
 import { stopGarage } from './garage3d.js';
-import { applyControl } from './input.js';
+import { applyControl, getLandscapePointerXY } from './input.js';
 import {
   goOnline,
   createPrivateRoom,
@@ -830,21 +830,24 @@ function bigMap() {
   let moved = false;
 
   cv.addEventListener('pointerdown', (e) => {
-    dragStart = { x: e.clientX, y: e.clientY, panX: mapState.panX || 0, panZ: mapState.panZ || 0 };
+    const pt = getLandscapePointerXY(e);
+    dragStart = { x: pt.x, y: pt.y, panX: mapState.panX || 0, panZ: mapState.panZ || 0 };
     moved = false;
     try { cv.setPointerCapture(e.pointerId); } catch { /* */ }
   });
 
   cv.addEventListener('pointermove', (e) => {
     if (!dragStart) return;
-    const dx = e.clientX - dragStart.x;
-    const dy = e.clientY - dragStart.y;
+    const pt = getLandscapePointerXY(e);
+    const dx = pt.x - dragStart.x;
+    const dy = pt.y - dragStart.y;
     if (Math.hypot(dx, dy) > 6) moved = true;
     if (moved && mapState.zoom > 1.02) {
-      const r = cv.getBoundingClientRect();
+      const cw = Math.max(100, cv.clientWidth);
+      const ch = Math.max(100, cv.clientHeight);
       const worldSpan = 2100 / (mapState.zoom || 1);
-      mapState.panX = dragStart.panX - (dx / r.width) * worldSpan;
-      mapState.panZ = dragStart.panZ - (dy / r.height) * worldSpan;
+      mapState.panX = dragStart.panX - (dx / cw) * worldSpan;
+      mapState.panZ = dragStart.panZ - (dy / ch) * worldSpan;
       draw();
     }
   });
@@ -855,10 +858,11 @@ function bigMap() {
     dragStart = null;
     if (wasMoved) return;
 
-    const r = cv.getBoundingClientRect();
+    const cw = Math.max(100, cv.clientWidth);
+    const ch = Math.max(100, cv.clientHeight);
     const [wx, wz] = bigMapToWorld(
-      ((e.clientX - r.left) / r.width) * cv.width,
-      ((e.clientY - r.top) / r.height) * cv.height,
+      (e.offsetX / cw) * cv.width,
+      (e.offsetY / ch) * cv.height,
       cv.width
     );
     const hitPoi = findMapItemAt(wx, wz, 55 / Math.sqrt(mapState.zoom || 1));

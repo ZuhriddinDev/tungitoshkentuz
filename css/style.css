@@ -2801,5 +2801,90 @@ body.hide-hud-panels #onlinePeersHud {
   pointer-events: none !important;
 }
 
+/* =========================================================
+   5. TELEFON VA IPHONE UCHUN AVTOMATIK GORIZONTAL (LANDSCAPE) REJIM
+   Telefon vertikal (portrait) ushlangan yoki iPhone'da ekran aylanishi
+   qulflangan bo'lsa ham, o'yin avtomatik ravishda 100% gorizontal
+   (landscape) ko'rinishga o'tadi va faqat gorizontal o'ynaladi!
+   ========================================================= */
+.rotate-hint,
+body.phone .rotate-hint,
+body.is-portrait .rotate-hint {
+  display: none !important;
+}
+
+body.auto-landscape-rot {
+  position: fixed !important;
+  top: 0 !important;
+  left: 100% !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: var(--app-w, 100dvh) !important;
+  height: var(--app-h, 100dvw) !important;
+  transform: rotate(90deg) !important;
+  transform-origin: top left !important;
+  overflow: hidden !important;
+}
+
+body.auto-landscape-rot #game,
+body.auto-landscape-rot #hud,
+body.auto-landscape-rot .screen,
+body.auto-landscape-rot .malibu-hero-layout {
+  width: var(--app-w, 100dvh) !important;
+  height: var(--app-h, 100dvw) !important;
+}
+
+/* Avtomatik gorizontal rejimda (ekran balandligi ~360-430px bo'lganda) menyu va modal oynalar ixcham moslashuvi */
+body.phone .malibu-hero-layout {
+  padding:
+    max(6px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left)) !important;
+}
+body.phone .hero-brand-bar {
+  padding: 5px 10px !important;
+  gap: 8px !important;
+}
+body.phone .hero-brand-left .lobby-logo { font-size: 15px !important; }
+body.phone .hero-brand-left .lobby-logo span { font-size: 16px !important; }
+body.phone .hero-brand-tag { font-size: 9px !important; }
+body.phone .hero-skyline-svg { width: 76px !important; height: 18px !important; }
+body.phone .malibu-hero-layout .lobby-server-bar {
+  padding: 5px 11px !important;
+  font-size: 10.5px !important;
+  gap: 6px !important;
+}
+body.phone .malibu-hero-badge {
+  padding: 4px 14px !important;
+}
+body.phone .hero-car-tag {
+  font-size: 10px !important;
+  letter-spacing: 1.2px !important;
+}
+body.phone .hero-main-actions .lobby-enter-btn {
+  padding: 9px 18px !important;
+  font-size: 13.5px !important;
+  min-width: 190px !important;
+}
+body.phone .modal-card {
+  width: calc(var(--app-w, 100dvw) - 20px) !important;
+  max-width: 820px !important;
+  max-height: calc(var(--app-h, 100dvh) - 14px) !important;
+  padding: 10px 14px !important;
+}
+body.phone #modalBody {
+  max-height: calc(var(--app-h, 100dvh) - 64px) !important;
+  overflow-y: auto !important;
+}
+body.phone .garage-pro {
+  grid-template-columns: 1.05fr 1fr !important;
+  gap: 8px !important;
+}
+body.phone .g-canvas-box {
+  height: clamp(120px, calc(var(--app-h, 380px) * 0.38), 175px) !important;
+}
+
+
 
 
