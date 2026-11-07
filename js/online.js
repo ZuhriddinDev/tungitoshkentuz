@@ -90,7 +90,7 @@ export const normalizeId = (s) =>
     .trim()
     .toUpperCase()
     .replace(/^TT-/, '')
-    .replace(/[^A-Z0-9]/g, '');
+    .replace(/[^A-Z0-9_]/g, '');
 
 export const info = () => ({
   status,
@@ -489,14 +489,14 @@ function dropClient(id) {
   emit({ leave: p?.name || id });
 }
 
-// ---- Do'st Xonasiga (6 belgili kod) yoki Ommaviy Serverga (PUBLIC/LOBBY) qo'shilish ----
+// ---- Do'st Xonasiga (unikal kod/ID/nom) yoki Ommaviy Serverga (PUBLIC/LOBBY) qo'shilish ----
 export async function joinFriend(raw) {
   const clean = normalizeId(raw);
   const isPublic = clean === 'LOBBY' || clean === 'UMUMIY' || clean === 'PUBLIC' || clean === '';
   const id = isPublic ? 'PUBLIC' : clean;
 
-  if (!isPublic && id.length !== 6) {
-    throw new Error("Xona kodi 6 ta belgidan iborat bo'lishi kerak (masalan: 7K2M9Q)");
+  if (!isPublic && id.length < 2) {
+    throw new Error("Xona kodi yoki do'st ID sini kiriting");
   }
 
   await goOnline();

@@ -804,20 +804,32 @@ $('playBtn').onclick = () => play(false);
 if ($('playFriendsBtn')) {
   $('playFriendsBtn').onclick = () => play(true);
 }
+if (localStorage.getItem('tt_landscape_dismissed') === '1') {
+  window.__forceLandscapeRot = true;
+  window.__hideRotateHint = true;
+  const b = $('autoLandscapeBtn');
+  if (b) b.style.display = 'none';
+}
 if ($('autoLandscapeBtn')) {
   $('autoLandscapeBtn').onclick = () => {
+    try { localStorage.setItem('tt_landscape_dismissed', '1'); } catch {}
+    $('autoLandscapeBtn').style.display = 'none';
     window.__triggerAutoLandscape?.();
     toast("⛶ Gorizontal to'liq ekran rejimi yoqildi!", 'ok');
   };
 }
 if ($('forceLandscapeBtn')) {
   $('forceLandscapeBtn').onclick = () => {
+    try { localStorage.setItem('tt_landscape_dismissed', '1'); } catch {}
+    const b = $('autoLandscapeBtn');
+    if (b) b.style.display = 'none';
     window.__triggerAutoLandscape?.();
     toast("⛶ Gorizontal to'liq ekran rejimi yoqildi!", 'ok');
   };
 }
 if ($('closeRotateHint')) {
   $('closeRotateHint').onclick = () => {
+    try { localStorage.setItem('tt_landscape_dismissed', '1'); } catch {}
     window.__hideRotateHint = true;
     const rHint = $('rotateHint');
     if (rHint) rHint.style.display = 'none';

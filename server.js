@@ -598,13 +598,34 @@ function resolveTargetRoom(pid, requestedCodeOrType, createIfMissing = false) {
     return { room: findAvailablePublicRoom(pid) };
   }
 
-  // Maxsus xona kodi bo'yicha qidirish
-  const mappedId = codeToRoomId.get(raw) || (rooms.has(raw) ? raw : null);
-  if (mappedId && rooms.has(mappedId)) {
-    return { room: rooms.get(mappedId) };
+  // 1. To'g'ridan-to'g'ri xona kodi yoki ID bo'yicha qidirish
+  const cleanCode = raw.replace(/^PRIV_/, '');
+  const directId = codeToRoomId.get(cleanCode) || codeToRoomId.get(raw) || (rooms.has(raw) ? raw : null) || (rooms.has(`PRIV_${cleanCode}`) ? `PRIV_${cleanCode}` : null);
+  if (directId && rooms.has(directId)) {
+    return { room: rooms.get(directId) };
   }
 
-  // Agar do'stning playerId si kiritilgan bo'lsa va u biror xonada bo'lsa
+  // 2. Barcha mavjud xonalar bo'yicha keng qamrovli qidirish (kod, id, o'yinchi ID yoki nomi)
+  for (const [rId, r] of rooms.entries()) {
+    if (r.id.toUpperCase() === raw || r.code.toUpperCase() === raw || r.code.toUpperCase() === cleanCode) {
+      return { room: r };
+    }
+    if (r.players.has(raw) || r.players.has(cleanCode)) {
+      return { room: r };
+    }
+    for (const [pId, p] of r.players.entries()) {
+      if (
+        pId.toUpperCase() === raw ||
+        pId.toUpperCase() === cleanCode ||
+        (p.name && p.name.trim().toUpperCase() === raw) ||
+        (p.name && p.name.trim().toUpperCase() === cleanCode)
+      ) {
+        return { room: r };
+      }
+    }
+  }
+
+  // 3. Agar do'stning playerId si ro'yxatda bo'lsa va u biror xonada o'ynayotgan bo'lsa
   if (playerRoom.has(raw)) {
     const friendRoomId = playerRoom.get(raw);
     if (rooms.has(friendRoomId)) {
@@ -612,13 +633,18 @@ function resolveTargetRoom(pid, requestedCodeOrType, createIfMissing = false) {
     }
   }
 
-  if (createIfMissing && raw.length === 6) {
-    const roomId = `PRIV_${raw}`;
+  // 4. Do'stlar xonasi kodi (kamida 3 ta belgi) bo'lsa, xonani avtomatik ochish/ulanish
+  // Bu orqali 2 ta do'st bir xil kodni terganida har doim bitta xonaga tushadi!
+  if (cleanCode.length >= 3) {
+    const roomId = `PRIV_${cleanCode}`;
+    if (rooms.has(roomId)) {
+      return { room: rooms.get(roomId) };
+    }
     const room = {
       id: roomId,
-      code: raw,
+      code: cleanCode,
       type: 'private',
-      name: `Do'stlar xonasi (${raw})`,
+      name: `Do'stlar xonasi (${cleanCode})`,
       hostId: pid,
       maxPlayers: PRIVATE_MAX_PLAYERS,
       players: new Map(),
@@ -628,7 +654,7 @@ function resolveTargetRoom(pid, requestedCodeOrType, createIfMissing = false) {
       emptySince: null,
     };
     rooms.set(roomId, room);
-    codeToRoomId.set(raw, roomId);
+    codeToRoomId.set(cleanCode, roomId);
     return { room };
   }
 

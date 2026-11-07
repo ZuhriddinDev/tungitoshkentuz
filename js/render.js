@@ -161,8 +161,9 @@ export function createRenderer(canvas, quality) {
 
       // Portrait rejimda hint ko'rsatish
       const rHint = document.getElementById('rotateHint');
+      const isLandscapeDismissed = typeof localStorage !== 'undefined' && localStorage.getItem('tt_landscape_dismissed') === '1';
       if (rHint) {
-        if (isPhoneDevice && isPortrait && !shouldRotate90 && !window.__hideRotateHint) {
+        if (isPhoneDevice && isPortrait && !shouldRotate90 && !window.__hideRotateHint && !isLandscapeDismissed) {
           rHint.style.display = 'flex';
         } else {
           rHint.style.display = 'none';
@@ -199,8 +200,18 @@ export function createRenderer(canvas, quality) {
     setTimeout(() => R.resize(), 250);
     setTimeout(() => R.resize(), 500);
   };
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('tt_landscape_dismissed') === '1') {
+    window.__forceLandscapeRot = true;
+    window.__hideRotateHint = true;
+  }
+
   window.__triggerAutoLandscape = () => {
     try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('tt_landscape_dismissed', '1');
+      }
+      const b = document.getElementById('autoLandscapeBtn');
+      if (b) b.style.display = 'none';
       if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(() => {});
       }

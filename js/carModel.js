@@ -99,7 +99,9 @@ export const GLB_SPECS = {
   },
   bmwx6m: {
     file: 'opt/bmw_x6m.glb',
+    rotX: -Math.PI / 2, // 3D modelning 90° ag'darilgan Y-o'qini to'g'rilaydi
     rotY: 0,
+    scaleMul: 1.15, // Haqiqiy BMW X6M Competition SUV o'lchamiga to'liq moslashtiradi
     paintMats: ['body', 'coloured'],
     rimMats: ['rim1', 'rim2'],
     headMats: ['lights', 'Front'],
@@ -405,7 +407,7 @@ function splitMergedWheelMeshes(templateGroup, spec) {
  * to'g'ri yo'nalish, markaz va o'lchamga keltiradi.
  */
 function prepareGlbTemplate(origScene, cfg, spec) {
-  origScene.rotation.set(0, spec.rotY || 0, 0);
+  origScene.rotation.set(spec.rotX || 0, spec.rotY || 0, spec.rotZ || 0);
   origScene.position.set(0, 0, 0);
   origScene.scale.setScalar(1);
   origScene.updateMatrixWorld(true);
@@ -414,7 +416,11 @@ function prepareGlbTemplate(origScene, cfg, spec) {
   const rawSize = rawBox.getSize(new THREE.Vector3());
   const rawCenter = rawBox.getCenter(new THREE.Vector3());
 
-  const sc = cfg.len / Math.max(rawSize.z, 0.001);
+  // Modelning Z o'qi yoki eng uzun o'qi bo'yicha proporsional masshtablash
+  const modelDim = Math.max(rawSize.z, 0.001);
+  const baseSc = cfg.len / modelDim;
+  const sc = baseSc * (spec.scaleMul || 1.0);
+
   origScene.scale.setScalar(sc);
   origScene.position.set(
     -rawCenter.x * sc,

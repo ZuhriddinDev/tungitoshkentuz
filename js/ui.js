@@ -960,10 +960,10 @@ function online() {
       </section>
 
       <section class="set-card">
-        <h3>🔑 Xona kodi orqali ulanish</h3>
-        <label class="online-lbl">6 belgili Xona kodini kiriting:
+        <h3>🔑 Xona kodi yoki do'st ID si</h3>
+        <label class="online-lbl">Xona kodi, do'st ID si yoki ismini kiriting:
           <div class="row" style="margin-top:6px">
-            <input id="friendIdInput" maxlength="12" placeholder="Masalan: 7K2M9Q" style="margin:0;text-transform:uppercase;font-weight:800;letter-spacing:1.5px" />
+            <input id="friendIdInput" maxlength="16" placeholder="Kod, ID yoki ism..." style="margin:0;text-transform:uppercase;font-weight:800;letter-spacing:1px" />
             <button class="btn primary" id="joinFriendBtn" style="flex:0 0 auto">🔗 Xonaga kirish</button>
           </div>
         </label>
@@ -1129,7 +1129,7 @@ function online() {
   };
   body.querySelector('#joinFriendBtn').onclick = () => {
     const code = body.querySelector('#friendIdInput').value.trim();
-    if (!code) return toast('6 belgili xona kodini kiriting', 'err');
+    if (!code) return toast("Xona kodi, do'st ID si yoki ismini kiriting", 'err');
     doJoin(code);
   };
   body.querySelector('#friendIdInput').addEventListener('keydown', (e) => {
