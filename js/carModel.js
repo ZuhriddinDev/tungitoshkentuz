@@ -486,7 +486,65 @@ function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
   }
 
   const extras = new THREE.Group(); chassisTilt.add(extras);
-  return { group, chassisTilt, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam, radius: G.r, rearTop: G.p.low.at(-1)[1] };
+
+  // ============================================================
+  // Burilish chiroqlari (Turn Signals / Hazard) va Vizual Zarar (Damage Overlay)
+  // ============================================================
+  const blinkMatL = new THREE.MeshBasicMaterial({ color: 0xff9800, transparent: true, opacity: 0 });
+  const blinkMatR = new THREE.MeshBasicMaterial({ color: 0xff9800, transparent: true, opacity: 0 });
+  const blinkersL = [], blinkersR = [];
+  for (const [sx, isL] of [[-1, true], [1, false]]) {
+    const bm = isL ? blinkMatL : blinkMatR;
+    const arr = isL ? blinkersL : blinkersR;
+    const bf = new THREE.Mesh(box, bm);
+    bf.scale.set(0.16, 0.08, 0.06);
+    bf.position.set(sx * (W * 0.42), frontY + 0.02, L * 0.49);
+    const br = new THREE.Mesh(box, bm);
+    br.scale.set(0.16, 0.08, 0.06);
+    br.position.set(sx * (W * 0.42), rearY + 0.02, -L * 0.49);
+    chassisTilt.add(bf, br);
+    arr.push(bf, br);
+  }
+
+  // Vizual Shikastlanish (Front, Rear, Left, Right zarba chiziqlari va kapot tutuni)
+  const dmgGroup = new THREE.Group();
+  const dmgFrontMat = new THREE.MeshBasicMaterial({ color: 0x16181f, transparent: true, opacity: 0, depthWrite: false });
+  const dmgRearMat = new THREE.MeshBasicMaterial({ color: 0x16181f, transparent: true, opacity: 0, depthWrite: false });
+  const dmgLeftMat = new THREE.MeshBasicMaterial({ color: 0x16181f, transparent: true, opacity: 0, depthWrite: false });
+  const dmgRightMat = new THREE.MeshBasicMaterial({ color: 0x16181f, transparent: true, opacity: 0, depthWrite: false });
+
+  const dfMesh = new THREE.Mesh(box, dmgFrontMat);
+  dfMesh.scale.set(W * 0.78, 0.24, 0.35);
+  dfMesh.position.set(0, frontY + 0.08, L * 0.46);
+  const drMesh = new THREE.Mesh(box, dmgRearMat);
+  drMesh.scale.set(W * 0.78, 0.24, 0.35);
+  drMesh.position.set(0, rearY + 0.08, -L * 0.46);
+  const dlMesh = new THREE.Mesh(box, dmgLeftMat);
+  dlMesh.scale.set(0.12, 0.34, L * 0.52);
+  dlMesh.position.set(-W * 0.49, frontY + 0.12, 0);
+  const drtMesh = new THREE.Mesh(box, dmgRightMat);
+  drtMesh.scale.set(0.12, 0.34, L * 0.52);
+  drtMesh.position.set(W * 0.49, frontY + 0.12, 0);
+
+  const hoodSmokeMat = new THREE.MeshBasicMaterial({
+    map: GLOW_TEX,
+    color: 0x555b66,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+  });
+  const hoodSmoke = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), hoodSmokeMat);
+  hoodSmoke.rotation.x = -Math.PI / 2;
+  hoodSmoke.position.set(0, frontY + 0.35, L * 0.32);
+
+  dmgGroup.add(dfMesh, drMesh, dlMesh, drtMesh, hoodSmoke);
+  chassisTilt.add(dmgGroup);
+
+  return {
+    group, chassisTilt, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam,
+    blinkMatL, blinkMatR, dmgFrontMat, dmgRearMat, dmgLeftMat, dmgRightMat, hoodSmoke, hoodSmokeMat,
+    radius: G.r, rearTop: G.p.low.at(-1)[1],
+  };
 }
 
 // ============================================================
@@ -494,7 +552,10 @@ function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
 // ============================================================
 export function buildCar(cfg, look = {}, opts = {}) {
   const proc = buildProceduralCar(cfg, look, opts);
-  const { group, chassisTilt, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam } = proc;
+  const {
+    group, chassisTilt, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam,
+    blinkMatL, blinkMatR, dmgFrontMat, dmgRearMat, dmgLeftMat, dmgRightMat, hoodSmoke, hoodSmokeMat,
+  } = proc;
   let currentLook = { color: '#f5f5f5', rims: 'std', spoiler: 'none', neon: 'none', ...look };
   const isPriority = opts.beam !== false || opts.priority === true;
 
@@ -505,6 +566,7 @@ export function buildCar(cfg, look = {}, opts = {}) {
     headMat, tailMat,
     lightsOn: false,
     braking: false,
+    blinker: 'off', // 'off' | 'left' | 'right' | 'hazard'
     _glbLoaded: false,
     _glbPaintMats: [],
     _glbRimMats: [],
@@ -533,6 +595,35 @@ export function buildCar(cfg, look = {}, opts = {}) {
       const tailInt = b ? 4 : api.lightsOn ? 1.4 : 0.3;
       tailMat.emissiveIntensity = tailInt;
       for (const m of api._glbTailMats) m.emissiveIntensity = tailInt;
+    },
+
+    setBlinker(mode = 'off', t = 0) {
+      api.blinker = mode;
+      const pulse = mode !== 'off' && Math.floor((t || performance.now() / 1000) * 3.2) % 2 === 0 ? 0.95 : 0;
+      blinkMatL.opacity = (mode === 'left' || mode === 'hazard') ? pulse : 0;
+      blinkMatR.opacity = (mode === 'right' || mode === 'hazard') ? pulse : 0;
+    },
+
+    setDamageState(dmgParts = null, totalDmg = 0) {
+      const f = dmgParts ? (dmgParts.front || 0) : totalDmg * 0.6;
+      const r = dmgParts ? (dmgParts.rear || 0) : totalDmg * 0.4;
+      const l = dmgParts ? (dmgParts.left || 0) : totalDmg * 0.35;
+      const rt = dmgParts ? (dmgParts.right || 0) : totalDmg * 0.35;
+      dmgFrontMat.opacity = Math.min(0.68, (f / 100) * 0.72);
+      dmgRearMat.opacity = Math.min(0.68, (r / 100) * 0.72);
+      dmgLeftMat.opacity = Math.min(0.65, (l / 100) * 0.68);
+      dmgRightMat.opacity = Math.min(0.65, (rt / 100) * 0.68);
+      const smokeAmt = Math.max(0, (Math.max(f, totalDmg) - 45) / 55);
+      hoodSmokeMat.opacity = smokeAmt * 0.48;
+      if (smokeAmt > 0 && hoodSmoke) {
+        const s = 1.0 + Math.sin(performance.now() * 0.006) * 0.22;
+        hoodSmoke.scale.set(s, s, 1);
+      }
+      // Og'ir zararda kuzov yaltiroqligi biroz xiralashadi
+      const roughAdd = Math.min(0.28, (totalDmg / 100) * 0.25);
+      for (const m of api._glbPaintMats) {
+        m.roughness = 0.18 + roughAdd;
+      }
     },
 
     setTuning(t = {}) {

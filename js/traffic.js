@@ -1,4 +1,4 @@
-﻿// Shahar transporti (3D GLB modelli AI mashinalar) va 3D animatsiyali NPC piyodalar
+// Shahar transporti (3D GLB modelli AI mashinalar) va 3D animatsiyali NPC piyodalar
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CARS } from './config.js';
@@ -23,8 +23,16 @@ export class Traffic {
       const cfg = CARS.find((c) => c.id === TRAFFIC_POOL[n % TRAFFIC_POOL.length]) || CARS[0];
       const model = buildCar(cfg, { color: PALETTE[Math.floor(Math.random() * PALETTE.length)] }, { beam: false });
       scene.add(model.group);
-      const car = { model, cfg, len: cfg.len, x: 0, z: 0, heading: 0, v: 0, cruise: 9 + Math.random() * 5, stun: 0, honk: 0 };
-      car.onHit = (nx, nz, kmh) => { car.stun = 2.5; car.v = 0; car.honk = kmh > 10 ? 1 : 0; };
+      const car = { model, cfg, len: cfg.len, mass: cfg.body === 'suv' ? 2350 : 1520, x: 0, z: 0, heading: 0, v: 0, cruise: 9 + Math.random() * 5, stun: 0, honk: 0 };
+      car.onHit = (nx, nz, kmh) => {
+        car.stun = 2.6;
+        const pushSpd = Math.min(8, Math.max(1.5, (kmh || 20) * 0.12));
+        car.x += nx * 0.45;
+        car.z += nz * 0.45;
+        car.v = (nx * Math.sin(car.heading) + nz * Math.cos(car.heading)) * pushSpd;
+        car.honk = kmh > 10 ? 1 : 0;
+        car.model.setBlinker?.('hazard', performance.now() / 1000);
+      };
       this.respawn(car, 0, 0, true);
       this.cars.push(car);
     }
@@ -86,7 +94,14 @@ export class Traffic {
       g.position.set(car.x, 0, car.z); g.rotation.set(car.pitch, car.heading, THREE.MathUtils.clamp(car.roll, -0.05, 0.05), 'YXZ');
       car.model.update(step, THREE.MathUtils.clamp(dh * 2, -0.5, 0.5));
       car.model.setLights(night > 0.4);
-      car.model.setBrake(want < car.v - 0.5);
+      car.model.setBrake(want < car.v - 0.5 || car.stun > 0);
+      if (car.stun > 0) car.model.setBlinker?.('hazard', t);
+      else if (car.turning && toT < 24) {
+        const turnSign = Math.sin(Math.atan2(tx - car.x, tz - car.z) - car.heading);
+        car.model.setBlinker?.(turnSign > 0.08 ? 'left' : turnSign < -0.08 ? 'right' : 'off', t);
+      } else {
+        car.model.setBlinker?.('off', t);
+      }
     }
   }
 
@@ -245,31 +260,58 @@ export class Pedestrians {
   update(dt, t, player) {
     const { m, qRoot, qSwing, qLimb, s, v, up, rightAxis } = this;
     this.list.forEach((p, n) => {
-      if (Math.hypot(blockC(p.j) - player.x, blockC(p.k) - player.z) > 380) this.place(p, player.x, player.z);
+      const distToBlock = Math.hypot(blockC(p.j) - player.x, blockC(p.k) - player.z);
+      if (distToBlock > 380) this.place(p, player.x, player.z);
+      if (distToBlock > 210) {
+        this.torso.setMatrixAt(n, this.zero);
+        this.head.setMatrixAt(n, this.zero);
+        this.hair.setMatrixAt(n, this.zero);
+        this.cap.setMatrixAt(n, this.zero);
+        this.armL.setMatrixAt(n, this.zero);
+        this.armR.setMatrixAt(n, this.zero);
+        this.legL.setMatrixAt(n, this.zero);
+        this.legR.setMatrixAt(n, this.zero);
+        this.shoeL.setMatrixAt(n, this.zero);
+        this.shoeR.setMatrixAt(n, this.zero);
+        return;
+      }
       const [x0, z0] = this.pos(p);
-      // ba'zan to'xtab turadi (telefon, kutish)
+      // Burchakka (chorrahaga) yaqinlashganda qizil chiroqda kutish yoki telefon ko'rish
+      const frac = ((p.t % 1) + 1) % 1;
+      const nearCorner = frac < 0.04 || frac > 0.96;
+      const side = Math.floor(((p.t % 4) + 4) % 4);
+      const axis = side % 2 === 0 ? 'x' : 'z';
+      const redLight = nearCorner && signalFor(axis, t) !== 'g';
+
       p.wait -= dt;
-      if (p.wait <= 0 && p.pause <= 0) { p.pause = 2 + Math.random() * 4; p.wait = 8 + Math.random() * 14; }
+      if (p.wait <= 0 && p.pause <= 0) {
+        p.pause = 2.2 + Math.random() * 4.2;
+        p.wait = 9 + Math.random() * 14;
+        p.pose = Math.random() < 0.55 ? 'phone' : 'talk';
+      }
       if (p.pause > 0) p.pause -= dt;
-      p.mv = (p.mv ?? 1) + ((p.pause > 0 ? 0 : 1) - (p.mv ?? 1)) * Math.min(1, dt * 4);
+      const stopped = p.pause > 0 || redLight;
+      p.mv = (p.mv ?? 1) + ((stopped ? 0 : 1) - (p.mv ?? 1)) * Math.min(1, dt * 5);
       p.t += (p.speed * p.mv / (BLOCK - 4.4)) * dt;
       const [x, z] = this.pos(p);
 
+      // O'yinchi mashinasidan uzoqlashish va chetga qochish (Car avoidance)
       const dp = Math.hypot(player.x - x, player.z - z);
-      p.dodge += ((dp < 6 && player.kmh > 5 ? 1.6 : 0) - p.dodge) * Math.min(1, dt * 6);
+      const scare = dp < 8.5 && player.kmh > 8 ? 2.1 : 0;
+      p.dodge += (scare - p.dodge) * Math.min(1, dt * 7);
       const ang = Math.atan2(x - x0, z - z0) || 0;
       const rx = Math.cos(ang), rz = -Math.sin(ang);
       const bx = x - rx * p.dodge, bz = z - rz * p.dodge;
 
-      const walkFreq = Math.abs(p.speed) * 6.2;
-      p.ph = (p.ph ?? p.phase) + dt * walkFreq * p.mv;
+      const walkFreq = Math.abs(p.speed) * (scare > 0.5 ? 9.5 : 6.2);
+      p.ph = (p.ph ?? p.phase) + dt * walkFreq * Math.max(p.mv, scare > 0.5 ? 1 : 0);
       const phase = p.ph;
       const swing = Math.sin(phase) * 0.52 * p.mv;
-      const bob = Math.abs(Math.cos(phase)) * 0.045;
+      const bob = Math.abs(Math.cos(phase)) * 0.045 * p.mv;
       const sh = p.scaleH;
       const y0 = 0.22;
 
-      qRoot.setFromAxisAngle(up, ang);
+      qRoot.setFromAxisAngle(up, ang + (stopped && p.pose === 'talk' ? Math.sin(t * 1.8 + n) * 0.22 : 0));
       s.set(1, sh, 1);
 
       // Gavda, bosh va soch
@@ -285,8 +327,13 @@ export class Pedestrians {
       m.compose(v.set(bx - rx * 0.24, y0 + bob + 1.38 * sh, bz - rz * 0.24), qLimb, s);
       this.armL.setMatrixAt(n, m);
 
-      // O'ng qo'l
-      qSwing.setFromAxisAngle(rightAxis, -swing * 0.85);
+      // O'ng qo'l (to'xtab turganda telefon ko'rish yoki suhbat ishorasi)
+      const rightArmAng = stopped && p.pose === 'phone'
+        ? -1.05
+        : stopped && p.pose === 'talk'
+          ? -0.45 + Math.sin(t * 4.5 + n) * 0.25
+          : -swing * 0.85;
+      qSwing.setFromAxisAngle(rightAxis, rightArmAng);
       qLimb.multiplyQuaternions(qRoot, qSwing);
       m.compose(v.set(bx + rx * 0.24, y0 + bob + 1.38 * sh, bz + rz * 0.24), qLimb, s);
       this.armR.setMatrixAt(n, m);

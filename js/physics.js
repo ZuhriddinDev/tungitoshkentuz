@@ -31,6 +31,11 @@ export class Vehicle {
     this.offRoad = false;
     this.nearBorder = false;
     this.borderMsg = '';
+    this.mass = cfg.body === 'suv' ? 2350 : cfg.body === 'super' ? 1580 : 1480;
+    this.hitCooldowns = new Map();
+    if (!inst.dmgParts) {
+      inst.dmgParts = { front: 0, rear: 0, left: 0, right: 0 };
+    }
   }
   get kmh() { return Math.abs(this.v) * 3.6; }
   get fwdX() { return Math.sin(this.heading); }
@@ -225,9 +230,9 @@ export class Vehicle {
 
   collide(others) {
     const c = this.cfg, r = c.wid * 0.5;
-    for (const off of [c.len * 0.33, 0, -c.len * 0.33]) {
+    for (const off of [c.len * 0.35, 0, -c.len * 0.35]) {
       let px = this.x + this.fwdX * off, pz = this.z + this.fwdZ * off;
-      for (const b of queryColliders(px, pz, r + 1)) {
+      for (const b of queryColliders(px, pz, r + 1.2)) {
         const cx = clamp(px, b.minX, b.maxX), cz = clamp(pz, b.minZ, b.maxZ);
         let nx = px - cx, nz = pz - cz, d = Math.hypot(nx, nz);
         if (d >= r) continue;
@@ -235,29 +240,87 @@ export class Vehicle {
         else { nx /= d; nz /= d; }
         const push = r - d;
         this.x += nx * push; this.z += nz * push; px += nx * push; pz += nz * push;
-        this.hit(nx, nz, b.tag);
+        this.hit(nx, nz, b.tag, 0);
       }
     }
+    const now = performance.now();
     for (const o of others) {
-      const dx = this.x - o.x, dz = this.z - o.z, d = Math.hypot(dx, dz), min = (c.len + (o.len || 4.4)) * 0.4;
+      const dx = this.x - o.x, dz = this.z - o.z, d = Math.hypot(dx, dz);
+      const min = (c.len + (o.len || 4.4)) * 0.42;
       if (d >= min || d < 1e-4) continue;
       const nx = dx / d, nz = dz / d;
-      this.x += nx * (min - d) * 0.7; this.z += nz * (min - d) * 0.7;
-      if (o.onHit) o.onHit(-nx, -nz, this.kmh);
-      this.hit(nx, nz, 'car');
+      const overlap = min - d;
+      const oMass = o.mass || (o.cfg?.body === 'suv' ? 2250 : 1500);
+      const myRatio = oMass / (this.mass + oMass);
+      // Ikki mashina bir-biri ichiga kirib qolmasligi uchun massa nisbatida ajratamiz
+      this.x += nx * overlap * (0.55 + myRatio * 0.35);
+      this.z += nz * overlap * (0.55 + myRatio * 0.35);
+      if (typeof o.x === 'number' && typeof o.z === 'number' && !o.isStatic) {
+        o.x -= nx * overlap * (1 - myRatio) * 0.65;
+        o.z -= nz * overlap * (1 - myRatio) * 0.65;
+      }
+
+      const oVx = Math.sin(o.heading ?? o.h ?? 0) * (o.v || 0);
+      const oVz = Math.cos(o.heading ?? o.h ?? 0) * (o.v || 0);
+      const myVx = this.fwdX * this.v;
+      const myVz = this.fwdZ * this.v;
+      const relVn = -((myVx - oVx) * nx + (myVz - oVz) * nz);
+
+      const key = o.id || o;
+      const lastHit = this.hitCooldowns.get(key) || 0;
+      if (now - lastHit > 160) {
+        this.hitCooldowns.set(key, now);
+        if (o.onHit) o.onHit(-nx, -nz, Math.max(this.kmh, relVn * 3.6), this);
+      }
+      this.hit(nx, nz, 'car', relVn, oMass);
     }
   }
 
-  hit(nx, nz, tag) {
+  applyExternalImpulse(nx, nz, force = 8) {
+    const pushV = clamp(force * 0.42, 2, 18);
+    this.x += nx * 0.45;
+    this.z += nz * 0.45;
+    const dotFwd = nx * this.fwdX + nz * this.fwdZ;
+    const rx = Math.cos(this.heading), rz = -Math.sin(this.heading);
+    const dotSide = nx * rx + nz * rz;
+    this.v = clamp(this.v + dotFwd * pushV * 0.65, -18, 65);
+    this.lat = clamp(this.lat + dotSide * pushV * 0.55, -14, 14);
+    this.yawRate += dotSide * 0.85;
+    this.recordDirectionalDamage(-nx, -nz, force * 0.65);
+    this.impact = Math.max(this.impact, force * 0.75);
+  }
+
+  recordDirectionalDamage(impactDirX, impactDirZ, intoForce) {
+    if (intoForce <= 3.8) return;
+    const dAmt = (intoForce - 3.2) * 0.52;
+    this.inst.damage = Math.min(100, (this.inst.damage || 0) + dAmt);
+    if (!this.inst.dmgParts) {
+      this.inst.dmgParts = { front: 0, rear: 0, left: 0, right: 0 };
+    }
+    const fDot = impactDirX * this.fwdX + impactDirZ * this.fwdZ;
+    const rx = Math.cos(this.heading), rz = -Math.sin(this.heading);
+    const sDot = impactDirX * rx + impactDirZ * rz;
+    if (fDot > 0.35) this.inst.dmgParts.front = Math.min(100, this.inst.dmgParts.front + dAmt * 1.25);
+    else if (fDot < -0.35) this.inst.dmgParts.rear = Math.min(100, this.inst.dmgParts.rear + dAmt * 1.15);
+    if (sDot < -0.3) this.inst.dmgParts.left = Math.min(100, this.inst.dmgParts.left + dAmt * 1.1);
+    else if (sDot > 0.3) this.inst.dmgParts.right = Math.min(100, this.inst.dmgParts.right + dAmt * 1.1);
+  }
+
+  hit(nx, nz, tag, relVn = 0, otherMass = 1800) {
     const vx = this.fwdX * this.v, vz = this.fwdZ * this.v;
-    const into = -(vx * nx + vz * nz);
+    const into = Math.max(-(vx * nx + vz * nz), relVn * 0.75);
     if (into <= 0) return;
-    const nvx = vx + nx * into * 1.25, nvz = vz + nz * into * 1.25;
-    this.v = (nvx * this.fwdX + nvz * this.fwdZ) * 0.86;
-    this.lat *= 0.45;
+    const restitution = tag === 'car' ? 1.32 * (otherMass / (this.mass + otherMass)) * 1.7 : 1.24;
+    const nvx = vx + nx * into * restitution;
+    const nvz = vz + nz * into * restitution;
+    this.v = (nvx * this.fwdX + nvz * this.fwdZ) * (tag === 'car' ? 0.88 : 0.82);
+    const rx = Math.cos(this.heading), rz = -Math.sin(this.heading);
+    const sideImpulse = (nvx * rx + nvz * rz) * 0.38;
+    this.lat = clamp(this.lat * 0.45 + sideImpulse, -12, 12);
     if (tag === 'border') return; // shahar chegarasida mashinaga zarar yetmaydi
     this.impact = Math.max(this.impact, into);
-    if (into > 4.5) this.inst.damage = Math.min(100, this.inst.damage + into * 0.55);
+    // Zarba qaysi tomondan kelganini aniqlab, o'sha qismga (old/orqa/chap/o'ng) zarar yozamiz
+    this.recordDirectionalDamage(-nx, -nz, into);
   }
 
   place(x, z, heading) {

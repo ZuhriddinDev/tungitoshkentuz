@@ -7,9 +7,8 @@ import { beep, setVolume } from './audio.js';
 import { openGarage } from './ui-garage.js';
 import { stopGarage } from './garage3d.js';
 import { applyControl } from './input.js';
-import { goOnline, joinFriend, createPrivateRoom, joinRoomByCode, joinPublicServer, leave, info as onlineInfo, list as onlineList, displayId, onOnline, sendChat, sendOnlineEvent, chatHistory, serverStats, MAX_PLAYERS, PRIVATE_MAX_PLAYERS } from './online.js';
+import { goOnline, joinFriend, createPrivateRoom, joinRoomByCode, joinPublicServer, leave, info as onlineInfo, list as onlineList, displayId, playerId, onOnline, sendChat, sendOnlineEvent, chatHistory, serverStats, MAX_PLAYERS, PRIVATE_MAX_PLAYERS } from './online.js';
 import { blockC } from './world/layout.js';
-import { CHARACTER_PRESETS, OUTFIT_STYLES, CHAR_CUSTOM_OPTIONS, getPresetById } from './character.js';
 
 const $ = (s) => document.querySelector(s);
 let game; // main.js beradigan API
@@ -104,7 +103,9 @@ function service() {
     <div class="list">${state.tx.slice(0, 12).map((t) => `<div><span>${new Date(t.t).toLocaleTimeString('uz')} · ${t.reason}</span><b class="${t.amount >= 0 ? 'plus' : 'minus'}">${t.amount >= 0 ? '+' : ''}${fmt(t.amount)}</b></div>`).join('') || '<div>Hali tranzaksiyalar yo\'q</div>'}</div>`);
   body.querySelector('#svRepair').onclick = () => {
     if (!spend(repair, `Ta'mirlash: ${cfg.name}`)) return toast("Mablag' yetarli emas", 'err');
-    inst.damage = 0; touch(); beep('cash'); toast('Mashina ta\'mirlandi', 'ok'); service();
+    inst.damage = 0;
+    inst.dmgParts = { front: 0, rear: 0, left: 0, right: 0 };
+    touch(); beep('cash'); toast('Mashina to\'liq ta\'mirlandi', 'ok'); service();
   };
   body.querySelector('#svTow').onclick = () => {
     if (!spend(1_500_000, 'Evakuator xizmati')) return toast("Mablag' yetarli emas", 'err');
@@ -398,16 +399,21 @@ function bindStart(body) {
 // ---------- Pauza (ESC), sozlamalar, yordam ----------
 function pause() {
   const inf = onlineInfo();
-  const body = showModal('pause', '⏸ Pauza va Boshqaruv Markazi', `
+  const dailyReady = canClaimDaily();
+  const body = showModal('pause', '⏸ O\'yin Menyusi va Boshqaruv Markazi', `
     <div class="grid">
       <button class="btn primary big" data-a="resume">▶ O'yinni davom ettirish</button>
-      <button class="btn gold big" data-a="lobby">🏠 Bosh menyuga (Lobby) qaytish</button>
-      <button class="btn big" data-a="online">🌐 Online Xona (${inf.count}/${inf.max || MAX_PLAYERS})</button>
-      <button class="btn big" data-a="garage">🚗 Garaj va Tuning</button>
-      <button class="btn big" data-a="char">🕶️ Personaj va Kiyimlar</button>
-      <button class="btn big" data-a="settings">⚙ Sozlamalar</button>
-      <button class="btn big" data-a="help">⌨ Boshqaruv</button>
-      <button class="btn big" data-a="save">💾 Saqlash</button>
+      <button class="btn gold big" data-a="garage">🚗 Garaj, Avtosalon va Tuning (G)</button>
+      <button class="btn big" data-a="map">🗺️ Toshkent GPS Xaritasi (M)</button>
+      <button class="btn big" data-a="race">🏁 Musobaqalar va Drift (R)</button>
+      <button class="btn big" data-a="online">💰 Do'stlar va Depozit Poyga (${inf.count}/${inf.max || MAX_PLAYERS})</button>
+      <button class="btn big" data-a="jobs">📦 Ishlar, Taksi va Ijara (T)</button>
+      <button class="btn big ${dailyReady ? 'gold' : ''}" data-a="service">🛠 Xizmat va Kunlik Mukofot ${dailyReady ? '🎁' : ''}</button>
+      <button class="btn big" data-a="leaderboard">🏆 Reyting va Statistika</button>
+      <button class="btn big" data-a="settings">⚙ Sozlamalar va Grafika</button>
+      <button class="btn big" data-a="help">⌨ Boshqaruv Yordami</button>
+      <button class="btn big" data-a="save">💾 O'yinni Saqlash</button>
+      <button class="btn danger big" data-a="lobby">🏠 Bosh menyuga qaytish</button>
     </div>
     <div class="section-title">Joriy Sessiya va Statistika</div>
     <div class="list">
@@ -422,7 +428,11 @@ function pause() {
     lobby: () => { closeModal(); game.returnToLobby?.(); },
     online,
     garage: () => open('garage'),
-    char: () => open('char'),
+    map: () => open('map'),
+    race: () => open('race'),
+    jobs: () => open('jobs'),
+    service: () => open('service'),
+    leaderboard: () => open('leaderboard'),
     settings,
     help,
     save: () => { game.save(); toast("O'yin saqlandi", 'ok'); },
@@ -522,6 +532,70 @@ function online() {
         <button class="btn sm-btn gold" data-orace="Teleminora" data-rx="${blockC(8)}" data-rz="${blockC(2)}">🗼 Teleminoragacha!</button>
         <button class="btn sm-btn gold" data-orace="Minor Masjidi" data-rx="${blockC(7)}" data-rz="${blockC(4)}">🕌 Minor masjidigacha!</button>
       </div>
+    </div>
+
+    <div class="section-title">💰 Do'stlar bilan Depozit Poyga (Garov + 100% O'yin Bonusi)</div>
+    <div class="card" style="margin-bottom:12px;border-color:rgba(255,215,64,0.45)">
+      <p style="font-size:12px;color:var(--muted)">
+        Har ikki o'yinchi virtual valyutada (so'm) garov qo'yadi. O'yin umumiy fondga <b>+100% bonus</b> qo'shadi va g'olib barchasini oladi! (Masalan: 10M + 5M = 15M fond + 15M bonus = <b style="color:var(--gold)">30 000 000 so'm</b>)
+      </p>
+      ${(() => {
+        const drState = game.getDepositRaceState?.() || {};
+        const inv = drState.invite;
+        const act = drState.active;
+        const myId = playerId();
+        if (act) {
+          return `<div class="id-box" style="margin:6px 0;border-color:var(--gold)">
+            <div>
+              <small>Faol Depozit Poyga · Marra: <b>${act.target?.name || 'Marra'}</b></small>
+              <strong style="color:var(--gold);font-size:18px">Sovrin: ${fmt(act.totalPrize)}</strong>
+            </div>
+            <button class="btn danger sm-btn" id="cancelDepRaceBtn">❌ Bekor qilish</button>
+          </div>`;
+        }
+        if (inv && inv.hostId !== myId) {
+          return `<div class="id-box" style="margin:6px 0;border-color:var(--green);flex-wrap:wrap">
+            <div>
+              <small>🏁 <b>${inv.hostName}</b> sizni «${inv.target?.name}» gacha Depozit Poygaga chaqirdi!</small>
+              <strong style="color:var(--gold);font-size:16px">Uning garovi: ${fmt(inv.hostDeposit)}</strong>
+            </div>
+            <div class="row" style="width:100%;margin-top:6px;align-items:center">
+              <select id="guestDepSelect" style="margin:0;flex:1">
+                <option value="5000000">Garovim: 5 000 000 so'm</option>
+                <option value="10000000" selected>Garovim: 10 000 000 so'm</option>
+                <option value="25000000">Garovim: 25 000 000 so'm</option>
+                <option value="50000000">Garovim: 50 000 000 so'm</option>
+              </select>
+              <button class="btn gold sm-btn" id="acceptDepRaceBtn" data-rid="${inv.raceId}">✅ Qabul qilish va Start</button>
+              <button class="btn danger sm-btn" id="declineDepRaceBtn" data-rid="${inv.raceId}">✕</button>
+            </div>
+          </div>`;
+        }
+        if (inv && inv.hostId === myId) {
+          return `<div class="id-box" style="margin:6px 0;border-color:var(--cyan)">
+            <div>
+              <small>Do'stingiz tasdiqlashini kutilmoqda · Marra: <b>${inv.target?.name}</b></small>
+              <strong style="color:var(--gold);font-size:16px">Sizning garovingiz: ${fmt(inv.hostDeposit)}</strong>
+            </div>
+            <button class="btn danger sm-btn" id="cancelDepInviteBtn" data-rid="${inv.raceId}">❌ Bekor qilish (Pul qaytadi)</button>
+          </div>`;
+        }
+        return `<div class="row" style="align-items:center;margin-top:4px">
+          <select id="depTargetSelect" style="margin:0;flex:1.1">
+            <option value="Tashkent City|${blockC(5)}|${blockC(7)}">📍 Marra: Tashkent City</option>
+            <option value="Chorsu Bozori|${blockC(3)}|${blockC(5)}">📍 Marra: Chorsu Bozori</option>
+            <option value="Teleminora|${blockC(8)}|${blockC(2)}">📍 Marra: Teleminora</option>
+            <option value="Minor Masjidi|${blockC(7)}|${blockC(4)}">📍 Marra: Minor Masjidi</option>
+          </select>
+          <select id="depAmountSelect" style="margin:0;flex:1">
+            <option value="5000000">💰 5 000 000 so'm</option>
+            <option value="10000000" selected>💰 10 000 000 so'm</option>
+            <option value="25000000">💰 25 000 000 so'm</option>
+            <option value="50000000">💰 50 000 000 so'm</option>
+          </select>
+          <button class="btn gold" id="createDepRaceBtn" style="flex:0 0 auto">🏁 Garovli Poyga E'lon Qilish</button>
+        </div>`;
+      })()}
     </div>
 
     <div class="section-title">Xonadagi o'yinchilar (${inf.count} / ${maxCap})</div>
@@ -634,6 +708,83 @@ function online() {
     closeModal();
   }));
 
+  // Do'stlar bilan Depozit Poyga (Invite / Accept / Cancel)
+  const createDepBtn = body.querySelector('#createDepRaceBtn');
+  if (createDepBtn) {
+    createDepBtn.onclick = () => {
+      const tVal = body.querySelector('#depTargetSelect')?.value || `Tashkent City|${blockC(5)}|${blockC(7)}`;
+      const [tName, tx, tz] = tVal.split('|');
+      const dep = Number(body.querySelector('#depAmountSelect')?.value) || 10_000_000;
+      if (!spend(dep, `Depozit Poyga garovi (${tName})`)) {
+        beep('err');
+        return toast("Garov uchun mablag' yetarli emas!", 'err');
+      }
+      sendOnlineEvent({
+        type: 'deposit_race',
+        action: 'invite',
+        deposit: dep,
+        target: { name: tName, x: Number(tx) || 0, z: Number(tz) || 0 },
+      });
+      beep('cash');
+      toast(`🏁 Depozit poyga e'lon qilindi: ${fmt(dep)} garov!`, 'cash');
+      setTimeout(() => { if (current === 'online') online(); }, 180);
+    };
+  }
+  const acceptDepBtn = body.querySelector('#acceptDepRaceBtn');
+  if (acceptDepBtn) {
+    acceptDepBtn.onclick = () => {
+      const rid = acceptDepBtn.dataset.rid;
+      const dep = Number(body.querySelector('#guestDepSelect')?.value) || 10_000_000;
+      if (!spend(dep, 'Depozit Poyga garovi (Qabul qilish)')) {
+        beep('err');
+        return toast("Garov uchun mablag' yetarli emas!", 'err');
+      }
+      sendOnlineEvent({
+        type: 'deposit_race',
+        action: 'accept',
+        raceId: rid,
+        deposit: dep,
+      });
+      closeModal();
+    };
+  }
+  const declineDepBtn = body.querySelector('#declineDepRaceBtn');
+  if (declineDepBtn) {
+    declineDepBtn.onclick = () => {
+      sendOnlineEvent({
+        type: 'deposit_race',
+        action: 'cancel',
+        raceId: declineDepBtn.dataset.rid,
+      });
+      setTimeout(() => { if (current === 'online') online(); }, 180);
+    };
+  }
+  const cancelInvBtn = body.querySelector('#cancelDepInviteBtn');
+  if (cancelInvBtn) {
+    cancelInvBtn.onclick = () => {
+      sendOnlineEvent({
+        type: 'deposit_race',
+        action: 'cancel',
+        raceId: cancelInvBtn.dataset.rid,
+      });
+      setTimeout(() => { if (current === 'online') online(); }, 180);
+    };
+  }
+  const cancelActBtn = body.querySelector('#cancelDepRaceBtn');
+  if (cancelActBtn) {
+    cancelActBtn.onclick = () => {
+      const dr = game.getDepositRaceState?.()?.active;
+      if (dr) {
+        sendOnlineEvent({
+          type: 'deposit_race',
+          action: 'cancel',
+          raceId: dr.raceId,
+        });
+      }
+      setTimeout(() => { if (current === 'online') online(); }, 180);
+    };
+  }
+
   const doChat = (txt) => {
     const t = String(txt || '').trim();
     if (!t) return;
@@ -677,8 +828,9 @@ function settings() {
       </section>
       <section class="set-card">
         <h3>🖼️ Grafik sifati</h3>
-        ${seg('quality', [['low', '⚡', 'Past', 'Eng tez'], ['medium', '⚖️', "O'rta", ''], ['high', '💎', 'Yuqori', ''], ['ultra', '🚀', 'Ultra', 'Eng chiroyli']], s.quality)}
-        <p class="hint">Past — soyalar va bloom o'chiriladi. Telefon uchun «Past» yoki «O'rta» tavsiya etiladi.</p>
+        ${seg('quality', [['low', '⚡', 'Past', 'Eng tez'], ['medium', '⚖️', "O'rta", ''], ['high', '💎', 'Yuqori', 'Soyalar + Bloom'], ['ultra', '🚀', 'Ultra', 'Maksimal']], s.quality)}
+        <p class="hint">Past — soyalar va bloom o'chiriladi. Kuchli telefon va kompyuterlarda «Yuqori» yoki «Ultra» ham to'liq ishlaydi.</p>
+        <button class="btn" id="perfAuditBtn" style="width:100%;margin-top:8px">📊 Performance Audit (FPS / Draw Calls — F3)</button>
       </section>
       <section class="set-card">
         <h3>🔊 Motor ovozi va kamera</h3>
@@ -714,6 +866,8 @@ function settings() {
   body.querySelector('#vol').oninput = (e) => { s.volume = +e.target.value; body.querySelector('#volV').textContent = Math.round(s.volume * 100) + '%'; setVolume(s.volume); touch(); };
   body.querySelector('#sens').oninput = (e) => { s.sens = +e.target.value; window.__sens = s.sens; body.querySelector('#sensV').textContent = s.sens.toFixed(1); touch(); };
   body.querySelector('#smoke').onchange = (e) => { s.smoke = e.target.checked; touch(); };
+  const paBtn = body.querySelector('#perfAuditBtn');
+  if (paBtn) paBtn.onclick = () => { window.__togglePerfAudit?.(); };
   body.querySelector('#reset').onclick = () => { if (confirm("Barcha progress (pul, mashinalar) o'chiriladi. Davom etasizmi?")) resetSave(); };
 }
 function about() {
@@ -800,195 +954,7 @@ function leaderboard() {
   `);
 }
 
-// ---------- Personaj Tanlash va Sozlash ("Tungi Toshkent: Qahramon Tanlovi") ----------
-function renderAvatarMiniSvg(p) {
-  const topCol = p.color || '#12141c';
-  const inCol = p.innerColor || '#f5f7fa';
-  const hairCol = p.hairColor || '#181311';
-  const hasCap = p.hair === 'cap_black' || p.hair === 'cap_white';
-  const capCol = p.hair === 'cap_white' ? '#f4f6fb' : '#0f172a';
-  const hasGlasses = p.glasses && p.glasses !== 'none';
-  const hasBeard = p.hair === 'beard';
-  const isVarsity = p.outfit === 'varsity';
-  const isSuit = p.outfit === 'suit';
-  const sleeveCol = isVarsity ? '#f8fafc' : topCol;
-
-  return `<svg viewBox="0 0 80 96" class="char-avatar-svg">
-    <defs>
-      <radialGradient id="bg_${p.id}" cx="50%" cy="40%" r="60%">
-        <stop offset="0%" stop-color="rgba(0,229,255,0.26)"/>
-        <stop offset="100%" stop-color="rgba(10,16,32,0.92)"/>
-      </radialGradient>
-    </defs>
-    <rect x="2" y="2" width="76" height="92" rx="12" fill="url(#bg_${p.id})" stroke="rgba(255,255,255,0.12)"/>
-    <!-- Yelka va Kurtka -->
-    <path d="M12 92 C12 66 24 58 40 58 C56 58 68 66 68 92 Z" fill="${topCol}"/>
-    <path d="M12 92 C12 72 18 62 25 60 L25 92 Z" fill="${sleeveCol}"/>
-    <path d="M68 92 C68 72 62 62 55 60 L55 92 Z" fill="${sleeveCol}"/>
-    <!-- Ichki futbolka / ko'ylak -->
-    <polygon points="31,58 49,58 44,86 36,86" fill="${inCol}"/>
-    ${isSuit ? `<polygon points="38.5,60 41.5,60 42.5,82 40,86 37.5,82" fill="#11131a"/>` : ''}
-    <!-- Bo'yin va Bosh -->
-    <rect x="35" y="47" width="10" height="13" rx="4" fill="#e0ac82"/>
-    <ellipse cx="40" cy="36" rx="14" ry="16" fill="#e0ac82"/>
-    ${hasBeard ? `<path d="M27 38 C27 50 53 50 53 38 L51 46 C45 53 35 53 29 46 Z" fill="${hairCol}"/>` : ''}
-    <!-- Ko'zlar yoki Ko'zoynak -->
-    ${hasGlasses
-      ? `<rect x="28" y="31" width="10" height="6" rx="2" fill="#090d16" stroke="#38bdf8" stroke-width="0.8"/>
-         <rect x="42" y="31" width="10" height="6" rx="2" fill="#090d16" stroke="#38bdf8" stroke-width="0.8"/>
-         <line x1="38" y1="33" x2="42" y2="33" stroke="#f59e0b" stroke-width="1.5"/>`
-      : `<circle cx="34" cy="34" r="1.8" fill="#1b120c"/><circle cx="46" cy="34" r="1.8" fill="#1b120c"/>`
-    }
-    <!-- Soch yoki Kepka -->
-    ${hasCap
-      ? `<path d="M25 30 C25 18 55 18 55 30 Z" fill="${capCol}"/>
-         <rect x="24" y="28" width="34" height="4" rx="2" fill="${capCol}"/>`
-      : `<path d="M25 32 C24 17 56 17 55 32 C51 24 29 24 25 32 Z" fill="${hairCol}"/>`
-    }
-  </svg>`;
-}
-
-function charSelect() {
-  const cfg = state.charConfig || (state.charConfig = {
-    preset: 'temur',
-    outfit: 'bomber',
-    color: '#12141c',
-    hair: 'classic',
-    hairColor: '#181311',
-    glasses: 'dark',
-    accessory: 'watch',
-  });
-  const activePreset = getPresetById(cfg.preset);
-
-  const cycleOpt = (key, dir) => {
-    const list = CHAR_CUSTOM_OPTIONS[key] || [];
-    if (!list.length) return;
-    const curVal = cfg[key] ?? activePreset[key];
-    const idx = Math.max(0, list.findIndex((o) => o.id === curVal));
-    const next = list[(idx + dir + list.length) % list.length];
-    cfg[key] = next.id;
-    touch();
-    game.applyCharConfig?.();
-    beep('ok');
-    charSelect();
-  };
-
-  const getOptLabel = (key) => {
-    const list = CHAR_CUSTOM_OPTIONS[key] || [];
-    const curVal = cfg[key] ?? activePreset[key];
-    return (list.find((o) => o.id === curVal) || list[0])?.name || '';
-  };
-
-  const body = showModal('char', '🕶️ Tungi Toshkent: Qahramon Tanlovi', `
-    <div class="char-select-layout">
-      <!-- 1. PERSONAJ TANLASH (8 ta Qahramon Preseti) -->
-      <div class="section-title" style="margin-top:0">PERSONAJ TANLASH (8 OBRAZ)</div>
-      <div class="char-preset-grid">
-        ${CHARACTER_PRESETS.map((p) => {
-          const isSel = cfg.preset === p.id;
-          return `
-            <button type="button" class="char-preset-card ${isSel ? 'active' : ''}" data-cpreset="${p.id}">
-              ${isSel ? '<span class="char-check">✔</span>' : ''}
-              <div class="char-avatar-wrap">${renderAvatarMiniSvg(p)}</div>
-              <b>${p.name}</b>
-              <small>${p.role}</small>
-            </button>
-          `;
-        }).join('')}
-      </div>
-
-      <div class="char-bottom-cols">
-        <!-- 2. KIYIM USLUBLARI (4 ta Outfit) -->
-        <section class="set-card">
-          <h3>👕 KIYIM USLUBLARI</h3>
-          <div class="char-outfit-grid">
-            ${OUTFIT_STYLES.map((o) => {
-              const isSel = (cfg.outfit || activePreset.outfit) === o.id;
-              return `
-                <button type="button" class="char-outfit-btn ${isSel ? 'active' : ''}" data-coutfit="${o.id}">
-                  <b>${o.name}</b>
-                  <small>${o.sub}</small>
-                </button>
-              `;
-            }).join('')}
-          </div>
-        </section>
-
-        <!-- 3. PERSONAJNI SOZLASH (5 ta Customizer) -->
-        <section class="set-card">
-          <h3>✨ PERSONAJNI SOZLASH</h3>
-          <div class="char-custom-rows">
-            ${[
-              ['hair', '💇‍♂️ Soch turmagi'],
-              ['hairColor', '🎨 Soch rangi'],
-              ['glasses', "🕶️ Ko'zoynak"],
-              ['color', '🧥 Libos rangi'],
-              ['accessory', '⌚ Aksessuar'],
-            ].map(([k, title]) => `
-              <div class="char-cust-row">
-                <span>${title}</span>
-                <div class="char-cust-Arrows">
-                  <button type="button" class="btn sm-btn" data-ccust="${k}" data-cdir="-1">◀</button>
-                  <b>${getOptLabel(k)}</b>
-                  <button type="button" class="btn sm-btn" data-ccust="${k}" data-cdir="1">▶</button>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </section>
-      </div>
-
-      <div class="char-save-footer">
-        <button type="button" class="btn gold big" id="saveCharConfigBtn" style="width:100%;font-size:16px">
-          ✨ TANLASH VA SAQLASH (${activePreset.name})
-        </button>
-      </div>
-    </div>
-  `);
-
-  body.querySelectorAll('[data-cpreset]').forEach((b) => {
-    b.onclick = () => {
-      const p = getPresetById(b.dataset.cpreset);
-      state.charConfig = {
-        preset: p.id,
-        outfit: p.outfit,
-        color: p.color,
-        hair: p.hair,
-        hairColor: p.hairColor,
-        glasses: p.glasses,
-        accessory: p.accessory,
-      };
-      touch();
-      game.applyCharConfig?.();
-      beep('ok');
-      charSelect();
-    };
-  });
-
-  body.querySelectorAll('[data-coutfit]').forEach((b) => {
-    b.onclick = () => {
-      state.charConfig.outfit = b.dataset.coutfit;
-      touch();
-      game.applyCharConfig?.();
-      beep('ok');
-      charSelect();
-    };
-  });
-
-  body.querySelectorAll('[data-ccust]').forEach((b) => {
-    b.onclick = () => cycleOpt(b.dataset.ccust, Number(b.dataset.cdir));
-  });
-
-  body.querySelector('#saveCharConfigBtn').onclick = () => {
-    touch();
-    game.applyCharConfig?.();
-    beep('cash');
-    toast(`🕶️ Qahramon saqlandi: ${activePreset.name}!`, 'cash');
-    closeModal();
-  };
-}
-
-const PANELS = { gas: gasStation, service, garage: () => openGarage({ showModal, toast, closeModal, game }), map: bigMap, race: races, jobs, pause, online, settings, help, leaderboard, char: charSelect, about, ideas };
+const PANELS = { gas: gasStation, service, garage: () => openGarage({ showModal, toast, closeModal, game }), map: bigMap, race: races, jobs, pause, online, settings, help, leaderboard, about, ideas };
 
 function renderModalChatLog() {
   const logEl = document.getElementById('onlineChatLog');

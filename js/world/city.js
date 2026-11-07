@@ -56,9 +56,9 @@ export function buildCity(scene, quality) {
   outer.receiveShadow = true;
   group.add(outer);
 
-  // Yo'llar (asfalt)
+  // Yo'llar (tungi yomg'irdan keyingi yarim-yaltiroq asfalt reflekslari bilan)
   const asph = asphaltTexture();
-  const roadMat = new THREE.MeshStandardMaterial({ map: asph, roughness: 0.84, metalness: 0.06 });
+  const roadMat = new THREE.MeshStandardMaterial({ map: asph, roughness: 0.46, metalness: 0.22, envMapIntensity: 1.35 });
   const roadGeos = [];
   for (let i = 0; i <= N; i++) {
     const a = new THREE.PlaneGeometry(HALF * 2, ROAD).rotateX(-Math.PI / 2).translate(0, 0.02, roadC(i));
@@ -128,16 +128,18 @@ export function buildCity(scene, quality) {
 
   const walkGeos = [], curbGeos = [], grassGeos = [];
   const styleMats = STYLES.map((s) => {
-    const { map, emissiveMap } = facadeTextures(s.base, s.frame, s.glass, s.style);
+    const { map, emissiveMap, roughnessMap } = facadeTextures(s.base, s.frame, s.glass, s.style);
     const mat = new THREE.MeshStandardMaterial({
       map,
       emissiveMap,
+      roughnessMap,
       emissive: 0xffffff,
       emissiveIntensity: 0,
-      roughness: s.style === 'glass' ? 0.16 : 0.82,
-      metalness: s.style === 'glass' ? 0.62 : 0.06,
+      roughness: s.style === 'glass' ? 0.22 : 0.85,
+      metalness: s.style === 'glass' ? 0.68 : 0.14,
+      envMapIntensity: s.style === 'glass' ? 1.55 : 0.9,
     });
-    nightMats.push({ mat, base: 0.5 });
+    nightMats.push({ mat, base: 0.62 });
     return mat;
   });
 

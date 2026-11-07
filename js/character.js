@@ -371,8 +371,20 @@ export const CHAR_CUSTOM_OPTIONS = {
   ],
 };
 
-export function getPresetById(id) {
-  return CHARACTER_PRESETS.find((p) => p.id === id) || CHARACTER_PRESETS[0];
+export const UNIVERSAL_CHAR_CONFIG = {
+  preset: 'sardor',
+  outfit: 'hoodie',
+  color: '#12141c',
+  innerColor: '#00e5ff',
+  pantsColor: '#161922',
+  hair: 'cap_black',
+  hairColor: '#181311',
+  glasses: 'dark',
+  accessory: 'both',
+};
+
+export function getPresetById() {
+  return CHARACTER_PRESETS[1] || CHARACTER_PRESETS[0];
 }
 
 export function buildCharacterModel(accentColor = '#00e5ff') {
@@ -684,77 +696,38 @@ export function buildCharacterModel(accentColor = '#00e5ff') {
   let phase = Math.random() * Math.PI * 2;
   let curState = 'idle';
 
-  function applyCharConfig(raw = {}) {
-    const preset = getPresetById(raw.preset || 'temur');
-    const outfit = raw.outfit || preset.outfit || 'bomber';
-    const mainColor = raw.color || preset.color || '#12141c';
-    const hairStyle = raw.hair || preset.hair || 'classic';
-    const hairColor = raw.hairColor || preset.hairColor || '#181311';
-    const glasses = raw.glasses || preset.glasses || 'dark';
-    const accessory = raw.accessory || preset.accessory || 'watch';
-
-    torsoMat.color.set(mainColor);
-    torsoMat.roughness = outfit === 'leather' ? 0.32 : outfit === 'suit' ? 0.48 : 0.72;
-    torsoMat.metalness = outfit === 'leather' ? 0.25 : 0.08;
-
-    // Varsity kurtkada yenglar oq bo'ladi
-    if (outfit === 'varsity') {
-      sleeveMat.color.set('#f8fafc');
-    } else {
-      sleeveMat.color.set(mainColor);
-    }
-    sleeveMat.roughness = torsoMat.roughness;
-    sleeveMat.metalness = torsoMat.metalness;
-
-    myPantsMat.color.set(preset.pantsColor || '#161922');
-
-    // Ichki ko'ylak va galstuk
-    const hasOpenFront = outfit === 'bomber' || outfit === 'suit' || outfit === 'varsity' || outfit === 'leather';
-    innerShirtMesh.visible = hasOpenFront;
-    innerShirtMat.color.set(preset.innerColor || '#f5f7fa');
-    tieMesh.visible = outfit === 'suit';
-
-    // Hoodie detallari
-    const isHoodie = outfit === 'hoodie';
-    hoodBack.visible = isHoodie;
-    pocketMesh.visible = isHoodie;
-    cordL.visible = isHoodie;
-    cordR.visible = isHoodie;
-    backDecal.visible = isHoodie && mainColor.toLowerCase() !== '#eef2f7';
-
-    // Soch, Kepka va Soqol
-    myHairMat.color.set(hairColor);
-    const hasCap = hairStyle === 'cap_black' || hairStyle === 'cap_white';
-    capCrown.visible = hasCap;
-    capVisor.visible = hasCap;
-    if (hasCap) {
-      myCapMat.color.set(hairStyle === 'cap_white' ? '#f4f6fb' : '#0e1017');
-    }
-    hairTopMesh.visible = !hasCap;
-    beardMesh.visible = hairStyle === 'beard';
-
-    // Ko'zoynak
-    glassesGroup.visible = glasses !== 'none';
-    if (glasses === 'sport') {
-      glassesMat.color.set('#00e5ff');
-      glassesMat.metalness = 0.95;
-    } else if (glasses === 'aviator') {
-      glassesMat.color.set('#1e293b');
-      glassesMat.metalness = 0.9;
-    } else {
-      glassesMat.color.set('#0a0d14');
-      glassesMat.metalness = 0.85;
-    }
-
-    // Aksessuarlar (Soat va Zanjir)
-    if (armL.watchMesh) {
-      armL.watchMesh.visible = accessory === 'watch' || accessory === 'both';
-    }
-    chainMesh.visible = accessory === 'chain' || accessory === 'both';
+  function applyCharConfig() {
+    // Barcha o'yinchilar uchun bitta universal realistik Tungi Toshkent Streetwear qahramon
+    const u = UNIVERSAL_CHAR_CONFIG;
+    torsoMat.color.set(u.color);
+    torsoMat.roughness = 0.68;
+    torsoMat.metalness = 0.08;
+    sleeveMat.color.set(u.color);
+    sleeveMat.roughness = 0.68;
+    sleeveMat.metalness = 0.08;
+    myPantsMat.color.set(u.pantsColor);
+    innerShirtMesh.visible = false;
+    tieMesh.visible = false;
+    hoodBack.visible = true;
+    pocketMesh.visible = true;
+    cordL.visible = true;
+    cordR.visible = true;
+    backDecal.visible = true;
+    myHairMat.color.set(u.hairColor);
+    capCrown.visible = true;
+    capVisor.visible = true;
+    myCapMat.color.set('#0e1017');
+    hairTopMesh.visible = false;
+    beardMesh.visible = false;
+    glassesGroup.visible = true;
+    glassesMat.color.set('#0a0d14');
+    glassesMat.metalness = 0.85;
+    if (armL.watchMesh) armL.watchMesh.visible = true;
+    chainMesh.visible = true;
   }
 
-  // Standart holatda Temur (VIP) obrazini o'rnatamiz
-  applyCharConfig({ preset: 'temur' });
+  // Bitta universal Tungi Toshkent Streetwear qahramonni o'rnatamiz
+  applyCharConfig();
 
   return {
     group,

@@ -38,7 +38,7 @@ const PLAYER_TTL_MS = 22_000;
 const EMPTY_ROOM_TTL_MS = 120_000; // Bo'sh xonalar 2 daqiqadan keyin o'chiriladi
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-// rooms: Map<roomId, { id, code, type: 'public'|'private', name, hostId, maxPlayers, players: Map<playerId, state>, events: Array, createdAt, emptySince }>
+// rooms: Map<roomId, { id, code, type: 'public'|'private', name, hostId, maxPlayers, players: Map<playerId, state>, events: Array, races: Map<raceId, raceObj>, createdAt, emptySince }>
 const rooms = new Map();
 // codeToRoomId: Map<code, roomId>
 const codeToRoomId = new Map();
@@ -46,6 +46,8 @@ const codeToRoomId = new Map();
 const playerRoom = new Map();
 // wsClients: Map<playerId, Set<Socket>>
 const wsClients = new Map();
+
+const DEPOSIT_RACE_BONUS_RATE = 1.0; // +100% O'yin bonusi (sozlanadigan)
 
 function ensurePublicRoom(index = 1) {
   const id = index === 1 ? 'PUBLIC' : `PUBLIC_${index}`;
@@ -59,6 +61,7 @@ function ensurePublicRoom(index = 1) {
       maxPlayers: PUBLIC_MAX_PLAYERS,
       players: new Map(),
       events: [],
+      races: new Map(),
       createdAt: Date.now(),
       emptySince: null,
     });
@@ -177,11 +180,39 @@ function getServerStats() {
   };
 }
 
+function cancelPlayerDepositRaces(room, pid, reasonText = "O'yinchi uzildi") {
+  if (!room || !room.races) return;
+  for (const [raceId, r] of room.races.entries()) {
+    if ((r.p1Id === pid || r.p2Id === pid) && (r.status === 'pending' || r.status === 'racing')) {
+      r.status = 'cancelled';
+      const ev = {
+        eid: `dr_cancel_${raceId}_${Date.now()}`,
+        type: 'deposit_race',
+        action: 'cancelled',
+        raceId,
+        p1Id: r.p1Id,
+        p1Name: r.p1Name,
+        p1Deposit: r.p1Deposit,
+        p2Id: r.p2Id,
+        p2Name: r.p2Name,
+        p2Deposit: r.p2Deposit,
+        reason: reasonText,
+        ts: Date.now(),
+      };
+      room.events.push(ev);
+      if (room.events.length > 25) room.events.shift();
+      broadcastToRoom(room, { type: 'event', event: ev });
+      room.races.delete(raceId);
+    }
+  }
+}
+
 function cleanRoomsAndPlayers() {
   const now = Date.now();
   for (const [roomId, room] of rooms.entries()) {
     for (const [pid, p] of room.players.entries()) {
       if (now - p.updatedAt > PLAYER_TTL_MS) {
+        cancelPlayerDepositRaces(room, pid, `${p.name} o'yindan chiqib ketdi — depozit qaytarildi`);
         room.players.delete(pid);
         if (playerRoom.get(pid) === roomId) playerRoom.delete(pid);
         broadcastToRoom(room, {
@@ -189,6 +220,14 @@ function cleanRoomsAndPlayers() {
           playerId: pid,
           name: p.name,
         });
+      }
+    }
+    if (room.races) {
+      for (const [raceId, r] of room.races.entries()) {
+        if (now - r.createdAt > 300_000) {
+          cancelPlayerDepositRaces(room, r.p1Id, 'Poyga vaqti tugadi — depozit qaytarildi');
+          room.races.delete(raceId);
+        }
       }
     }
     if (room.players.size === 0) {
@@ -214,6 +253,7 @@ function removePlayerFromCurrentRoom(pid) {
   const prevRoom = rooms.get(prevRoomId);
   if (prevRoom) {
     const p = prevRoom.players.get(pid);
+    cancelPlayerDepositRaces(prevRoom, pid, `${p?.name || 'Raqib'} xonadan chiqdi — depozit qaytarildi`);
     prevRoom.players.delete(pid);
     if (prevRoom.players.size === 0) prevRoom.emptySince = Date.now();
     if (p) {
@@ -258,6 +298,7 @@ function createPrivateRoom(hostId, customMax) {
     maxPlayers,
     players: new Map(),
     events: [],
+    races: new Map(),
     createdAt: Date.now(),
     emptySince: null,
   };
@@ -297,6 +338,7 @@ function resolveTargetRoom(pid, requestedCodeOrType, createIfMissing = false) {
       maxPlayers: PRIVATE_MAX_PLAYERS,
       players: new Map(),
       events: [],
+      races: new Map(),
       createdAt: Date.now(),
       emptySince: null,
     };
@@ -306,6 +348,113 @@ function resolveTargetRoom(pid, requestedCodeOrType, createIfMissing = false) {
   }
 
   return { error: `«${raw}» kodli xona topilmadi!` };
+}
+
+function handleDepositRaceEvent(room, pid, pName, rawEvent) {
+  if (!room.races) room.races = new Map();
+  const action = String(rawEvent.action || '').trim();
+  const now = Date.now();
+
+  if (action === 'invite') {
+    const toId = sanitizeId(rawEvent.toId || '');
+    const deposit = clampNum(rawEvent.deposit, 100_000, 10_000_000_000, 5_000_000);
+    const target = rawEvent.target && typeof rawEvent.target === 'object'
+      ? {
+          x: clampNum(rawEvent.target.x, -2500, 2500, 0),
+          z: clampNum(rawEvent.target.z, -2500, 2500, 0),
+          name: String(rawEvent.target.name || 'Tashkent City').slice(0, 36),
+        }
+      : { x: 0, z: 0, name: 'Tashkent City' };
+    const raceId = `DR_${pid}_${now.toString(36).slice(-4)}`;
+    const toPlayer = toId ? room.players.get(toId) : null;
+    const race = {
+      raceId,
+      status: 'pending',
+      p1Id: pid,
+      p1Name: pName,
+      p1Deposit: deposit,
+      p2Id: toId || '',
+      p2Name: toPlayer ? toPlayer.name : '',
+      p2Deposit: 0,
+      pool: deposit,
+      bonus: 0,
+      totalPrize: deposit,
+      target,
+      createdAt: now,
+      startedAt: 0,
+      winnerId: '',
+      winnerName: '',
+    };
+    room.races.set(raceId, race);
+    return {
+      eid: `dr_inv_${raceId}_${now}`,
+      type: 'deposit_race',
+      action: 'invited',
+      ...race,
+      ts: now,
+    };
+  }
+
+  const raceId = String(rawEvent.raceId || '');
+  const race = room.races.get(raceId);
+  if (!race) return null;
+
+  if (action === 'accept' && race.status === 'pending' && pid !== race.p1Id) {
+    if (race.p2Id && race.p2Id !== pid) return null;
+    const p2Deposit = clampNum(rawEvent.deposit, 100_000, 10_000_000_000, race.p1Deposit);
+    race.p2Id = pid;
+    race.p2Name = pName;
+    race.p2Deposit = p2Deposit;
+    race.pool = race.p1Deposit + race.p2Deposit;
+    race.bonus = Math.round(race.pool * DEPOSIT_RACE_BONUS_RATE);
+    race.totalPrize = race.pool + race.bonus;
+    race.status = 'racing';
+    race.startedAt = now + 3500; // 3-2-1 GO countdown
+    return {
+      eid: `dr_start_${raceId}_${now}`,
+      type: 'deposit_race',
+      action: 'started',
+      ...race,
+      ts: now,
+    };
+  }
+
+  if (action === 'cancel' && (race.status === 'pending' || race.status === 'racing') && (pid === race.p1Id || pid === race.p2Id)) {
+    race.status = 'cancelled';
+    room.races.delete(raceId);
+    return {
+      eid: `dr_canc_${raceId}_${now}`,
+      type: 'deposit_race',
+      action: 'cancelled',
+      ...race,
+      cancelledBy: pName,
+      reason: `${pName} poygani bekor qildi — depozit qaytarildi`,
+      ts: now,
+    };
+  }
+
+  if (action === 'finish' && race.status === 'racing' && (pid === race.p1Id || pid === race.p2Id)) {
+    // Anti-cheat: kamida 4 soniya o'tgan bo'lishi va o'yinchi marra yaqinida bo'lishi kerak
+    if (now < race.startedAt + 1500) return null;
+    const pState = room.players.get(pid);
+    if (pState && race.target) {
+      const distToTarget = Math.hypot((pState.x || 0) - race.target.x, (pState.z || 0) - race.target.z);
+      if (distToTarget > 180) return null;
+    }
+    race.status = 'finished';
+    race.winnerId = pid;
+    race.winnerName = pName;
+    room.races.delete(raceId);
+    return {
+      eid: `dr_fin_${raceId}_${now}`,
+      type: 'deposit_race',
+      action: 'finished',
+      ...race,
+      ts: now,
+    };
+  }
+
+  return null;
 }
 
 function syncPlayerInRoom(pid, targetRoom, rawState = {}, rawEvent = null) {
@@ -349,7 +498,29 @@ function syncPlayerInRoom(pid, targetRoom, rawState = {}, rawEvent = null) {
     broadcastToRoom(targetRoom, { type: 'event', event: ev }, pid);
   }
 
-  if (rawEvent && rawEvent.type) {
+  if (rawEvent && rawEvent.type === 'deposit_race') {
+    const drEv = handleDepositRaceEvent(targetRoom, pid, nextState.name, rawEvent);
+    if (drEv) {
+      targetRoom.events.push(drEv);
+      if (targetRoom.events.length > 25) targetRoom.events.shift();
+      broadcastToRoom(targetRoom, { type: 'event', event: drEv });
+    }
+  } else if (rawEvent && rawEvent.type === 'car_hit') {
+    const ev = {
+      eid: `hit_${pid}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+      type: 'car_hit',
+      fromId: pid,
+      fromName: nextState.name,
+      toId: sanitizeId(rawEvent.toId || ''),
+      nx: clampNum(rawEvent.nx, -1, 1, 0),
+      nz: clampNum(rawEvent.nz, -1, 1, 0),
+      force: clampNum(rawEvent.force, 0, 80, 5),
+      ts: Date.now(),
+    };
+    targetRoom.events.push(ev);
+    if (targetRoom.events.length > 25) targetRoom.events.shift();
+    broadcastToRoom(targetRoom, { type: 'event', event: ev }, pid);
+  } else if (rawEvent && rawEvent.type) {
     const ev = {
       eid: `${pid}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       type: String(rawEvent.type).slice(0, 16),

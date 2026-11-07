@@ -15,24 +15,41 @@ export const PRESETS = {
 
 export const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
 
+function detectGpuCapability(renderer) {
+  let isHighEndMobile = false;
+  try {
+    const gl = renderer.getContext();
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const gpuStr = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
+    const cores = navigator.hardwareConcurrency || 4;
+    const mem = navigator.deviceMemory || 4;
+    if (/Apple GPU|A1[4-9]|M[1-5]|Adreno \(TM\) [678]\d\d|Mali-G[789]\d/i.test(gpuStr) || (cores >= 6 && mem >= 6)) {
+      isHighEndMobile = true;
+    }
+  } catch { /* */ }
+  return { isHighEndMobile };
+}
+
 export function createRenderer(canvas, quality) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: !IS_MOBILE,
+    antialias: !IS_MOBILE || (devicePixelRatio || 1) < 2,
     powerPreference: 'high-performance',
     stencil: false,
   });
-  // GPU xotirasi tugasa (ko'pincha telefonda) — foydalanuvchiga xabar berib, sahifani qayta yuklaymiz
+  const gpuCap = detectGpuCapability(renderer);
+
+  // GPU xotirasi tugasa — foydalanuvchiga xabar berib, xavfsiz rejimga o'tkazamiz
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault();
     const t = document.getElementById('loadText');
-    if (t) t.textContent = "Grafika xotirasi tugadi. Sahifa qayta yuklanmoqda... (Sozlamalarda grafikani 'Past' qiling)";
+    if (t) t.textContent = "Grafika xotirasi tiklanmoqda... (Sifat avtomatik ravishda moslashtirildi)";
     try {
       const k = 'tungi-toshkent-save-v3';
       const s = JSON.parse(localStorage.getItem(k) || '{}');
-      if (s.settings) { s.settings.quality = 'low'; localStorage.setItem(k, JSON.stringify(s)); }
+      if (s.settings) { s.settings.quality = 'medium'; localStorage.setItem(k, JSON.stringify(s)); }
     } catch { /* */ }
-    setTimeout(() => location.reload(), 1500);
+    setTimeout(() => location.reload(), 1200);
   }, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -41,11 +58,23 @@ export function createRenderer(canvas, quality) {
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envMap = pmrem.fromScene(new RoomEnvironment(), 0.035).texture;
 
-  let composer, bloom, preset, scene, camera;
+  let composer, bloom, preset, scene, camera, activeQuality = quality;
   const R = {
     renderer,
     envMap,
     get preset() { return preset; },
+    get activeQuality() { return activeQuality; },
+    getMetrics() {
+      const info = renderer.info;
+      const memHeap = performance.memory ? Math.round(performance.memory.usedJSHeapSize / (1024 * 1024)) : null;
+      return {
+        calls: info.render.calls,
+        triangles: info.render.triangles,
+        geometries: info.memory.geometries,
+        textures: info.memory.textures,
+        heapMb: memHeap,
+      };
+    },
     attach(s, c) {
       scene = s;
       camera = c;
@@ -64,17 +93,36 @@ export function createRenderer(canvas, quality) {
       R.apply(quality);
     },
     apply(q) {
-      preset = PRESETS[q] || (IS_MOBILE ? PRESETS.medium : PRESETS.high);
-      // Telefon: GPU xotirasi va batareyani tejash, 60 FPS silliq ishlashi uchun Bloom va og'ir soyalarni o'chirish
+      activeQuality = q || (IS_MOBILE ? 'medium' : 'high');
+      preset = { ...(PRESETS[activeQuality] || (IS_MOBILE ? PRESETS.medium : PRESETS.high)) };
+      // Mobil qurilmalarda tanlangan sifat darajasini (Low / Medium / High / Ultra) haqiqatan qo'llab-quvvatlaymiz:
+      // High va Ultra rejimlarida mobil ekranda ham sifatli soyalar, reflekslar va yuqori aniqlik yoqiladi!
       if (IS_MOBILE) {
-        preset = {
-          ...preset,
-          pr: Math.min(preset.pr, 1.15),
-          shadows: false, // Mobil qurilmada og'ir PC soyalar o'chiriladi -> FPS 2-3 barobar oshadi!
-          bloom: false,   // UnrealBloom telefonda sekundiga 20-30 FPS yo'qotadi
-          traffic: Math.min(preset.traffic, 6),
-          peds: Math.min(preset.peds, 20),
-        };
+        if (activeQuality === 'low') {
+          preset = { ...preset, pr: 1.0, shadows: false, map: 512, bloom: false, traffic: 4, peds: 14 };
+        } else if (activeQuality === 'medium') {
+          preset = { ...preset, pr: 1.25, shadows: false, map: 1024, bloom: false, traffic: 6, peds: 22 };
+        } else if (activeQuality === 'high') {
+          preset = {
+            ...preset,
+            pr: gpuCap.isHighEndMobile ? 1.65 : 1.4,
+            shadows: true,
+            map: 1024,
+            bloom: gpuCap.isHighEndMobile,
+            traffic: 8,
+            peds: 32,
+          };
+        } else if (activeQuality === 'ultra') {
+          preset = {
+            ...preset,
+            pr: gpuCap.isHighEndMobile ? 2.0 : 1.65,
+            shadows: true,
+            map: gpuCap.isHighEndMobile ? 2048 : 1024,
+            bloom: true,
+            traffic: 10,
+            peds: 42,
+          };
+        }
       }
       const pr = Math.min(devicePixelRatio || 1, preset.pr);
       renderer.setPixelRatio(pr);
@@ -84,8 +132,10 @@ export function createRenderer(canvas, quality) {
       R.resize();
     },
     resize() {
-      const w = innerWidth, h = innerHeight;
-      renderer.setSize(w, h);
+      const vv = window.visualViewport;
+      const w = Math.max(320, Math.round(vv ? vv.width : innerWidth));
+      const h = Math.max(200, Math.round(vv ? vv.height : innerHeight));
+      renderer.setSize(w, h, false);
       composer?.setSize(w, h);
       bloom?.resolution?.set(Math.max(256, w >> 1), Math.max(256, h >> 1));
       if (camera) {
@@ -97,7 +147,7 @@ export function createRenderer(canvas, quality) {
     render(night) {
       // Tungi rejimda ham mashina kuzovi va shahar yorqin, tiniq ko'rinishi uchun
       renderer.toneMappingExposure = 1.08 + night * 0.16;
-      scene.environmentIntensity = 0.48 + (1 - night) * 0.45;
+      scene.environmentIntensity = 0.52 + (1 - night) * 0.45;
       if (preset.bloom) {
         bloom.strength = 0.16 + night * 0.28;
         bloom.threshold = 0.92 - night * 0.08;
@@ -108,5 +158,12 @@ export function createRenderer(canvas, quality) {
     },
   };
   addEventListener('resize', () => R.resize());
+  addEventListener('orientationchange', () => {
+    setTimeout(() => R.resize(), 80);
+    setTimeout(() => R.resize(), 300);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => R.resize());
+  }
   return R;
 }

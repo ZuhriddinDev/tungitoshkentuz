@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { CARS } from './config.js';
 import { buildCar } from './carModel.js';
 import { buildCharacterModel } from './character.js';
+import { sendOnlineEvent } from './online.js';
 
 const beaconGeo = new THREE.CylinderGeometry(0.18, 0.65, 55, 12, 1, true);
 beaconGeo.translate(0, 28, 0);
@@ -151,7 +152,19 @@ export class RemoteCars {
           pitch: 0,
           id: p.id,
           len: cfg.len,
-          onHit() {},
+          mass: cfg.body === 'suv' ? 2350 : cfg.body === 'super' ? 1580 : 1480,
+          onHit(nx, nz, kmh) {
+            const push = Math.min(2.2, Math.max(0.4, (kmh || 20) * 0.03));
+            r.x += nx * push;
+            r.z += nz * push;
+            sendOnlineEvent({
+              type: 'car_hit',
+              toId: p.id,
+              nx,
+              nz,
+              force: Math.max(5, (kmh || 20) * 0.35),
+            });
+          },
         };
         this.map.set(p.id, r);
       } else if (r.labelKey !== labelKey) {

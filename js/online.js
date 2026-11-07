@@ -605,6 +605,12 @@ function applyList(l, events = []) {
       }
     } else if (ev.type === 'race') {
       emit({ raceEvent: ev });
+    } else if (ev.type === 'deposit_race') {
+      emit({ depositRace: ev });
+    } else if (ev.type === 'car_hit') {
+      if (ev.toId === (myId || playerId())) {
+        emit({ carHit: ev });
+      }
     }
   }
 

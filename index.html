@@ -34,7 +34,9 @@
   <canvas id="game"></canvas>
 
   <!-- =========================================================
-       GTA ONLINE USLUBIDAGI PREMIUM 3D GAME LOBBY (V4.0)
+       MAIN MENU REDESIGN V2 — MALIBU HERO LANDING PAGE
+       Markazda Chevrolet Malibu Premier, Tungi Toshkent fon,
+       Server holati, Profil balansi va O'YINNI BOSHLASH tugmasi
        ========================================================= -->
   <div id="menu" class="screen show lobby-screen">
     <!-- Yuklanish ekrani (3D shahar tayyor bo'lguncha) -->
@@ -47,10 +49,15 @@
       <span id="loadText">3D Toshkent shahri qurilmoqda...</span>
     </div>
 
-    <!-- Asosiy Lobby Interfeysi (Markazda jonli 3D Mashina + 3D Personaj ko'rinib turadi) -->
-    <div id="menuForm" class="lobby-layout hidden">
-      <!-- 1. YUQORI PANEL: Jonli Server Holati va O'yinchi Profili -->
-      <header class="lobby-topbar">
+    <!-- Asosiy Minimalistik Malibu Hero Landing Page -->
+    <div id="menuForm" class="lobby-layout malibu-hero-layout hidden">
+      <!-- 1. YUQORI PANEL: Logotip, Server Holati, Profil Balansi va Sozlamalar -->
+      <header class="lobby-topbar hero-topbar">
+        <div class="hero-brand-bar panel-glass">
+          <h1 class="lobby-logo">TUNGI <span>TOSHKENT</span></h1>
+          <span class="hero-brand-tag">3D MULTIPLAYER</span>
+        </div>
+
         <div class="lobby-server-bar panel-glass">
           <span class="srv-item">
             <i class="pulse-dot" id="lobStatusDot"></i>
@@ -58,21 +65,16 @@
           </span>
           <span class="srv-sep">|</span>
           <span class="srv-item">
-            👥 Ommaviy: <b id="lobPublicCount">1/30</b>
+            🌐 Ommaviy: <b id="lobPublicCount">1/30</b>
           </span>
           <span class="srv-sep">|</span>
           <span class="srv-item">
-            🔒 Xonalar: <b id="lobPrivateRooms">0</b>
-          </span>
-          <span class="srv-sep">|</span>
-          <span class="srv-item">
-            🌐 Server: <b id="lobServerStatus" class="cyan-txt">Online</b>
+            <b id="lobServerStatus" class="cyan-txt">Online</b>
             <small id="lobPingMs">(18 ms)</small>
           </span>
         </div>
 
         <div class="lobby-profile-bar panel-glass">
-          <button type="button" class="prof-avatar" data-open="char" title="Personaj va kiyimni o'zgartirish">🕶️</button>
           <div class="prof-name-box">
             <input id="nameInput" maxlength="18" placeholder="Ismingiz..." title="Haydovchi ismini o'zgartirish" autocomplete="off" />
             <div class="prof-id-row">
@@ -80,226 +82,42 @@
               <button type="button" id="copyMenuId" title="ID kodni nusxalash">📋</button>
             </div>
           </div>
-          <div class="prof-lv-box">
-            <span>👑 <b id="lobLevel">Lv.5</b></span>
-            <div class="xp-bar"><i id="lobXpFill" style="width:65%"></i></div>
-          </div>
           <div class="prof-money-box">
             <span>💰</span>
             <b id="lobMoney">2 000 000 000 so'm</b>
           </div>
           <button type="button" class="prof-gear-btn" data-open="settings" title="Sozlamalar">⚙️</button>
-          <button type="button" class="lob-hamburger-btn" id="btnMobileLobbyDrawer" title="Menyu">☰</button>
         </div>
       </header>
 
-      <!-- MOBIL LOBBY HAMBURGER TORTMASI (Barcha qo'shimcha bo'limlar shu yerda) -->
-      <div id="mobileLobbyDrawer" class="mob-lobby-drawer hidden">
-        <div class="mob-drawer-card panel-glass">
-          <div class="mob-drawer-head">
-            <b>🧭 TUNGI TOSHKENT MENYUSI</b>
-            <button type="button" id="closeMobileLobbyDrawer" class="close">✕</button>
-          </div>
-          <div class="mob-drawer-grid">
-            <button type="button" id="mobStartPublicBtn" class="mob-d-item primary"><span>🌐</span><b>Ommaviy Server</b><small>Darhol o'ynash</small></button>
-            <button type="button" data-open="online" class="mob-d-item"><span>🔒</span><b>Do'stlar Xonasi</b><small>Kod bilan kirish</small></button>
-            <button type="button" data-open="garage" class="mob-d-item"><span>🚗</span><b>Garaj va Tuning</b><small>Avtosalon va bo'yoq</small></button>
-            <button type="button" data-open="char" class="mob-d-item"><span>🕶️</span><b>Personaj Tanlash</b><small>8 obraz va kiyimlar</small></button>
-            <button type="button" data-open="map" class="mob-d-item"><span>🗺️</span><b>Toshkent Xaritasi</b><small>OpenStreetMap GPS</small></button>
-            <button type="button" data-open="race" class="mob-d-item"><span>🏁</span><b>Musobaqalar</b><small>Poyga va Drift</small></button>
-            <button type="button" id="mobDailyBtn" class="mob-d-item gold"><span>🎁</span><b>Kunlik Mukofot</b><small>+25 mln bonus</small></button>
-            <button type="button" data-open="leaderboard" class="mob-d-item"><span>🏆</span><b>Reyting</b><small>Top haydovchilar</small></button>
-            <button type="button" data-open="settings" class="mob-d-item"><span>⚙️</span><b>Sozlamalar</b><small>Rul, Ovoz va Grafika</small></button>
-            <button type="button" data-open="help" class="mob-d-item"><span>⌨️</span><b>Boshqaruv</b><small>Tugmalar yordami</small></button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 2. CHAP PANEL: Neon Logotip va 6 ta Asosiy Menyu Kartasi -->
-      <aside class="lobby-left">
-        <div class="lobby-brand panel-glass">
-          <!-- Toshkent silueti (Teleminora + Chorsu + City) -->
-          <svg class="skyline-svg" viewBox="0 0 320 52" fill="none">
-            <path d="M4 50 L4 34 L18 34 L18 50 M22 50 L22 24 L40 24 L40 50 M46 50 L46 30 C46 18 74 18 74 30 L74 50 M82 50 L82 18 L98 18 L98 50 M104 50 L104 12 L124 12 L124 50 M148 50 L154 22 L154 8 L156 2 L158 8 L158 22 L164 50 M150 26 L162 26 M152 17 L160 17 M174 50 L174 14 L196 14 L196 50 M202 50 L202 22 L220 22 L220 50 M228 50 C228 32 258 32 258 50 M266 50 L266 26 L286 26 L286 50 M292 50 L292 34 L314 34 L314 50" stroke="url(#skyGrad)" stroke-width="2" stroke-linecap="round"/>
-            <defs>
-              <linearGradient id="skyGrad" x1="0" y1="0" x2="320" y2="0" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="#00e5ff" stop-opacity="0.85"/>
-                <stop offset="50%" stop-color="#ff2bd6" stop-opacity="0.95"/>
-                <stop offset="100%" stop-color="#ffd740" stop-opacity="0.85"/>
-              </linearGradient>
-            </defs>
-          </svg>
-          <h1 class="lobby-logo">TUNGI <span>TOSHKENT</span></h1>
-          <div class="lobby-sub">OPEN WORLD • MULTIPLAYER • DRIVING</div>
-          <p class="lobby-slogan">Toshkentda birga haydaymiz!</p>
-        </div>
-
-        <nav class="lobby-nav">
-          <button type="button" class="nav-card primary-card" id="btnStartPublic">
-            <span class="nav-ic">🌐</span>
-            <div class="nav-txt">
-              <b>O'YIN BOSHLASH</b>
-              <small>Ommaviy serverga tezkor kirish</small>
-            </div>
-            <i class="nav-arr">›</i>
-          </button>
-
-          <button type="button" class="nav-card" data-open="online">
-            <span class="nav-ic">🔒</span>
-            <div class="nav-txt">
-              <b>DO'STLAR BILAN</b>
-              <small>Xona yaratish yoki kod bilan kirish</small>
-            </div>
-            <i class="nav-arr">›</i>
-          </button>
-
-          <button type="button" class="nav-card" data-open="garage">
-            <span class="nav-ic">🚗</span>
-            <div class="nav-txt">
-              <b>GARAJ VA TUNING</b>
-              <small>Mashinalar, bo'yoq, disk va motor</small>
-            </div>
-            <i class="nav-arr">›</i>
-          </button>
-
-          <button type="button" class="nav-card" data-open="char">
-            <span class="nav-ic">🕶️</span>
-            <div class="nav-txt">
-              <b>PERSONAJ VA KIYIM</b>
-              <small id="lobCharSub">8 qahramon obrazi va uslublar</small>
-            </div>
-            <i class="nav-arr">›</i>
-          </button>
-
-          <button type="button" class="nav-card" data-open="map">
-            <span class="nav-ic">📍</span>
-            <div class="nav-txt">
-              <b>TOSHKENT XARITASI</b>
-              <small>Chorsu, Tashkent City, Teleminora</small>
-            </div>
-            <i class="nav-arr">›</i>
-          </button>
-
-          <button type="button" class="nav-card" data-open="race">
-            <span class="nav-ic">🏆</span>
-            <div class="nav-txt">
-              <b>MUSOBAQALAR</b>
-              <small>Poyga, tungi drift va topshiriqlar</small>
-            </div>
-            <i class="nav-arr">›</i>
-          </button>
-
-          <button type="button" class="nav-card gold-card" id="btnLobbyDaily">
-            <span class="nav-ic">🎁</span>
-            <div class="nav-txt">
-              <b>KUNLIK MUKOFOT</b>
-              <small id="lobDailySub">25 000 000 so'm bonus oling!</small>
-            </div>
-            <i class="nav-arr">›</i>
-          </button>
-        </nav>
-      </aside>
-
-      <!-- 3. MARKAZIY 3D SHOWROOM VA KARUSEL -->
-      <main class="lobby-center">
-        <!-- Yuqori 3D Showroom ma'lumoti va tezkor rang/fara almashtirgich -->
-        <div class="showroom-top-pill panel-glass">
-          <div class="sr-car-head">
-            <strong id="menuCarName">BMW M4 GTS</strong>
-            <div class="sr-specs">
-              <span id="menuCarSpeed">⚡ 285 km/s</span>
-              <span id="menuCarAccel">⏱ 0-100: 2.4s</span>
-              <span id="menuCarSound">🔊 I6 Twin-Turbo</span>
-            </div>
-          </div>
-          <div class="sr-quick-tune">
-            <div class="sr-colors" id="lobbyColorDots" title="Mashina rangini tezkor o'zgartirish"></div>
-            <button type="button" class="sr-mini-btn" id="lobbyRimBtn" title="Diskni almashtirish">🛞 Disk</button>
-            <button type="button" class="sr-mini-btn" id="lobbyLightBtn" title="Faralarni yoqish/o'chirish">💡 Fara</button>
-            <button type="button" class="sr-mini-btn" data-open="char" title="Personaj va kiyim tanlash">🕶️ Personaj</button>
-          </div>
-        </div>
-
-        <div class="sr-drag-hint">🔄 360° aylantirish uchun sichqoncha yoki barmoq bilan suring</div>
-
-        <!-- Pastki-markaziy MASHINA TANLANG karuseli -->
-        <div class="lobby-carousel-wrap panel-glass">
-          <div class="carousel-head">
-            <span>MASHINA TANLANG</span>
-            <small id="lobbyOwnedCount">Garajda: 1/8</small>
-          </div>
-          <div class="carousel-row">
-            <button type="button" class="car-nav-btn" id="menuPrevCar" title="Oldingi mashina">◀</button>
-            <div class="lobby-car-strip" id="lobbyCarStrip"></div>
-            <button type="button" class="car-nav-btn" id="menuNextCar" title="Keyingi mashina">▶</button>
-          </div>
+      <!-- 2. MARKAZIY SAHNA: Chevrolet Malibu Premier 3D Cinematic Ko'rinishi -->
+      <main class="lobby-center hero-center-stage">
+        <div class="malibu-hero-badge">
+          <span class="hero-car-tag">CHEVROLET MALIBU PREMIER · TURBO</span>
         </div>
       </main>
 
-      <!-- 4. O'NG PANEL: Ob-havo, Toshkent Xaritasi Preview va Profil Statistikasi -->
-      <aside class="lobby-right">
-        <div class="lobby-weather panel-glass">
-          <span>🌙 +12°C · Tungi Toshkent</span>
-          <b id="lobClock">21:45</b>
-        </div>
-
-        <!-- Toshkent Xaritasi Preview & Jonli lokatsiyalar -->
-        <div class="lobby-card panel-glass">
-          <div class="lcard-head">
-            <h3>🗺️ Toshkent Xaritasi</h3>
-            <span class="live-tag">OPEN WORLD</span>
-          </div>
-          <div class="lobby-map-box">
-            <canvas id="lobbyMapCanvas" width="260" height="145"></canvas>
-            <div class="map-poi-chips">
-              <button type="button" data-lob-poi="Amir Temur Xiyoboni">📍 Amir Temur</button>
-              <button type="button" data-lob-poi="Tashkent City">🏙️ Tashkent City</button>
-              <button type="button" data-lob-poi="Chorsu Bozori">🏛️ Chorsu</button>
-              <button type="button" data-lob-poi="Minor Masjidi">🕌 Minor</button>
-              <button type="button" data-lob-poi="Toshkent Teleminorasi">🗼 Teleminora</button>
-            </div>
-          </div>
-          <button type="button" class="btn sm-btn full-w" data-open="map">🔍 To'liq xaritani ochish</button>
-        </div>
-
-        <!-- Profil Statistikasi -->
-        <div class="lobby-card panel-glass">
-          <div class="lcard-head">
-            <h3>📊 PROFIL STATISTIKASI</h3>
-          </div>
-          <div class="lob-stat-list">
-            <div><span>Haydalgan masofa:</span><b id="lobStatKm">0.0 km</b></div>
-            <div><span>Reyting:</span><b id="lobStatRank" class="cyan-txt">#1 · Pro</b></div>
-            <div><span>Daraja:</span><b id="lobStatLv">Lv. 5</b></div>
-            <div><span>Garajdagi avtolar:</span><b id="lobStatCars">1 / 8</b></div>
-            <div><span>Balans:</span><b id="lobStatBal" class="gold-txt">2 000 000 000 so'm</b></div>
-          </div>
-        </div>
-      </aside>
-
-      <!-- 5. PASTKI BAR: Tezkor Tugmalar va Katta Oltin KIRISH Tugmasi -->
-      <footer class="lobby-bottombar">
-        <div class="lob-quick-btns panel-glass">
-          <button type="button" data-open="settings">⚙️ Sozlamalar</button>
-          <button type="button" data-open="online">👥 Do'stlar</button>
-          <button type="button" data-open="leaderboard">🏆 Reyting</button>
-          <button type="button" data-open="help">⌨️ Boshqaruv</button>
-          <button type="button" id="btnLobbyExit">⛶ Ekran</button>
-        </div>
-
-        <button type="button" id="playBtn" class="lobby-enter-btn pulse">
-          <span>🏁 KIRISH</span>
+      <!-- 3. PASTKI MARKAZ: Katta va Chiroyli O'YINNI BOSHLASH Tugmasi -->
+      <footer class="lobby-bottombar hero-bottombar">
+        <button type="button" id="playBtn" class="lobby-enter-btn hero-start-btn pulse">
+          <span>🏁 O‘YINNI BOSHLASH</span>
           <i>›</i>
         </button>
       </footer>
     </div>
   </div>
 
-  <!-- Telefonni gorizontal (landscape) aylantirish tavsiyasi -->
+  <!-- iPhone & Mobil Portret rejimda telefonni gorizontal aylantirish ekrani -->
   <div id="rotateHint" class="rotate-hint">
-    <span>📱🔄 Telefonni gorizontal (yotiq) aylantirib o'ynang!</span>
-    <button type="button" class="btn sm-btn primary" data-fullscreen="1">⛶ Gorizontal</button>
-    <button type="button" class="rotate-close" id="closeRotateHint" title="Yopish">✕</button>
+    <div class="rotate-card">
+      <div class="rotate-phone-icon">📱🔄</div>
+      <h3>TELEFONNI GORIZONTAL AYLANTIRING</h3>
+      <p>TUNGI TOSHKENT o‘yinini qulay boshqarish uchun telefonni yotiq (landscape) holatga o‘tkazing.</p>
+      <div class="rotate-actions">
+        <button type="button" class="btn sm-btn primary" data-fullscreen="1">⛶ To‘liq ekran</button>
+        <button type="button" class="btn sm-btn" id="closeRotateHint">Davom etish ✕</button>
+      </div>
+    </div>
   </div>
 
   <!-- Yuklash qatlami (mashina sotib olish / almashtirish) -->
@@ -314,32 +132,32 @@
   </div>
 
   <!-- =========================================================
-       O'YIN ICHIDAGI HUD (HAYDASH VA PIYODA REJIMI)
+       O'YIN ICHIDAGI HUD (UZB PARKING USLUBIDA TOZA VA KONTEKSTLI)
        ========================================================= -->
   <div id="hud" class="hidden">
     <div class="top">
       <div class="chip player"><b id="hudName">—</b><small id="hudFps">60 FPS</small></div>
-      <button class="chip online-chip" data-hotkey="KeyO" title="Online xona (O)"><b id="hudOnline">🌐 Online: 1/30</b><small id="hudMyId">OMMAVIY SERVER</small></button>
+      <button class="chip online-chip" data-hotkey="KeyO" title="Online xona va Do'stlar (O)"><b id="hudOnline">🌐 Online: 1/30</b><small id="hudMyId">OMMAVIY SERVER</small></button>
       <div class="chip money" id="hudMoney">0 so'm</div>
       <div class="chip clock"><span id="hudTime">00:00</span><small id="hudStreet">—</small></div>
-      <button type="button" class="chip iconbtn mob-hud-menu-btn" id="hudMobileMenuBtn" title="Tezkor Menyu">☰</button>
-      <button class="chip iconbtn" data-hotkey="Escape" title="Pauza va Menyu (ESC)">⏸</button>
+      <button type="button" class="chip iconbtn mob-hud-menu-btn" id="hudMobileMenuBtn" title="O'yin Menyusi">☰</button>
+      <button class="chip iconbtn" data-hotkey="Escape" title="Menyu va Pauza (ESC)">⏸</button>
     </div>
 
-    <!-- MOBIL HUD YIG'ILUVCHI HARAKATLAR MENYUSI (Haydashga xalaqit bermaydi) -->
+    <!-- Performance Audit / Debug Panel (F3 yoki Sozlamalar orqali yoqiladi) -->
+    <div id="perfAuditPanel" class="perf-audit-panel hidden"></div>
+
+    <!-- MOBIL HUD YIG'ILUVCHI HARAKATLAR MENYUSI (Garaj, Tuning, Xarita, Poyga, Do'stlar, Kunlik mukofot) -->
     <div id="hudMobileDrawer" class="hud-mob-drawer hidden">
       <div class="hud-mob-grid">
-        <button type="button" data-hotkey="KeyF">🚶<span>Tushish/Kirish</span></button>
-        <button type="button" data-hotkey="KeyG">🚗<span>Garaj</span></button>
-        <button type="button" data-hotkey="KeyE">⛽<span>Xizmat/Benzin</span></button>
-        <button type="button" data-hotkey="KeyM">🗺️<span>GPS Xarita</span></button>
-        <button type="button" data-hotkey="KeyR">🏁<span>Poyga</span></button>
-        <button type="button" data-hotkey="KeyT">📦<span>Ish/Taksi</span></button>
-        <button type="button" data-hotkey="KeyO">🌐<span>Online Xona</span></button>
-        <button type="button" data-open="char">🕶️<span>Personaj</span></button>
-        <button type="button" data-hotkey="KeyL">💡<span>Fara</span></button>
-        <button type="button" data-hotkey="KeyH">📯<span>Signal</span></button>
-        <button type="button" data-hotkey="KeyC">🎥<span>Kamera</span></button>
+        <button type="button" data-hotkey="KeyG">🚗<span>Garaj & Tuning</span></button>
+        <button type="button" data-hotkey="KeyM">🗺️<span>Xarita (GPS)</span></button>
+        <button type="button" data-hotkey="KeyO">👥<span>Do'stlar</span></button>
+        <button type="button" data-hotkey="KeyR">🏁<span>Musobaqalar</span></button>
+        <button type="button" data-hotkey="KeyT">📦<span>Ish & Taksi</span></button>
+        <button type="button" data-hotkey="KeyE">🛠<span>Xizmat & Bonus</span></button>
+        <button type="button" data-open="leaderboard">🏆<span>Reyting</span></button>
+        <button type="button" id="toggleSteerBtn">🛞<span>Rul / Tugma</span></button>
         <button type="button" data-open="settings">⚙️<span>Sozlamalar</span></button>
       </div>
     </div>
@@ -347,10 +165,10 @@
     <!-- Real-vaqtda online o'yinchilar radari (do'stlar ulanganda ko'rinadi) -->
     <div id="onlinePeersHud" class="online-peers-hud hidden"></div>
 
-    <!-- YIG'ILUVCHI (COLLAPSIBLE) HUD CHAT — O'yin boshida yopiq turadi, haydashga xalaqit bermaydi -->
+    <!-- O'NG YUQORI BURCHAKDAGI IXCHAM YIG'ILUVCHI CHAT (Haydashga umuman xalaqit bermaydi) -->
     <div id="hudChatWidget" class="hud-chat-widget collapsed">
       <button type="button" id="hudChatToggleBtn" class="hud-chat-toggle" title="Suhbatni ochish / yopish">
-        <span>💬 Chat</span>
+        <span>💬</span>
         <i id="hudChatBadge" class="chat-badge hidden">0</i>
       </button>
       <div id="hudChatPanel" class="hud-chat-panel hidden">
@@ -361,44 +179,53 @@
         <div id="hudChatLog" class="hud-chat-log"></div>
         <div class="hud-chat-bar">
           <button type="button" class="q-emo" data-hud-chat="👋 Salom!">👋</button>
-          <button type="button" class="q-emo" data-hud-chat="💺 Mashinamga o'tiring!">💺</button>
-          <button type="button" class="q-emo" data-hud-chat="🏁 Poyga o'ynaymiz!">🏁</button>
-          <button type="button" class="q-emo" data-hud-chat="🔥 Driftga qarang!">🔥</button>
-          <input id="hudChatInput" maxlength="48" placeholder="Xabar yozing..." autocomplete="off" />
+          <button type="button" class="q-emo" data-hud-chat="💺 O'tiring!">💺</button>
+          <button type="button" class="q-emo" data-hud-chat="🏁 Poyga!">🏁</button>
+          <input id="hudChatInput" maxlength="48" placeholder="Xabar..." autocomplete="off" />
           <button type="button" id="hudChatSend" title="Yuborish">➤</button>
         </div>
       </div>
     </div>
 
-    <!-- Personaj (Piyoda) rejimida harakatlar paneli -->
+    <!-- Kontekstli Radial Harakatlar Menyusi (Salom, Raqs, Mashina chaqirish, Ta'mir) -->
+    <div id="radialMenuWrap" class="radial-menu-wrap hidden">
+      <div class="radial-wheel">
+        <button type="button" data-emote="wave">👋<span>Salom</span></button>
+        <button type="button" data-emote="dance">💃<span>Raqs</span></button>
+        <button type="button" id="summonCarBtn">🔑<span>Mashina chaqirish</span></button>
+        <button type="button" id="radialResetCarBtn">🔄<span>Yo'lga tiklash</span></button>
+      </div>
+    </div>
+
+    <!-- Personaj (Piyoda) rejimida tezkor harakatlar -->
     <div id="footActions" class="foot-actions hidden">
       <button type="button" id="enterNearCarBtn">🚗 Mashinaga kirish (E)</button>
-      <button type="button" data-emote="wave">👋 Salom</button>
-      <button type="button" data-emote="dance">💃 Raqs</button>
-      <button type="button" id="summonCarBtn">🔑 Mashinani chaqirish</button>
+      <button type="button" id="openRadialFootBtn">✨ Harakatlar</button>
     </div>
 
     <canvas id="minimap" width="200" height="200"></canvas>
     <div id="missionHud" class="mission hidden"></div>
 
+    <!-- PASTKI MARKAZ: UZB PARKING USLUBIDAGI SPIDOMETR VA AVTOMOBIL HOLATI -->
     <div class="dash">
       <div class="carname" id="hudCar">—</div>
       <div class="speedo">
         <canvas id="speedo" width="220" height="220"></canvas>
         <div class="kmh">
           <b id="hudSpeed">0</b>
-          <small>km/s · <span id="hudGear" class="gear-badge">N</span></small>
+          <small>KM/H · <span id="hudGear" class="gear-badge">D</span></small>
         </div>
       </div>
       <div class="gauges">
         <div class="gauge"><span>⛽ <b id="hudFuelText">0 l</b> <small id="hudFuelType"></small></span><div class="meter"><i id="hudFuel"></i></div></div>
-        <div class="gauge"><span>🔧 Holat <b id="hudDmgText">100%</b></span><div class="meter hp"><i id="hudDmg"></i></div></div>
-        <div class="gauge km-gauge"><span>📏 <b id="hudKm">0.0</b> km · bonus <b id="hudNextBonus">10</b> km</span></div>
+        <div class="gauge"><span>🔧 <b id="hudDmgText">100%</b></span><div class="meter hp"><i id="hudDmg"></i></div></div>
+        <div class="gauge km-gauge"><span>📏 <b id="hudKm">0.0</b> km · 🎁 <b id="hudNextBonus">10</b> km</span></div>
       </div>
     </div>
 
     <div id="prompt" class="prompt hidden"></div>
 
+    <!-- Kompyuter uchun pastki tezkor qator -->
     <div class="hotbar">
       <button data-hotkey="KeyF" id="hbExitBtn" class="hb-action">🚶<small id="hbExitTxt">Tushish (F)</small></button>
       <button data-hotkey="KeyG" class="hb-garage">🚗<small>Garaj (G)</small></button>
@@ -411,28 +238,35 @@
       <button data-hotkey="KeyH">📯<small>Signal (H)</small></button>
     </div>
 
+    <!-- UZB PARKING USLUBIDAGI MOBIL SENSORLI BOSHQARUV TIZIMI (iPhone & Android Landscape) -->
     <div class="touch">
       <div class="touch-col left-col">
         <div class="touch-mini">
-          <button type="button" data-hotkey="KeyF" id="touchExitBtn" title="Mashinadan tushish (F) / Kirish (E)">🚶</button>
-          <button type="button" data-hotkey="KeyC" title="Kamera">🎥</button>
-          <button type="button" data-hotkey="KeyL" title="Fara">💡</button>
-          <button type="button" data-hotkey="KeyH" title="Signal">📯</button>
-          <button type="button" id="toggleSteerBtn" title="Rul / Tugmalar">🛞</button>
-          <button type="button" data-fullscreen="1" title="Gorizontal To'liq ekran">⛶</button>
+          <button type="button" data-hotkey="KeyF" id="touchExitBtn" class="uzb-round-btn" title="Mashinadan tushish / Kirish">🚶</button>
+          <button type="button" data-hotkey="KeyC" class="uzb-round-btn" title="Kamera almashtirish">🎥</button>
+          <button type="button" data-hotkey="KeyL" class="uzb-round-btn" title="Faralar">💡</button>
+          <button type="button" data-hotkey="KeyH" class="uzb-round-btn" title="Signal">📯</button>
+          <button type="button" id="btnResetCarHud" class="uzb-round-btn" title="Mashinani tiklash">🔄</button>
+          <button type="button" id="btnToggleRadial" class="uzb-round-btn" title="Emotsiya va Chaqirish">✨</button>
         </div>
-        <!-- Aylanuvchi Rul (Steering Wheel) -->
-        <div class="wheel-pad" id="wheelPad" title="Barmoq bilan rulni aylantiring">
+        <!-- Burilish chiroqlari (Chap / Avariya / O'ng) -->
+        <div class="turn-signals-row" id="turnSignalsRow">
+          <button type="button" id="btnBlinkLeft" class="uzb-sig-btn" title="Chap burilish chirog'i">⬅</button>
+          <button type="button" id="btnBlinkHazard" class="uzb-sig-btn hazard" title="Avariya chirog'i">⚠️</button>
+          <button type="button" id="btnBlinkRight" class="uzb-sig-btn" title="O'ng burilish chirog'i">➡</button>
+        </div>
+        <!-- Chap pastda katta, yarim shaffof UZB PARKING Aylanuvchi Ruli (Steering Wheel) -->
+        <div class="wheel-pad" id="wheelPad" title="Barmoq bilan rulni chap va o'ngga aylantiring">
           <div class="wheel-ring" id="wheelDisc">
             <svg viewBox="0 0 120 120" class="wheel-svg">
-              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(0,229,255,0.4)" stroke-width="10" />
-              <circle cx="60" cy="60" r="52" fill="none" stroke="#182246" stroke-width="7" />
-              <path d="M 55 8 L 65 8" stroke="#ff2bd6" stroke-width="8" stroke-linecap="round" />
-              <path d="M 14 56 L 44 58 L 46 66 L 16 68 Z" fill="#1e2a54" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" />
-              <path d="M 106 56 L 76 58 L 74 66 L 104 68 Z" fill="#1e2a54" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" />
-              <path d="M 54 74 L 66 74 L 64 108 L 56 108 Z" fill="#1e2a54" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" />
-              <circle cx="60" cy="60" r="18" fill="#0d132a" stroke="#00e5ff" stroke-width="2.5" />
-              <text x="60" y="64" text-anchor="middle" fill="#00e5ff" font-size="11" font-weight="900">UZ</text>
+              <circle cx="60" cy="60" r="53" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="11" />
+              <circle cx="60" cy="60" r="53" fill="none" stroke="rgba(16,24,48,0.82)" stroke-width="7.5" />
+              <path d="M 54 7 L 66 7" stroke="#00e5ff" stroke-width="8" stroke-linecap="round" />
+              <path d="M 12 55 L 43 57 L 45 66 L 14 68 Z" fill="rgba(24,34,68,0.88)" stroke="rgba(0,229,255,0.45)" stroke-width="1.5" />
+              <path d="M 108 55 L 77 57 L 75 66 L 106 68 Z" fill="rgba(24,34,68,0.88)" stroke="rgba(0,229,255,0.45)" stroke-width="1.5" />
+              <path d="M 53 73 L 67 73 L 64 109 L 56 109 Z" fill="rgba(24,34,68,0.88)" stroke="rgba(0,229,255,0.45)" stroke-width="1.5" />
+              <circle cx="60" cy="60" r="19" fill="rgba(10,15,34,0.94)" stroke="#00e5ff" stroke-width="2.2" />
+              <text x="60" y="64" text-anchor="middle" fill="#ffffff" font-size="10.5" font-weight="900">UZB</text>
             </svg>
           </div>
           <small class="wheel-label">RUL</small>
@@ -446,12 +280,21 @@
 
       <div class="touch-col right-col">
         <div class="touch-sub">
-          <button type="button" data-touch="boost" class="sm nitro-btn">⚡<span id="touchBoostTxt">NITRO</span></button>
-          <button type="button" data-touch="brake" class="sm drift-btn">💨<span id="touchBrakeTxt">DRIFT</span></button>
+          <button type="button" data-touch="boost" class="sm nitro-btn uzb-round-action">⚡<span id="touchBoostTxt">NITRO</span></button>
+          <button type="button" data-touch="brake" class="sm drift-btn uzb-round-action">🅿️<span id="touchBrakeTxt">DRIFT</span></button>
         </div>
-        <div class="pad right">
-          <button type="button" data-touch="down" class="pedal brake-pedal">▼<small>TORMOZ</small></button>
-          <button type="button" data-touch="up" class="pedal gas">▲<small>GAZ</small></button>
+        <!-- O'ng pastda ikkita katta realistik pedal: TORMOZ (BRAKE) va GAZ (GAS) -->
+        <div class="pad right uzb-pedals">
+          <button type="button" data-touch="down" class="pedal brake-pedal">
+            <span class="pedal-grooves"><i></i><i></i><i></i></span>
+            <b>BRAKE</b>
+            <small>TORMOZ</small>
+          </button>
+          <button type="button" data-touch="up" class="pedal gas">
+            <span class="pedal-grooves"><i></i><i></i><i></i><i></i></span>
+            <b>GAS</b>
+            <small>GAZ</small>
+          </button>
         </div>
       </div>
     </div>

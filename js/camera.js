@@ -82,31 +82,32 @@ export function updateCharCamera(camera, ch, dt) {
   camera.lookAt(look);
 }
 
-// Bosh menyu (Premium Game Lobby) fonida 360° interaktiv va avto-aylanuvchi 3D Showroom kamerasi
-let lobbyAutoAngle = 0.58;
+// Bosh menyu (Malibu Hero Banner) fonida 360° interaktiv va sekin harakatlanuvchi cinematic kamera
+let lobbyAutoAngle = 0.54;
 export function menuCamera(camera, v, t, dt = 0.016) {
-  const targetFov = 46;
+  const targetFov = 42;
   fov += (targetFov - fov) * 0.08;
   camera.fov = fov;
   camera.updateProjectionMatrix();
 
   const userDragging = performance.now() - cam.lastMove < 4500;
   if (!userDragging) {
-    // Avtomatik ohista tebranish va aylanish
-    lobbyAutoAngle = 0.56 + Math.sin(t * 0.35) * 0.38;
+    // Chevrolet Malibu Premier avtomobilini old-yon tomondan cinematic ko'rsatish
+    lobbyAutoAngle = 0.56 + Math.sin(t * 0.28) * 0.34;
     cam.yaw *= Math.pow(0.08, dt);
   }
   const ang = v.heading + lobbyAutoAngle + cam.yaw;
-  const dist = (userDragging ? Math.max(4.6, Math.min(8.5, cam.dist * 0.65)) : 5.65 + Math.sin(t * 0.45) * 0.28);
+  const dist = userDragging
+    ? Math.max(4.4, Math.min(8.2, cam.dist * 0.62))
+    : 5.25 + Math.sin(t * 0.35) * 0.25;
   const pitchOffset = userDragging ? Math.max(-0.08, Math.min(0.45, cam.pitch - 0.15)) : 0;
-  const h = 1.32 + Math.sin(t * 0.4) * 0.12 + pitchOffset * 2.4;
+  const h = 1.24 + Math.sin(t * 0.32) * 0.10 + pitchOffset * 2.2;
 
   camera.position.set(
     v.x + Math.sin(ang) * dist,
-    Math.max(0.75, h),
+    Math.max(0.72, h),
     v.z + Math.cos(ang) * dist
   );
-  // Mashina va uning chap tomonida turgan 3D Personaj ekran markazida ko'rinishi uchun
-  const rightX = Math.cos(v.heading), rightZ = -Math.sin(v.heading);
-  camera.lookAt(v.x - rightX * 0.35, 0.88, v.z - rightZ * 0.35);
+  // Malibu markazda katta va ulug'vor ko'rinishi uchun
+  camera.lookAt(v.x, 0.78, v.z);
 }

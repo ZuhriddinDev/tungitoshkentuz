@@ -1895,3 +1895,473 @@ body.phone .hud-chat-widget {
 body.phone .online-peers-hud { max-height: 96px; overflow-y: auto; transform: scale(0.82); transform-origin: top left; }
 @media (max-height: 430px) { body.phone .online-peers-hud { max-height: 70px; } }
 
+/* ============================================================
+   V5 UPGRADE: MALIBU HERO LANDING PAGE, IPHONE LANDSCAPE,
+   UZB PARKING MOBILE SYSTEM, TOP-RIGHT CHAT & PERF AUDIT
+   ============================================================ */
+html, body {
+  width: 100vw;
+  height: 100vh;
+  height: 100svh;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-touch-callout: none;
+}
+
+/* 1. MALIBU HERO MAIN MENU (V2 MINIMALIST LANDING) */
+.malibu-hero-layout {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    max(18px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(18px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 22;
+}
+.hero-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  pointer-events: auto;
+}
+.hero-brand-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-radius: 16px;
+}
+.hero-logo {
+  font-size: clamp(20px, 2.8vw, 30px);
+  font-weight: 900;
+  letter-spacing: 2px;
+  line-height: 1;
+  color: #ffffff;
+  text-shadow: 0 0 18px rgba(0, 229, 255, 0.72);
+  white-space: nowrap;
+}
+.hero-logo span {
+  color: var(--pink);
+  margin-left: 6px;
+  text-shadow: 0 0 22px rgba(255, 43, 214, 0.85);
+}
+.hero-srv-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.18);
+}
+.hero-srv-metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  flex-wrap: wrap;
+}
+.hero-profile-bar {
+  padding: 6px 12px;
+}
+.hero-center-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 10px;
+  pointer-events: none;
+}
+.malibu-hero-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: rgba(6, 10, 26, 0.68);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+}
+.malibu-tag {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: var(--gold);
+}
+.malibu-hero-badge small {
+  font-size: 10.5px;
+  color: #d0dcff;
+}
+.hero-bottombar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+}
+.hero-start-btn {
+  min-width: min(380px, 90vw);
+  padding: 15px 44px;
+  font-size: 22px;
+  border-radius: 18px;
+}
+
+@media (max-width: 900px), (max-height: 520px) {
+  .malibu-hero-layout {
+    padding:
+      max(6px, env(safe-area-inset-top))
+      max(12px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
+  }
+  .hero-brand-bar {
+    padding: 5px 10px;
+    gap: 8px;
+  }
+  .hero-logo {
+    font-size: 16px;
+  }
+  .hero-srv-metrics {
+    font-size: 11px;
+    gap: 6px;
+  }
+  .malibu-hero-badge {
+    padding: 4px 12px;
+  }
+  .malibu-tag {
+    font-size: 10.5px;
+  }
+  .malibu-hero-badge small {
+    display: none;
+  }
+  .hero-start-btn {
+    min-width: min(310px, 84vw);
+    padding: 10px 26px !important;
+    font-size: 16px !important;
+  }
+}
+
+/* 2. PORTRAIT OVERLAY (IPHONE VA ANDROID GORIZONTAL ESLATMASI) */
+.rotate-hint {
+  display: none;
+}
+@media (orientation: portrait) and (max-width: 920px) {
+  .rotate-hint:not(.dismissed) {
+    display: flex !important;
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    transform: none !important;
+    z-index: 120 !important;
+    background: radial-gradient(circle at 50% 40%, rgba(12, 20, 48, 0.96), rgba(3, 5, 14, 0.98)) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 24px !important;
+    backdrop-filter: blur(16px) !important;
+  }
+}
+.rotate-card {
+  width: min(360px, 90vw);
+  padding: 26px 22px;
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(16, 22, 52, 0.95), rgba(6, 9, 24, 0.95));
+  border: 1px solid var(--cyan);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.rotate-phone-icon {
+  font-size: 46px;
+  animation: tiltPhone 1.8s ease-in-out infinite;
+}
+@keyframes tiltPhone {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-90deg); }
+}
+.rotate-card b {
+  font-size: 18px;
+  color: #fff;
+}
+.rotate-card p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* 3. CHAT UI POSITION FIX — O'NG YUQORI BURCHAKDAGI IXCHAM PANEL */
+.hud-chat-widget,
+body.phone .hud-chat-widget {
+  position: fixed !important;
+  top: max(54px, calc(env(safe-area-inset-top) + 46px)) !important;
+  right: max(12px, env(safe-area-inset-right)) !important;
+  left: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  width: auto !important;
+  align-items: flex-end !important;
+  z-index: 18 !important;
+}
+.hud-chat-toggle {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+  background: rgba(8, 12, 28, 0.86);
+  border: 1.5px solid rgba(0, 229, 255, 0.55);
+  font-size: 18px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+}
+.hud-chat-toggle:active {
+  transform: scale(0.92);
+}
+.hud-chat-toggle .chat-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+}
+.hud-chat-panel {
+  width: min(310px, 82vw) !important;
+  max-height: min(260px, calc(100dvh - 110px)) !important;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 10px !important;
+  border-radius: 16px !important;
+  background: rgba(6, 10, 24, 0.92) !important;
+  border: 1px solid rgba(0, 229, 255, 0.45) !important;
+}
+.hud-chat-panel .hud-chat-log {
+  max-height: 110px !important;
+  overflow-y: auto !important;
+  pointer-events: auto !important;
+}
+.hud-chat-quick {
+  display: flex;
+  gap: 5px;
+}
+.hud-chat-quick .q-emo {
+  flex: 1;
+  padding: 4px 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 13px;
+}
+
+/* 4. UZB PARKING USLUBIDAGI MOBIL BOSHQARUV, ПОВОРОТНИК VA PEDALLAR */
+body.phone .uzb-round-btn {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 50% !important;
+  background: rgba(10, 15, 34, 0.74) !important;
+  border: 1.5px solid rgba(0, 229, 255, 0.45) !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(8px);
+}
+body.phone .turn-signals-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+body.phone .uzb-sig-btn {
+  width: 42px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(10, 15, 34, 0.76);
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  color: #d8e4ff;
+  font-size: 15px;
+  font-weight: 900;
+  backdrop-filter: blur(6px);
+}
+body.phone .uzb-sig-btn.hazard {
+  border-color: rgba(255, 23, 68, 0.55);
+  color: #ff5252;
+}
+body.phone .uzb-sig-btn.active {
+  background: rgba(255, 171, 0, 0.35);
+  border-color: #ffab00;
+  color: #ffd740;
+  box-shadow: 0 0 16px rgba(255, 171, 0, 0.75);
+  animation: blink 0.65s infinite;
+}
+body.phone .uzb-pedals {
+  gap: 14px;
+  align-items: flex-end;
+}
+body.phone .uzb-pedals .pedal {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(24, 30, 58, 0.86), rgba(8, 11, 24, 0.92));
+}
+body.phone .pedal-grooves {
+  width: 68%;
+  height: 22px;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.22) 0px,
+    rgba(255, 255, 255, 0.22) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+  border-radius: 4px;
+  margin-bottom: 4px;
+  pointer-events: none;
+}
+
+/* Mobil Spidometr pastki markazda (UZB PARKING uslubida) */
+body.phone .dash {
+  top: auto !important;
+  bottom: max(8px, env(safe-area-inset-bottom)) !important;
+  right: auto !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 3px !important;
+  pointer-events: none;
+}
+body.phone .dash .carname {
+  display: none !important;
+}
+body.phone .dash .speedo {
+  width: 112px !important;
+  height: 112px !important;
+}
+body.phone .dash .gauges {
+  display: flex !important;
+  flex-direction: row !important;
+  width: 170px !important;
+  gap: 6px !important;
+}
+body.phone .dash .gauge {
+  flex: 1;
+  padding: 3px 6px !important;
+  font-size: 9.5px !important;
+}
+
+/* 5. RADIAL QUICK-ACTION MENU */
+.radial-menu-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 32;
+  background: rgba(3, 6, 18, 0.62);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+.radial-wheel {
+  width: min(330px, 88vw);
+  padding: 18px;
+  border-radius: 26px;
+  background: radial-gradient(circle, rgba(16, 24, 56, 0.95), rgba(6, 9, 22, 0.96));
+  border: 1.5px solid var(--cyan);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.78);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.radial-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 8px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  font-size: 22px;
+  transition: transform 0.14s, background 0.15s;
+}
+.radial-item:hover,
+.radial-item:active {
+  transform: scale(0.96);
+  background: rgba(0, 229, 255, 0.22);
+  border-color: var(--cyan);
+}
+.radial-item small {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #fff;
+}
+.radial-close {
+  grid-column: 1 / 3;
+  padding: 9px;
+  border-radius: 12px;
+  background: rgba(255, 23, 68, 0.22);
+  border: 1px solid rgba(255, 23, 68, 0.5);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+/* 6. PERFORMANCE AUDIT PANEL (F3) */
+.perf-audit-panel {
+  position: fixed;
+  top: max(58px, calc(env(safe-area-inset-top) + 48px));
+  left: max(12px, env(safe-area-inset-left));
+  z-index: 38;
+  width: 210px;
+  padding: 9px 11px;
+  border-radius: 13px;
+  background: rgba(4, 8, 20, 0.88);
+  border: 1px solid var(--cyan);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
+  font-size: 11.5px;
+  pointer-events: auto;
+}
+.perf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: var(--cyan);
+  font-size: 11px;
+}
+.perf-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.perf-grid > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 4px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.perf-grid span {
+  color: var(--muted);
+}
+.perf-grid b {
+  color: #fff;
+  font-family: monospace;
+}
+
+

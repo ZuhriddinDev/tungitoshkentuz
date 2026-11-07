@@ -1,5 +1,6 @@
 // Ko'cha jihozlari: chiroqlar, svetoforlar, daraxtlar, reklama, zapravka, garaj
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, POIS, addCollider } from './layout.js';
 import { signTexture, ADS } from './textures.js';
 import { GLOW_TEX } from '../carModel.js';
@@ -60,20 +61,44 @@ export function buildProps(scene, quality) {
     lights.tl[key] = mat; inst(box, mat, lamps[key], scene);
   }
 
-  // Daraxtlar (chinorlar) — trotuar chetlari va bog'larda
+  // Daraxtlar (tabiiy ko'p qatlamli Toshkent chinorlari va bog' daraxtlari) — trotuar chetlari va bog'larda
   for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
     const info = blockInfo(j, k), bx = blockC(j), bz = blockC(k);
-    const add = (x, z, s = 1) => { trunks.push({ x, y: 1.6 * s, z, sx: 0.35 * s, sy: 3.2 * s, sz: 0.35 * s }); crowns.push({ x, y: 4.6 * s, z, sx: 2.6 * s, sy: 2.4 * s, sz: 2.6 * s, r: Math.random() * 6 }); };
+    const add = (x, z, s = 1) => {
+      const rRot = Math.random() * 6.28;
+      trunks.push({ x, y: 1.65 * s, z, sx: 0.34 * s, sy: 3.3 * s, sz: 0.34 * s, r: rRot });
+      crowns.push({ x, y: 4.55 * s, z, sx: 2.45 * s, sy: 2.35 * s, sz: 2.45 * s, r: rRot });
+    };
     if (info.type === 'park') for (let t = 0; t < (quality === 'low' ? 14 : 30); t++) add(bx + (Math.random() - 0.5) * (BLOCK - 16), bz + (Math.random() - 0.5) * (BLOCK - 16), 0.8 + Math.random() * 0.6);
     else if (info.type === 'city') for (let t = -BLOCK / 2 + 8; t < BLOCK / 2 - 4; t += quality === 'low' ? 24 : 14) {
-      add(bx + t, bz - BLOCK / 2 + 2); add(bx + t, bz + BLOCK / 2 - 2);
-      add(bx - BLOCK / 2 + 2, bz + t); add(bx + BLOCK / 2 - 2, bz + t);
+      add(bx + t, bz - BLOCK / 2 + 2, 0.88 + ((Math.abs(j * 7 + t) % 5) * 0.08));
+      add(bx + t, bz + BLOCK / 2 - 2, 0.92 + ((Math.abs(k * 5 + t) % 5) * 0.07));
+      add(bx - BLOCK / 2 + 2, bz + t, 0.86 + ((Math.abs(j + k + t) % 5) * 0.08));
+      add(bx + BLOCK / 2 - 2, bz + t, 0.90 + ((Math.abs(j * 3 + t) % 5) * 0.08));
     } else if (info.type === 'canal') for (let t = -BLOCK / 2 + 6; t < BLOCK / 2 - 4; t += 12) {
-      add(bx - 24, bz + t); add(bx + 24, bz + t); // Anhor bo'yidagi tollar
+      add(bx - 24, bz + t, 1.08); add(bx + 24, bz + t, 1.05); // Anhor bo'yidagi chinor va tollar
     }
   }
-  inst(new THREE.CylinderGeometry(0.5, 0.7, 1, 6), new THREE.MeshStandardMaterial({ color: 0x4a3626 }), trunks, scene);
-  inst(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0x2f6b2a, roughness: 0.9, flatShading: true }), crowns, scene);
+  const trunkMain = new THREE.CylinderGeometry(0.32, 0.56, 1, 7);
+  const branchL = new THREE.CylinderGeometry(0.14, 0.24, 0.55, 5).rotateZ(0.55).translate(-0.22, 0.42, 0);
+  const branchR = new THREE.CylinderGeometry(0.14, 0.24, 0.52, 5).rotateZ(-0.52).translate(0.22, 0.38, 0.08);
+  const richTrunkGeo = mergeGeometries([trunkMain, branchL, branchR]);
+  inst(richTrunkGeo, new THREE.MeshStandardMaterial({ color: 0x4e3928, roughness: 0.92 }), trunks, scene);
+
+  const cCenter = new THREE.DodecahedronGeometry(0.76, 1).translate(0, 0.12, 0);
+  const cLeft = new THREE.DodecahedronGeometry(0.58, 1).translate(-0.46, -0.10, 0.18);
+  const cRight = new THREE.DodecahedronGeometry(0.56, 1).translate(0.45, -0.08, -0.16);
+  const cFront = new THREE.DodecahedronGeometry(0.52, 1).translate(0.08, -0.14, 0.44);
+  const cTop = new THREE.DodecahedronGeometry(0.50, 1).translate(-0.06, 0.52, -0.08);
+  const richCrownGeo = mergeGeometries([cCenter, cLeft, cRight, cFront, cTop]);
+  const crownIm = inst(richCrownGeo, new THREE.MeshStandardMaterial({ color: 0x2d6e2e, roughness: 0.86 }), crowns, scene);
+  const leafPalette = ['#2b6e2c', '#357a32', '#265d28', '#3e8438', '#2f7336'];
+  const cTmp = new THREE.Color();
+  for (let i = 0; i < crowns.length; i++) {
+    cTmp.set(leafPalette[i % leafPalette.length]);
+    crownIm.setColorAt(i, cTmp);
+  }
+  if (crownIm.instanceColor) crownIm.instanceColor.needsUpdate = true;
 
   // Yo'l belgilari (Tezlik 60/70 va Piyodalar o'tish joyi) — InstancedMesh
   const signPoles = [], signDiscs = [];
