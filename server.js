@@ -196,7 +196,14 @@ function cancelPlayerDepositRaces(room, pid, reasonText = "O'yinchi uzildi") {
         p2Id: r.p2Id,
         p2Name: r.p2Name,
         p2Deposit: r.p2Deposit,
+        hostId: r.p1Id,
+        hostName: r.p1Name,
+        hostDeposit: r.p1Deposit,
+        guestId: r.p2Id,
+        guestName: r.p2Name,
+        guestDeposit: r.p2Deposit,
         reason: reasonText,
+        text: reasonText,
         ts: Date.now(),
       };
       room.events.push(ev);
@@ -376,6 +383,12 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
       p2Id: toId || '',
       p2Name: toPlayer ? toPlayer.name : '',
       p2Deposit: 0,
+      hostId: pid,
+      hostName: pName,
+      hostDeposit: deposit,
+      guestId: toId || '',
+      guestName: toPlayer ? toPlayer.name : '',
+      guestDeposit: 0,
       pool: deposit,
       bonus: 0,
       totalPrize: deposit,
@@ -391,6 +404,7 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
       type: 'deposit_race',
       action: 'invited',
       ...race,
+      text: `🏁 ${pName} «${target.name}» gacha ${deposit.toLocaleString('ru-RU')} so'm garovli Depozit Poygaga chaqirdi!`,
       ts: now,
     };
   }
@@ -405,6 +419,9 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
     race.p2Id = pid;
     race.p2Name = pName;
     race.p2Deposit = p2Deposit;
+    race.guestId = pid;
+    race.guestName = pName;
+    race.guestDeposit = p2Deposit;
     race.pool = race.p1Deposit + race.p2Deposit;
     race.bonus = Math.round(race.pool * DEPOSIT_RACE_BONUS_RATE);
     race.totalPrize = race.pool + race.bonus;
@@ -422,13 +439,15 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
   if (action === 'cancel' && (race.status === 'pending' || race.status === 'racing') && (pid === race.p1Id || pid === race.p2Id)) {
     race.status = 'cancelled';
     room.races.delete(raceId);
+    const reasonText = `${pName} poygani bekor qildi — depozit qaytarildi`;
     return {
       eid: `dr_canc_${raceId}_${now}`,
       type: 'deposit_race',
       action: 'cancelled',
       ...race,
       cancelledBy: pName,
-      reason: `${pName} poygani bekor qildi — depozit qaytarildi`,
+      reason: reasonText,
+      text: reasonText,
       ts: now,
     };
   }
@@ -450,6 +469,7 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
       type: 'deposit_race',
       action: 'finished',
       ...race,
+      text: `🏆 ${pName} Depozit Poygada g'olib bo'ldi!`,
       ts: now,
     };
   }

@@ -253,13 +253,19 @@ export function readDrive() {
   };
 }
 
-export const isTouch = () => matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && innerWidth < 950);
+export const isTouch = () =>
+  matchMedia('(pointer: coarse)').matches ||
+  /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+  (navigator.maxTouchPoints > 0 && Math.min(innerWidth, innerHeight) < 950);
 
 // Boshqaruv turi va mobil rul/tugma sozlamalarini qo'llash
 export function applyControl(mode = 'auto', steerType = 'wheel', touchScale = 'normal') {
   const phone = mode === 'phone' || (mode === 'auto' && isTouch());
+  const isPortrait = innerHeight > innerWidth;
   document.body.classList.toggle('phone', phone);
   document.body.classList.toggle('pc', !phone);
+  document.body.classList.toggle('is-portrait', isPortrait);
+  document.body.classList.toggle('is-landscape', !isPortrait);
   document.body.classList.toggle('steer-wheel', steerType !== 'buttons');
   document.body.classList.toggle('steer-buttons', steerType === 'buttons');
   document.body.classList.toggle('scale-large', touchScale === 'large');

@@ -68,10 +68,14 @@ export function createRenderer(canvas, quality) {
       const info = renderer.info;
       const memHeap = performance.memory ? Math.round(performance.memory.usedJSHeapSize / (1024 * 1024)) : null;
       return {
+        quality: activeQuality || 'high',
+        gpuTier: gpuCap.isHighEndMobile ? 'High-Tier GPU' : IS_MOBILE ? 'Mobile GPU' : 'Desktop GPU',
+        drawCalls: info.render.calls,
         calls: info.render.calls,
         triangles: info.render.triangles,
         geometries: info.memory.geometries,
         textures: info.memory.textures,
+        memoryMB: memHeap,
         heapMb: memHeap,
       };
     },
@@ -132,9 +136,26 @@ export function createRenderer(canvas, quality) {
       R.resize();
     },
     resize() {
+      if (IS_MOBILE && document.activeElement?.tagName !== 'INPUT') {
+        window.scrollTo(0, 0);
+      }
       const vv = window.visualViewport;
-      const w = Math.max(320, Math.round(vv ? vv.width : innerWidth));
-      const h = Math.max(200, Math.round(vv ? vv.height : innerHeight));
+      const rawW = vv && vv.width > 0 ? vv.width : (document.documentElement.clientWidth || window.innerWidth);
+      const rawH = vv && vv.height > 0 ? vv.height : (document.documentElement.clientHeight || window.innerHeight);
+      const w = Math.max(240, Math.round(rawW));
+      const h = Math.max(180, Math.round(rawH));
+
+      document.documentElement.style.setProperty('--app-w', `${w}px`);
+      document.documentElement.style.setProperty('--app-h', `${h}px`);
+      const isPortrait = h > w;
+      document.body.classList.toggle('is-portrait', isPortrait);
+      document.body.classList.toggle('is-landscape', !isPortrait);
+      if (!isPortrait) {
+        document.getElementById('rotateHint')?.classList.remove('dismissed');
+      }
+
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
       renderer.setSize(w, h, false);
       composer?.setSize(w, h);
       bloom?.resolution?.set(Math.max(256, w >> 1), Math.max(256, h >> 1));
@@ -157,13 +178,20 @@ export function createRenderer(canvas, quality) {
       }
     },
   };
-  addEventListener('resize', () => R.resize());
-  addEventListener('orientationchange', () => {
+  const triggerResizeSync = () => {
+    R.resize();
     setTimeout(() => R.resize(), 80);
-    setTimeout(() => R.resize(), 300);
-  });
+    setTimeout(() => R.resize(), 250);
+    setTimeout(() => R.resize(), 500);
+  };
+  addEventListener('resize', () => R.resize());
+  addEventListener('orientationchange', triggerResizeSync);
+  if (screen.orientation && screen.orientation.addEventListener) {
+    screen.orientation.addEventListener('change', triggerResizeSync);
+  }
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => R.resize());
+    window.visualViewport.addEventListener('scroll', () => R.resize());
   }
   return R;
 }

@@ -3,9 +3,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { TUNING } from './config.js';
 
-// /car/ papkasidagi barcha 8 ta GLB model uchun aniq konfiguratsiya
+// /car/opt/ papkasidagi barcha 26 ta optimallashtirilgan GLB modellar uchun konfiguratsiya
 export const GLB_SPECS = {
   spark: {
     file: 'opt/chevrolet_spark.glb',
@@ -23,6 +24,14 @@ export const GLB_SPECS = {
     headMats: ['clearglass'],
     tailMats: ['redglass', 'redglass.001'],
   },
+  kia_k5: {
+    file: 'opt/kia_optima_k5.glb',
+    rotY: 0,
+    paintMats: ['material_0', 'chassis.0'],
+    rimMats: ['wheels.6'],
+    headMats: ['material_2'],
+    tailMats: ['material_3'],
+  },
   malibu: {
     file: 'opt/2019_chevrolet_malibu_premier.glb',
     rotY: 0,
@@ -30,6 +39,30 @@ export const GLB_SPECS = {
     rimMats: ['material'],
     headMats: ['light_SQ'],
     tailMats: ['red_sq', 'red_metal'],
+  },
+  e55: {
+    file: 'opt/mersedes-benz_e55_w211.glb',
+    rotY: 0,
+    paintMats: ['paint'],
+    rimMats: ['chrome.001', 'amdb11_misc_chrome.002'],
+    headMats: ['loweam', 'Lsignal', 'Rsignal'],
+    tailMats: ['midsize_signal_R', 'midsize_chmsl'],
+  },
+  challenger: {
+    file: 'opt/dodge_challenger_rt.glb',
+    rotY: 0,
+    paintMats: ['dDodge_ChallengerRTShakerF7_2015Paint_Material1', 'dDodge_ChallengerRTShakerF7_2015Coloured_Material1', 'Color_2'],
+    rimMats: ['dDodge_ChallengerRTShakerF7_2015_Wheel1A_3D_3DWheel1A_Material1'],
+    headMats: ['dDodge_ChallengerRTShakerF7_2015LightA_Material1'],
+    tailMats: ['red_glass'],
+  },
+  supra: {
+    file: 'opt/toyota_supra_mk4_a80.glb',
+    rotY: 0,
+    paintMats: ['Paint', 'Coloured.002', 'Coloured.003'],
+    rimMats: ['Wheel2A', 'DISK1', 'DISK2'],
+    headMats: ['LightD'],
+    tailMats: ['GlassRed.002'],
   },
   m4gts: {
     file: 'opt/2016_bmw_m4_gts.glb',
@@ -39,6 +72,14 @@ export const GLB_SPECS = {
     headMats: [],
     tailMats: [],
   },
+  bmwx7: {
+    file: 'opt/2019_bmw_x7_xdrive40i.glb',
+    rotY: 0,
+    paintMats: ['carpaint', 'Kuzov_1'],
+    rimMats: ['Chome_R', 'MEtal_R'],
+    headMats: ['Front_Lights_emissive', 'Front_lights_glass'],
+    tailMats: ['Back_lights_emissive', 'red_emiss', 'baked_Back_lights'],
+  },
   m4comp: {
     file: 'opt/2021_bmw_m4_competition.glb',
     rotY: 0,
@@ -46,6 +87,22 @@ export const GLB_SPECS = {
     rimMats: ['Material_753'],
     headMats: ['Material_701', 'Material_161', 'Material_776'],
     tailMats: ['Material_739', 'Material_738', 'Material_740'],
+  },
+  bmw2018: {
+    file: 'opt/BMW_2018.glb',
+    rotY: 0,
+    paintMats: ['bM_CarPaint_Max1'],
+    rimMats: ['BMW_M5CSRewardRecycled_2022_Wheel1A_3D_3DWheel1A_Material', 'bM_Rim_Main_Max1', 'bM_Rim_Secondary_Max1'],
+    headMats: ['bM_LightGlassNormal_Clear_Low1', 'emis'],
+    tailMats: ['bM_LightGlassNormal_OuterRed_Low1', 'bM_LightGlass_Red_Low1'],
+  },
+  bmwx6m: {
+    file: 'opt/bmw_x6m.glb',
+    rotY: 0,
+    paintMats: ['body', 'coloured'],
+    rimMats: ['rim1', 'rim2'],
+    headMats: ['lights', 'Front'],
+    tailMats: ['Material_44'],
   },
   bmw: {
     file: 'opt/2022_bmw_m5_cs.glb',
@@ -55,12 +112,76 @@ export const GLB_SPECS = {
     headMats: ['BMW_M5CSRewardRecycled_2022LightA_Material'],
     tailMats: ['RED_GLASS'],
   },
+  bmwm8: {
+    file: 'opt/2020_bmw_m8.glb',
+    rotY: 0,
+    paintMats: ['bBMW_M8RewardRecycled_2020Paint_Material1', 'bBMW_M8RewardRecycled_2020Coloured_Material1'],
+    rimMats: ['bBMW_M8RewardRecycled_2020_Wheel1A_3D_3DWheel2A_Material1'],
+    headMats: ['bBMW_M8RewardRecycled_2020LightA_Material1'],
+    tailMats: ['red_glass'],
+  },
+  bmwm8wb: {
+    file: 'opt/bmw_m8_competition_widebody.glb',
+    rotY: 0,
+    paintMats: ['BMW_M8RewardRecycled_2020Paint_Material', 'BMW_M8RewardRecycled_2020Coloured_Material', 'col2'],
+    rimMats: ['rim.001'],
+    headMats: ['BMW_M8RewardRecycled_2020LightA_Material', 'whitelight'],
+    tailMats: ['redlight'],
+  },
+  lancia037: {
+    file: 'opt/lancia_037_stradale_1978.glb',
+    rotY: 0,
+    paintMats: ['Part1Mtl', 'Meshpart1Mtl'],
+    rimMats: ['SsrFormulaSpf1Mtl'],
+    headMats: [],
+    tailMats: [],
+  },
   mercedes: {
     file: 'opt/2025_mercedes-benz_g-class_amg_g_63.glb',
     rotY: 0,
     paintMats: ['MMAT_CarPaint_010'],
     rimMats: ['MMercedesAMG_G63SUVRewardRecycled_2020_Wheel1A_3D_3DWhee_e9cc5dd1', 'MMAT_Tire_Hub1'],
     headMats: ['MMAT_Lights1'],
+    tailMats: [],
+  },
+  maybach: {
+    file: 'opt/mersedes-_benz_maybach_gls_600.glb',
+    rotY: 0,
+    paintMats: ['gls_paint.021', 'gls_paint_two.126', 'gls_paint_two.162', 'vehicle_paint1.035', 'vehicle_paint1.037'],
+    rimMats: ['wheel_42b.038', 'wheel_42b.059', 'wheel_42a.059'],
+    headMats: ['gls_fara.003', 'gls_svet.003', 'gls_run.001'],
+    tailMats: ['gls_stop.001', 'gls_rear.001'],
+  },
+  gt40: {
+    file: 'opt/ford_gt40.glb',
+    rotY: 0,
+    paintMats: ['Paint1Mtl'],
+    rimMats: ['Wheel1Mtl'],
+    headMats: [],
+    tailMats: [],
+  },
+  ferrari599: {
+    file: 'opt/ferrari_599.glb',
+    rotY: 0,
+    paintMats: ['Body.002'],
+    rimMats: ['Metal_white.002', 'Rim_bolts.002'],
+    headMats: ['Headlights_lights.002', 'Headlights_white.002'],
+    tailMats: ['Rearlight_red.004', 'Rearlight_red.005', 'Glass_rearlight.002'],
+  },
+  porsche911: {
+    file: 'opt/porsche_911_gt3_rs.glb',
+    rotY: 0,
+    paintMats: ['Porsche_911GT3RS992Tribute_2023Paint_Material', 'Porsche_911GT3RS992Tribute_2023Coloured_Material'],
+    rimMats: ['Porsche_911GT3RS992Tribute_2023_Wheel1A_3D_3DWheel1G_Material'],
+    headMats: ['Porsche_911GT3RS992Tribute_2023LightA_Material'],
+    tailMats: ['RED_GLASS'],
+  },
+  concept037: {
+    file: 'opt/free_concept_car_037_-_public_domain_cc0.glb',
+    rotY: Math.PI,
+    paintMats: ['body_color_supra.001'],
+    rimMats: ['rims.001'],
+    headMats: ['headlightCovers'],
     tailMats: [],
   },
   lambo: {
@@ -71,6 +192,35 @@ export const GLB_SPECS = {
     headMats: ['LICHTER4', 'LICHTER1'],
     tailMats: ['LICHTER2'],
   },
+  sf90: {
+    file: 'opt/ferrari_sf90.glb',
+    rotY: 0,
+    paintMats: ['Ferrari_SF90SpiderRewardRecycled_2021Paint_Material', 'Ferrari_SF90SpiderRewardRecycled_2021Coloured_Material'],
+    rimMats: ['Ferrari_SF90SpiderReward_2021_Wheel1A_3D_3DWheel1C_Material'],
+    headMats: ['Ferrari_SF90SpiderRewardRecycled_2021LightA_Material'],
+    tailMats: ['RED_GLASS'],
+  },
+  roadster: {
+    file: 'opt/tesla_roadster_2020.glb',
+    rotY: 0,
+    paintMats: ['car_main_paint'],
+    rimMats: ['Rims'],
+    headMats: ['headlights_main', 'headlights_AHO'],
+    tailMats: ['Glass_rear_lights_main', 'Glass_rear_lights_DHO'],
+  },
+  bolide: {
+    file: 'opt/bugatti_bolide_2024.glb',
+    rotY: 0,
+    paintMats: ['Bugatti_X16Gold_2024Paint_Material.002', 'Bugatti_X16Gold_2024Coloured_Material.002'],
+    rimMats: [
+      'Bugatti_X16Gold_2024_Wheel1A_3D_3DWheel1B_Material',
+      'Bugatti_X16Gold_2024_Wheel1A_3D_3DWheel1B_Material.001',
+      'Bugatti_X16Gold_2024_Wheel1A_3D_3DWheel1B_Material.002',
+      'Bugatti_X16Gold_2024_Wheel1A_3D_3DWheel1B_Material.003',
+    ],
+    headMats: ['Bugatti_X16Gold_2024LightA_Material.002', 'Bugatti_X16Gold_2024LightEmissiveA_Material.002'],
+    tailMats: ['Bugatti_X16Gold_2024LightEmissiveA_Material.002'],
+  },
 };
 
 for (const [k, v] of Object.entries(GLB_SPECS)) v.id = k;
@@ -79,8 +229,12 @@ const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/draco/gltf/');
 dracoLoader.preload();
 
+const ktx2Loader = new KTX2Loader();
+ktx2Loader.setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/basis/');
+
 const loader = new GLTFLoader();
 loader.setDRACOLoader(dracoLoader);
+loader.setKTX2Loader(ktx2Loader);
 const glbCache = new Map();
 const glbLoading = new Map();
 
@@ -120,6 +274,110 @@ const SHADOW_TEX = radialTex('rgba(0,0,0,0.75)', 'rgba(0,0,0,0)');
 const RIM_COLORS = { std: 0x9a9a9a, sport: 0x18181b, chrome: 0xf2f4f8, gold: 0xd4a017 };
 const box = new THREE.BoxGeometry(1, 1, 1);
 
+function extractSubGeometry(geom, triIndices) {
+  const remap = new Map();
+  const newIndices = [];
+  let nextIdx = 0;
+  for (let i = 0; i < triIndices.length; i++) {
+    const oldIdx = triIndices[i];
+    let mapped = remap.get(oldIdx);
+    if (mapped === undefined) {
+      mapped = nextIdx++;
+      remap.set(oldIdx, mapped);
+    }
+    newIndices.push(mapped);
+  }
+  const sub = new THREE.BufferGeometry();
+  for (const [attrName, attr] of Object.entries(geom.attributes)) {
+    const itemSize = attr.itemSize;
+    const outArr = new Float32Array(nextIdx * itemSize);
+    for (const [oldIdx, newIdx] of remap.entries()) {
+      for (let k = 0; k < itemSize; k++) {
+        outArr[newIdx * itemSize + k] = attr.getComponent(oldIdx, k);
+      }
+    }
+    sub.setAttribute(attrName, new THREE.BufferAttribute(outArr, itemSize, attr.normalized));
+  }
+  sub.setIndex(newIndices);
+  sub.computeBoundingBox();
+  sub.computeBoundingSphere();
+  return sub;
+}
+
+/**
+ * Ba'zi GLB modellarda (masalan BMW X6M, BMW X7, Kia K5, Lancia 037, BMW M8 Widebody)
+ * 4 ta shina, disk yoki kaliper bitta umumiy mesh sifatida eksport qilingan bo'ladi.
+ * Ushbu funksiya shunday birlashgan g'ildirak meshlarini 4 ta kvadrantga (FL, FR, RL, RR)
+ * uchburchaklar markazi bo'yicha 100% aniq ajratib beradi.
+ */
+function splitMergedWheelMeshes(templateGroup, spec) {
+  templateGroup.updateMatrixWorld(true);
+  const rimMats = new Set(spec?.rimMats || []);
+  const wheelMatOrName = /tire|tyre|wheel|rim|felge|reifen|caliper|calliper|brakedisk|brake|tormoz|koleso|disc|disk|ssr|bremse|chrome_r|metal_r/i;
+  const bodyExclude = /(?:^|[_: -])(steering|bumper|mirror|door|hood|trunk|wing|exhaust|light|glass|interior|seat|carpet|body|fgrll|license|chassis|lip)(?:[_: -]|$)/i;
+
+  const toSplit = [];
+  templateGroup.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes?.position) return;
+    const name = o.name || '';
+    const matName = o.material ? (Array.isArray(o.material) ? o.material.map((m) => m.name).join(' ') : o.material.name) : '';
+    const full = name + ' ' + matName;
+    if (bodyExclude.test(full) && !/caliper|brake|tormoz/i.test(full)) return;
+    if (!wheelMatOrName.test(full) && !rimMats.has(matName)) return;
+
+    const box = new THREE.Box3().setFromObject(o);
+    const size = box.getSize(new THREE.Vector3());
+    // Agar mesh ham chap-o'ng (x=0), yoki old-orqa (z=0) o'qlarini kesib o'tsa (birlashgan g'ildiraklar)
+    const spansX = box.min.x < -0.35 && box.max.x > 0.35 && size.x > 1.0;
+    const spansZ = box.min.z < -0.55 && box.max.z > 0.55 && size.z > 1.4;
+    if ((spansX || spansZ) && size.y < 1.25) {
+      toSplit.push(o);
+    }
+  });
+
+  const v0 = new THREE.Vector3(), v1 = new THREE.Vector3(), v2 = new THREE.Vector3();
+  for (const mesh of toSplit) {
+    const geom = mesh.geometry;
+    const pos = geom.attributes.position;
+    const idxAttr = geom.index;
+    const triCount = idxAttr ? Math.floor(idxAttr.count / 3) : Math.floor(pos.count / 3);
+    if (triCount < 8) continue;
+
+    const quads = { FL: [], FR: [], RL: [], RR: [] };
+    const wm = mesh.matrixWorld;
+
+    for (let t = 0; t < triCount; t++) {
+      const i0 = idxAttr ? idxAttr.getX(t * 3) : t * 3;
+      const i1 = idxAttr ? idxAttr.getX(t * 3 + 1) : t * 3 + 1;
+      const i2 = idxAttr ? idxAttr.getX(t * 3 + 2) : t * 3 + 2;
+      v0.fromBufferAttribute(pos, i0).applyMatrix4(wm);
+      v1.fromBufferAttribute(pos, i1).applyMatrix4(wm);
+      v2.fromBufferAttribute(pos, i2).applyMatrix4(wm);
+      const cx = (v0.x + v1.x + v2.x) / 3;
+      const cz = (v0.z + v1.z + v2.z) / 3;
+      if (Math.abs(cx) < 0.25) continue;
+      const qKey = (cz >= 0 ? 'F' : 'R') + (cx < 0 ? 'L' : 'R');
+      quads[qKey].push(i0, i1, i2);
+    }
+
+    const activeQuads = Object.entries(quads).filter(([, arr]) => arr.length >= 12);
+    if (activeQuads.length < 2 || !mesh.parent) continue;
+
+    for (const [qKey, indices] of activeQuads) {
+      const subGeom = extractSubGeometry(geom, indices);
+      const subMesh = new THREE.Mesh(subGeom, mesh.material);
+      subMesh.name = `${mesh.name || 'wheel'}_${qKey}`;
+      subMesh.position.copy(mesh.position);
+      subMesh.quaternion.copy(mesh.quaternion);
+      subMesh.scale.copy(mesh.scale);
+      subMesh.castShadow = mesh.castShadow;
+      subMesh.receiveShadow = mesh.receiveShadow;
+      mesh.parent.add(subMesh);
+    }
+    mesh.parent.remove(mesh);
+  }
+}
+
 /**
  * GLB sahnasini geometriyalarini buzmasdan, 100% original holatda
  * to'g'ri yo'nalish, markaz va o'lchamga keltiradi.
@@ -157,6 +415,7 @@ function prepareGlbTemplate(origScene, cfg, spec) {
 
   const templateGroup = new THREE.Group();
   templateGroup.add(origScene);
+  splitMergedWheelMeshes(templateGroup, spec);
 
   const carHeight = rawSize.y * sc;
   const radius = cfg.len * 0.08;
@@ -249,8 +508,8 @@ function setupGlbWheels(root, spec, cfg) {
   const caliperMeshes = [];
 
   const rimMats = new Set(spec?.rimMats || []);
-  const isCaliperPattern = /caliper|calliper|brakedisk|brake/i;
-  const isSpinPattern = /tire|tyre|wheel|rim|felge|reifen/i;
+  const isCaliperPattern = /caliper|calliper|brakedisk|brake|tormoz|bremse|koleso_support/i;
+  const isSpinPattern = /tire|tyre|wheel|rim|felge|reifen|koleso|ssr|disc|disk|chrome_r|metal_r/i;
   const isBodyPart = /(?:^|[_: -])(steering|bumper|mirror|door|hood|trunk|wing|exhaust|light|glass|interior|seat|carpet|body|fgrll|license|chassis|lip)(?:[_: -]|$)/i;
   const carId = spec?.id || cfg?.id || '';
 
@@ -487,25 +746,6 @@ function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
 
   const extras = new THREE.Group(); chassisTilt.add(extras);
 
-  // ============================================================
-  // Burilish chiroqlari (Turn Signals / Hazard) va Vizual Zarar (Damage Overlay)
-  // ============================================================
-  const blinkMatL = new THREE.MeshBasicMaterial({ color: 0xff9800, transparent: true, opacity: 0 });
-  const blinkMatR = new THREE.MeshBasicMaterial({ color: 0xff9800, transparent: true, opacity: 0 });
-  const blinkersL = [], blinkersR = [];
-  for (const [sx, isL] of [[-1, true], [1, false]]) {
-    const bm = isL ? blinkMatL : blinkMatR;
-    const arr = isL ? blinkersL : blinkersR;
-    const bf = new THREE.Mesh(box, bm);
-    bf.scale.set(0.16, 0.08, 0.06);
-    bf.position.set(sx * (W * 0.42), frontY + 0.02, L * 0.49);
-    const br = new THREE.Mesh(box, bm);
-    br.scale.set(0.16, 0.08, 0.06);
-    br.position.set(sx * (W * 0.42), rearY + 0.02, -L * 0.49);
-    chassisTilt.add(bf, br);
-    arr.push(bf, br);
-  }
-
   // Vizual Shikastlanish (Front, Rear, Left, Right zarba chiziqlari va kapot tutuni)
   const dmgGroup = new THREE.Group();
   const dmgFrontMat = new THREE.MeshBasicMaterial({ color: 0x16181f, transparent: true, opacity: 0, depthWrite: false });
@@ -542,7 +782,7 @@ function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
 
   return {
     group, chassisTilt, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam,
-    blinkMatL, blinkMatR, dmgFrontMat, dmgRearMat, dmgLeftMat, dmgRightMat, hoodSmoke, hoodSmokeMat,
+    dmgFrontMat, dmgRearMat, dmgLeftMat, dmgRightMat, hoodSmoke, hoodSmokeMat,
     radius: G.r, rearTop: G.p.low.at(-1)[1],
   };
 }
@@ -554,7 +794,7 @@ export function buildCar(cfg, look = {}, opts = {}) {
   const proc = buildProceduralCar(cfg, look, opts);
   const {
     group, chassisTilt, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam,
-    blinkMatL, blinkMatR, dmgFrontMat, dmgRearMat, dmgLeftMat, dmgRightMat, hoodSmoke, hoodSmokeMat,
+    dmgFrontMat, dmgRearMat, dmgLeftMat, dmgRightMat, hoodSmoke, hoodSmokeMat,
   } = proc;
   let currentLook = { color: '#f5f5f5', rims: 'std', spoiler: 'none', neon: 'none', ...look };
   const isPriority = opts.beam !== false || opts.priority === true;
@@ -566,7 +806,6 @@ export function buildCar(cfg, look = {}, opts = {}) {
     headMat, tailMat,
     lightsOn: false,
     braking: false,
-    blinker: 'off', // 'off' | 'left' | 'right' | 'hazard'
     _glbLoaded: false,
     _glbPaintMats: [],
     _glbRimMats: [],
@@ -595,13 +834,6 @@ export function buildCar(cfg, look = {}, opts = {}) {
       const tailInt = b ? 4 : api.lightsOn ? 1.4 : 0.3;
       tailMat.emissiveIntensity = tailInt;
       for (const m of api._glbTailMats) m.emissiveIntensity = tailInt;
-    },
-
-    setBlinker(mode = 'off', t = 0) {
-      api.blinker = mode;
-      const pulse = mode !== 'off' && Math.floor((t || performance.now() / 1000) * 3.2) % 2 === 0 ? 0.95 : 0;
-      blinkMatL.opacity = (mode === 'left' || mode === 'hazard') ? pulse : 0;
-      blinkMatR.opacity = (mode === 'right' || mode === 'hazard') ? pulse : 0;
     },
 
     setDamageState(dmgParts = null, totalDmg = 0) {

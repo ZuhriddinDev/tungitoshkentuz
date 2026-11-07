@@ -369,7 +369,7 @@ function races() {
 }
 
 // ---------- Ishlar (T): yetkazib berish, taksi, ijara ----------
-const RENTALS = ['malibu', 'm4gts', 'm4comp', 'bmw', 'mercedes', 'lambo'];
+const RENTALS = ['kia_k5', 'malibu', 'e55', 'challenger', 'supra', 'm4comp', 'bmw', 'mercedes', 'maybach', 'porsche911', 'lambo', 'sf90', 'bolide'];
 function jobs() {
   const body = showModal('jobs', '📦 Ishlar va xizmatlar', `
     ${mission.active ? `<div class="card" style="margin-bottom:12px"><h3>Faol: ${mission.active.name}</h3><button class="btn danger" id="cancelM">Bekor qilish</button></div>` : ''}
@@ -462,7 +462,7 @@ function online() {
   const body = showModal('online', `🌐 Multiplayer Xona Tizimi (${inf.count}/${maxCap})`, `
     <!-- Jonli Server Statistikasi -->
     <div class="list" style="margin-bottom:12px">
-      <div style="flex-wrap:wrap;gap:8px;background:rgba(0,229,255,0.08);border:1px solid var(--line)">
+      <div id="onlineStatsBar" style="flex-wrap:wrap;gap:8px;background:rgba(0,229,255,0.08);border:1px solid var(--line)">
         <span>🟢 Jami Online: <b>${serverStats.totalOnline}</b></span>
         <span>🌍 Ommaviy Server: <b>${serverStats.publicPlayers}/${serverStats.publicMax}</b></span>
         <span>🔒 Private Xonalar: <b>${serverStats.privateRooms}</b></span>
@@ -493,7 +493,7 @@ function online() {
             <button class="btn" id="saveNameBtn" style="flex:0 0 auto">Saqlash</button>
           </div>
         </label>
-        <p class="hint" style="margin-top:8px">Holat: ${statusBadge}</p>
+        <p class="hint" id="onlineStatusHint" style="margin-top:8px">Holat: ${statusBadge}</p>
       </section>
 
       <section class="set-card">
@@ -598,7 +598,7 @@ function online() {
       })()}
     </div>
 
-    <div class="section-title">Xonadagi o'yinchilar (${inf.count} / ${maxCap})</div>
+    <div class="section-title" id="onlinePeersCount">Xonadagi o'yinchilar (${inf.count} / ${maxCap})</div>
     <div class="list" id="onlinePeersList">
       <div>
         <span>🟢 <b>${state.name || 'Siz'}</b> <small style="color:var(--cyan)">(${myCode} · Siz)</small></span>
@@ -876,7 +876,7 @@ function about() {
     <p class="about-hero"><b style="color:var(--text)">TUNGI TOSHKENT</b> — brauzerda ishlaydigan 3D ochiq dunyo avtosimulyator. Toshkent ko'chalarida haydang, pul ishlang, mashina sotib oling va tuning qiling. Hech narsa o'rnatish shart emas, progress qurilmangizda saqlanadi.</p>
     <div class="section-title">Nimalar bor</div>
     <div class="feat-grid">
-      ${f('🚗', '8 ta 3D mashina', 'Chevrolet, BMW, Mercedes va Lamborghini — haqiqiy 3D modellar.')}
+      ${f('🚗', '26 ta 3D mashina', 'Chevrolet, BMW, Mercedes, Ferrari, Porsche, Lamborghini va Bugatti — haqiqiy 3D GLB modellar.')}
       ${f('🏁', 'Poyga va drift', 'Raqiblar bilan poyga, drift paytida shinadan tutun.')}
       ${f('🚕', 'Ish va missiyalar', 'Taksi, yetkazib berish, ijara va kunlik topshiriqlar.')}
       ${f('🎨', 'Tuning', 'Rang, disk, spoyler, neon va dvigatel kuchaytirish.')}
@@ -967,6 +967,71 @@ function renderModalChatLog() {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+function updateOnlineModalDynamic() {
+  if (current !== 'online') return;
+  const inf = onlineInfo();
+  const peers = onlineList();
+  const myCode = displayId(inf.id);
+  const roomCode = inf.host || 'PUBLIC';
+  const isPrivate = inf.roomType === 'private' && roomCode !== 'PUBLIC' && !String(roomCode).startsWith('PUBLIC');
+  const maxCap = inf.max || (isPrivate ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS);
+  const myCar = carById(activeCar().id);
+
+  const statsEl = document.getElementById('onlineStatsBar');
+  if (statsEl) {
+    statsEl.innerHTML = `
+      <span>🟢 Jami Online: <b>${serverStats.totalOnline}</b></span>
+      <span>🌍 Ommaviy Server: <b>${serverStats.publicPlayers}/${serverStats.publicMax}</b></span>
+      <span>🔒 Private Xonalar: <b>${serverStats.privateRooms}</b></span>
+      <span>⚡ Ping: <b style="color:var(--cyan)">${serverStats.pingMs} ms</b></span>
+    `;
+  }
+
+  const countEl = document.getElementById('onlinePeersCount');
+  if (countEl) countEl.textContent = `Xonadagi o'yinchilar (${inf.count} / ${maxCap})`;
+
+  const titleEl = document.getElementById('modalTitle');
+  if (titleEl && current === 'online') {
+    titleEl.textContent = `🌐 Multiplayer Xona Tizimi (${inf.count}/${maxCap})`;
+  }
+
+  const peersEl = document.getElementById('onlinePeersList');
+  if (peersEl) {
+    peersEl.innerHTML = `
+      <div>
+        <span>🟢 <b>${state.name || 'Siz'}</b> <small style="color:var(--cyan)">(${myCode} · Siz)</small></span>
+        <b>${myCar.name}</b>
+      </div>
+      ${peers.length === 0 ? `<div style="color:var(--muted);justify-content:center">Hozircha xonada boshqa o'yinchi yo'q — do'stingiz xona kodini kiritsa shu yerda paydo bo'ladi!</div>` : peers.map((p) => {
+        const c = carById(p.car);
+        const spd = Math.round(Math.abs(p.v || 0) * 3.6);
+        return `<div>
+          <span>🟢 <b>${p.name || 'Haydovchi'}</b> <small style="color:var(--cyan)">(${displayId(p.id)})</small> ${p.onFoot ? '<small style="color:var(--gold)">🚶 Piyoda</small>' : ''}${p.chat ? ` · <b style="color:var(--gold)">«${p.chat}»</b>` : ''}</span>
+          <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <small style="color:var(--muted)">${spd} km/s</small>
+            <b>${c.name}</b>
+            <button class="btn sm-btn" data-tp="${p.id}">📍 Yoniga borish</button>
+            <button class="btn sm-btn primary" data-sit="${p.id}">💺 Mashinasiga o'tirish</button>
+          </span>
+        </div>`;
+      }).join('')}
+    `;
+    peersEl.querySelectorAll('[data-tp]').forEach((b) => (b.onclick = () => {
+      const p = peers.find((x) => x.id === b.dataset.tp);
+      if (!p) return;
+      game.teleportTo?.(p.x + 3.5, p.z + 3.5, p.h || 0);
+      closeModal();
+      toast(`${p.name} yoniga o'tdingiz!`, 'ok');
+    }));
+    peersEl.querySelectorAll('[data-sit]').forEach((b) => (b.onclick = () => {
+      const p = peers.find((x) => x.id === b.dataset.sit);
+      if (!p) return;
+      game.sitInFriendCar?.(p.id);
+      closeModal();
+    }));
+  }
+}
+
 onOnline((ev) => {
   if (ev.join) toast(`🌐 ${ev.join} o'yinga qo'shildi!`, 'ok');
   if (ev.leave) toast(`🌐 ${ev.leave} o'yindan chiqdi`, 'err');
@@ -984,6 +1049,7 @@ onOnline((ev) => {
     beep('ok');
     toast(`💬 ${ev.chat.name}: ${ev.chat.text}`, 'ok');
     renderModalChatLog();
+    updateOnlineModalDynamic();
     return;
   }
   if (ev.chatUpdated) {
@@ -991,9 +1057,14 @@ onOnline((ev) => {
     return;
   }
   if (current === 'online') {
-    const inp = document.getElementById('chatInput');
-    const fi = document.getElementById('friendIdInput');
-    if (document.activeElement !== inp && document.activeElement !== fi) online();
+    if (ev.roomChanged || ev.depositRace) {
+      const activeTag = document.activeElement?.tagName;
+      if (activeTag !== 'INPUT' && activeTag !== 'SELECT') {
+        online();
+        return;
+      }
+    }
+    updateOnlineModalDynamic();
   }
 });
 

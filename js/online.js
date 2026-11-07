@@ -106,7 +106,12 @@ export const info = () => ({
 
 export const list = () => [...players.values()];
 
+let lastStatsEmitTs = 0;
 function updateServerStats(raw = {}, measuredPing = null) {
+  const prevTotal = serverStats.totalOnline;
+  const prevPub = serverStats.publicPlayers;
+  const prevPriv = serverStats.privateRooms;
+  const prevStatus = serverStats.status;
   serverStats.status = 'online';
   if (typeof raw.totalOnline === 'number') serverStats.totalOnline = Math.max(1, raw.totalOnline);
   if (typeof raw.publicPlayers === 'number') serverStats.publicPlayers = Math.max(roomType === 'public' ? 1 : 0, raw.publicPlayers);
@@ -116,7 +121,16 @@ function updateServerStats(raw = {}, measuredPing = null) {
   if (typeof measuredPing === 'number' && measuredPing >= 0) {
     serverStats.pingMs = Math.max(1, Math.round(measuredPing));
   }
-  emit({ statsUpdated: true });
+  const now = performance.now();
+  const countsChanged =
+    prevTotal !== serverStats.totalOnline ||
+    prevPub !== serverStats.publicPlayers ||
+    prevPriv !== serverStats.privateRooms ||
+    prevStatus !== serverStats.status;
+  if (countsChanged || now - lastStatsEmitTs > 1500) {
+    lastStatsEmitTs = now;
+    emit({ statsUpdated: true });
+  }
 }
 
 async function fetchStatsHttp() {
@@ -207,6 +221,8 @@ function connectWebSocket() {
         }
 
         if (m.t === 'sync_ack' || m.t === 'state' || m.t === 'room_joined' || m.t === 'room_created') {
+          if (status !== 'connected') status = 'connected';
+          role = 'room';
           if (m.room) hostId = m.room;
           if (m.roomType) roomType = m.roomType;
           if (m.maxPlayers || m.max) roomMax = m.maxPlayers || m.max;
@@ -287,7 +303,7 @@ function loadPeerScript() {
 
 export async function goOnline() {
   myId = playerId();
-  if (status === 'ready' || status === 'connected' || status === 'joining') return myId;
+  if (status === 'ready' || status === 'connected') return myId;
 
   status = 'connecting';
   serverStats.status = 'connecting';
@@ -509,27 +525,33 @@ export async function joinFriend(raw) {
   if (mode === 'server' || mode === 'ws') {
     status = 'joining';
     emit();
-    const r = await fetch('/api/online/join-room', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: myId, room: id, state: statePayload }),
-    });
-    const data = await r.json();
-    if (!r.ok || data.error) {
+    try {
+      const r = await fetch('/api/online/join-room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: myId, room: id, state: statePayload }),
+      });
+      const data = await r.json();
+      if (!r.ok || data.error) {
+        status = 'connected';
+        emit();
+        throw new Error(data.error || "Xonaga ulanib bo'lmadi");
+      }
+      role = 'room';
+      status = 'connected';
+      hostId = data.room || id;
+      roomType = data.roomType || (isPublic ? 'public' : 'private');
+      roomMax = data.maxPlayers || data.max || (roomType === 'private' ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS);
+      players.clear();
+      if (data.stats) updateServerStats(data.stats);
+      applyList(data.players || [], data.events || []);
+      emit({ roomChanged: hostId });
+      return hostId;
+    } catch (err) {
       status = 'connected';
       emit();
-      throw new Error(data.error || "Xonaga ulanib bo'lmadi");
+      throw err;
     }
-    role = 'room';
-    status = 'connected';
-    hostId = data.room || id;
-    roomType = data.roomType || (isPublic ? 'public' : 'private');
-    roomMax = data.maxPlayers || data.max || (roomType === 'private' ? PRIVATE_MAX_PLAYERS : MAX_PLAYERS);
-    players.clear();
-    if (data.stats) updateServerStats(data.stats);
-    applyList(data.players || [], data.events || []);
-    emit({ roomChanged: hostId });
-    return hostId;
   }
 
   // P2P rejimi

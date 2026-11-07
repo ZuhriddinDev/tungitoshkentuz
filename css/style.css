@@ -1896,43 +1896,48 @@ body.phone .online-peers-hud { max-height: 96px; overflow-y: auto; transform: sc
 @media (max-height: 430px) { body.phone .online-peers-hud { max-height: 70px; } }
 
 /* ============================================================
-   V5 UPGRADE: MALIBU HERO LANDING PAGE, IPHONE LANDSCAPE,
-   UZB PARKING MOBILE SYSTEM, TOP-RIGHT CHAT & PERF AUDIT
+   V5 UPGRADE: MALIBU HERO LANDING PAGE (KIRISHBANNER DIZAYNI),
+   IPHONE SAFARI LANDSCAPE VIEWPORT SYNC, UZB PARKING MOBILE HUD
    ============================================================ */
 html, body {
-  width: 100vw;
-  height: 100vh;
-  height: 100svh;
-  height: 100dvh;
+  position: fixed;
+  inset: 0;
+  width: var(--app-w, 100dvw);
+  height: var(--app-h, 100dvh);
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-touch-callout: none;
 }
+#game, #hud, .screen {
+  width: var(--app-w, 100dvw);
+  height: var(--app-h, 100dvh);
+}
 
-/* 1. MALIBU HERO MAIN MENU (V2 MINIMALIST LANDING) */
+/* 1. MALIBU HERO MAIN MENU (KIRISHBANNER RASMIGA 100% MOS) */
 .malibu-hero-layout {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100dvh;
+  position: fixed !important;
+  inset: 0 !important;
+  width: var(--app-w, 100dvw) !important;
+  height: var(--app-h, 100dvh) !important;
   padding:
     max(12px, env(safe-area-inset-top))
     max(18px, env(safe-area-inset-right))
     max(16px, env(safe-area-inset-bottom))
-    max(18px, env(safe-area-inset-left));
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+    max(18px, env(safe-area-inset-left)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
   pointer-events: none;
   z-index: 22;
 }
 .hero-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  flex-wrap: nowrap !important;
   pointer-events: auto;
+  width: 100%;
 }
 .hero-brand-bar {
   display: flex;
@@ -1940,137 +1945,183 @@ html, body {
   gap: 12px;
   padding: 8px 16px;
   border-radius: 16px;
+  background: linear-gradient(155deg, rgba(8, 13, 32, 0.88), rgba(5, 8, 20, 0.94));
+  border: 1.5px solid rgba(0, 229, 255, 0.5);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6), 0 0 18px rgba(0, 229, 255, 0.2);
 }
-.hero-logo {
-  font-size: clamp(20px, 2.8vw, 30px);
+.hero-brand-left .lobby-logo {
+  font-size: clamp(19px, 2.2vw, 27px);
   font-weight: 900;
-  letter-spacing: 2px;
-  line-height: 1;
+  letter-spacing: 1.5px;
+  line-height: 0.95;
   color: #ffffff;
-  text-shadow: 0 0 18px rgba(0, 229, 255, 0.72);
+  text-shadow: 0 0 16px rgba(0, 229, 255, 0.75);
+}
+.hero-brand-left .lobby-logo span {
+  display: block;
+  font-size: clamp(20px, 2.3vw, 28px);
+  color: #ff2bd6;
+  text-shadow: 0 0 20px rgba(255, 43, 214, 0.9);
+}
+.hero-brand-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(0, 229, 255, 0.28);
+}
+.hero-brand-tag {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+  color: var(--cyan);
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
   white-space: nowrap;
 }
-.hero-logo span {
-  color: var(--pink);
-  margin-left: 6px;
-  text-shadow: 0 0 22px rgba(255, 43, 214, 0.85);
-}
-.hero-srv-divider {
-  width: 1px;
+.hero-skyline-svg {
+  width: 108px;
   height: 24px;
-  background: rgba(255, 255, 255, 0.18);
+  display: block;
+  filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.5));
 }
-.hero-srv-metrics {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  font-weight: 700;
-  flex-wrap: wrap;
+
+.malibu-hero-layout .lobby-server-bar {
+  border-radius: 999px;
+  padding: 9px 18px !important;
+  background: linear-gradient(155deg, rgba(8, 13, 32, 0.86), rgba(5, 8, 20, 0.92)) !important;
+  border: 1.5px solid rgba(0, 229, 255, 0.45) !important;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
 }
-.hero-profile-bar {
-  padding: 6px 12px;
+.malibu-hero-layout .lobby-server-bar .srv-sep,
+.malibu-hero-layout .lobby-server-bar .srv-item {
+  display: inline-flex !important;
 }
+
+.malibu-hero-layout .lobby-profile-bar {
+  border-radius: 999px;
+  padding: 6px 10px 6px 16px !important;
+  background: linear-gradient(155deg, rgba(8, 13, 32, 0.88), rgba(5, 8, 20, 0.94)) !important;
+  border: 1.5px solid rgba(0, 229, 255, 0.45) !important;
+}
+.malibu-hero-layout .prof-money-box {
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: linear-gradient(180deg, rgba(42, 30, 6, 0.88), rgba(24, 16, 4, 0.92));
+  border: 1.5px solid rgba(255, 215, 64, 0.68);
+  box-shadow: inset 0 0 12px rgba(255, 215, 64, 0.2);
+}
+.malibu-hero-layout .prof-gear-btn {
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  background: rgba(16, 24, 52, 0.9);
+  border: 1.5px solid rgba(0, 229, 255, 0.45);
+}
+
 .hero-center-stage {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  padding-bottom: 10px;
   pointer-events: none;
+}
+.hero-bottombar {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 8px !important;
+  pointer-events: auto;
+  width: 100%;
 }
 .malibu-hero-badge {
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 6px 18px;
-  border-radius: 999px;
-  background: rgba(6, 10, 26, 0.68);
-  border: 1px solid rgba(0, 229, 255, 0.35);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-}
-.malibu-tag {
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 1.5px;
-  color: var(--gold);
-}
-.malibu-hero-badge small {
-  font-size: 10.5px;
-  color: #d0dcff;
-}
-.hero-bottombar {
-  display: flex;
   justify-content: center;
-  align-items: center;
-  pointer-events: auto;
+  padding: 6px 22px;
+  border-radius: 999px;
+  background: rgba(7, 11, 26, 0.84);
+  border: 1.5px solid rgba(0, 229, 255, 0.42);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
+}
+.hero-car-tag {
+  font-size: 12.5px;
+  font-weight: 900;
+  letter-spacing: 1.6px;
+  color: #e9f3ff;
+  text-transform: uppercase;
 }
 .hero-start-btn {
-  min-width: min(380px, 90vw);
-  padding: 15px 44px;
-  font-size: 22px;
-  border-radius: 18px;
+  min-width: min(390px, 88vw);
+  padding: 14px 42px !important;
+  font-size: 21px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(180deg, #ffe566 0%, #ffb300 52%, #ff7b00 100%) !important;
+  border: 2px solid #fff6b8 !important;
+  color: #160c00 !important;
+  box-shadow: 0 10px 34px rgba(255, 160, 0, 0.65), 0 0 24px rgba(255, 215, 64, 0.55) !important;
 }
 
-@media (max-width: 900px), (max-height: 520px) {
+@media (max-width: 920px), (max-height: 520px) {
   .malibu-hero-layout {
     padding:
       max(6px, env(safe-area-inset-top))
       max(12px, env(safe-area-inset-right))
       max(8px, env(safe-area-inset-bottom))
-      max(12px, env(safe-area-inset-left));
+      max(12px, env(safe-area-inset-left)) !important;
   }
   .hero-brand-bar {
     padding: 5px 10px;
     gap: 8px;
   }
-  .hero-logo {
-    font-size: 16px;
-  }
-  .hero-srv-metrics {
-    font-size: 11px;
-    gap: 6px;
+  .hero-brand-left .lobby-logo { font-size: 15px; }
+  .hero-brand-left .lobby-logo span { font-size: 16px; }
+  .hero-brand-tag { font-size: 9px; }
+  .hero-skyline-svg { width: 78px; height: 18px; }
+  .malibu-hero-layout .lobby-server-bar {
+    padding: 5px 11px !important;
+    font-size: 10.5px !important;
+    gap: 6px !important;
   }
   .malibu-hero-badge {
-    padding: 4px 12px;
+    padding: 4px 14px;
   }
-  .malibu-tag {
-    font-size: 10.5px;
-  }
-  .malibu-hero-badge small {
-    display: none;
+  .hero-car-tag {
+    font-size: 10px;
+    letter-spacing: 1.2px;
   }
   .hero-start-btn {
-    min-width: min(310px, 84vw);
-    padding: 10px 26px !important;
-    font-size: 16px !important;
+    min-width: min(300px, 80vw);
+    padding: 9px 24px !important;
+    font-size: 15.5px !important;
   }
 }
 
 /* 2. PORTRAIT OVERLAY (IPHONE VA ANDROID GORIZONTAL ESLATMASI) */
 .rotate-hint {
-  display: none;
+  display: none !important;
 }
-@media (orientation: portrait) and (max-width: 920px) {
-  .rotate-hint:not(.dismissed) {
-    display: flex !important;
-    position: fixed !important;
-    inset: 0 !important;
-    width: 100vw !important;
-    height: 100dvh !important;
-    transform: none !important;
-    z-index: 120 !important;
-    background: radial-gradient(circle at 50% 40%, rgba(12, 20, 48, 0.96), rgba(3, 5, 14, 0.98)) !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 24px !important;
-    backdrop-filter: blur(16px) !important;
-  }
+body.phone.is-portrait .rotate-hint:not(.dismissed) {
+  display: flex !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: var(--app-w, 100dvw) !important;
+  height: var(--app-h, 100dvh) !important;
+  transform: none !important;
+  z-index: 120 !important;
+  background: radial-gradient(circle at 50% 40%, rgba(12, 20, 48, 0.96), rgba(3, 5, 14, 0.98)) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px !important;
+  backdrop-filter: blur(16px) !important;
+}
+body.is-landscape .rotate-hint {
+  display: none !important;
 }
 .rotate-card {
   width: min(360px, 90vw);
@@ -2165,7 +2216,7 @@ body.phone .hud-chat-widget {
   font-size: 13px;
 }
 
-/* 4. UZB PARKING USLUBIDAGI MOBIL BOSHQARUV, ПОВОРОТНИК VA PEDALLAR */
+/* 4. UZB PARKING USLUBIDAGI MOBIL BOSHQARUV VA PEDALLAR */
 body.phone .uzb-round-btn {
   width: 42px !important;
   height: 42px !important;
@@ -2178,33 +2229,6 @@ body.phone .uzb-round-btn {
   font-size: 17px !important;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.48);
   backdrop-filter: blur(8px);
-}
-body.phone .turn-signals-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-body.phone .uzb-sig-btn {
-  width: 42px;
-  height: 34px;
-  border-radius: 10px;
-  background: rgba(10, 15, 34, 0.76);
-  border: 1.5px solid rgba(255, 255, 255, 0.22);
-  color: #d8e4ff;
-  font-size: 15px;
-  font-weight: 900;
-  backdrop-filter: blur(6px);
-}
-body.phone .uzb-sig-btn.hazard {
-  border-color: rgba(255, 23, 68, 0.55);
-  color: #ff5252;
-}
-body.phone .uzb-sig-btn.active {
-  background: rgba(255, 171, 0, 0.35);
-  border-color: #ffab00;
-  color: #ffd740;
-  box-shadow: 0 0 16px rgba(255, 171, 0, 0.75);
-  animation: blink 0.65s infinite;
 }
 body.phone .uzb-pedals {
   gap: 14px;
@@ -2336,7 +2360,7 @@ body.phone .dash .gauge {
   font-size: 11.5px;
   pointer-events: auto;
 }
-.perf-head {
+.perf-head, .pa-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2344,22 +2368,18 @@ body.phone .dash .gauge {
   color: var(--cyan);
   font-size: 11px;
 }
-.perf-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.perf-grid > div {
+.perf-grid > div, .pa-row {
   display: flex;
   justify-content: space-between;
   padding: 2px 4px;
+  margin-top: 2px;
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.04);
 }
-.perf-grid span {
+.perf-grid span, .pa-row span {
   color: var(--muted);
 }
-.perf-grid b {
+.perf-grid b, .pa-row b {
   color: #fff;
   font-family: monospace;
 }

@@ -49,13 +49,35 @@
       <span id="loadText">3D Toshkent shahri qurilmoqda...</span>
     </div>
 
-    <!-- Asosiy Minimalistik Malibu Hero Landing Page -->
+    <!-- Asosiy Minimalistik Malibu Hero Landing Page (kirishbanner dizayniga 100% mos) -->
     <div id="menuForm" class="lobby-layout malibu-hero-layout hidden">
-      <!-- 1. YUQORI PANEL: Logotip, Server Holati, Profil Balansi va Sozlamalar -->
+      <!-- 1. YUQORI PANEL: Neon Logotip + Skyline, Server Holati, Profil Balansi va Sozlamalar -->
       <header class="lobby-topbar hero-topbar">
         <div class="hero-brand-bar panel-glass">
-          <h1 class="lobby-logo">TUNGI <span>TOSHKENT</span></h1>
-          <span class="hero-brand-tag">3D MULTIPLAYER</span>
+          <div class="hero-brand-left">
+            <h1 class="lobby-logo">TUNGI<span>TOSHKENT</span></h1>
+          </div>
+          <div class="hero-brand-right">
+            <span class="hero-brand-tag">3D MULTIPLAYER</span>
+            <svg class="hero-skyline-svg" viewBox="0 0 120 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M2 26H118" stroke="#00e5ff" stroke-width="1.4" stroke-opacity="0.75"/>
+              <rect x="6" y="15" width="7" height="11" fill="#0d2b45" stroke="#00e5ff" stroke-width="0.9"/>
+              <rect x="15" y="11" width="9" height="15" fill="#103454" stroke="#00e5ff" stroke-width="0.9"/>
+              <rect x="26" y="16" width="6" height="10" fill="#0d2b45" stroke="#00e5ff" stroke-width="0.9"/>
+              <!-- Toshkent Teleminorasi -->
+              <path d="M38 26L40 12H42L44 26" stroke="#00e5ff" stroke-width="1.1"/>
+              <ellipse cx="41" cy="12" rx="3.5" ry="1.6" fill="#00e5ff" fill-opacity="0.65"/>
+              <ellipse cx="41" cy="8.5" rx="2.3" ry="1.1" fill="#ff2ec4" fill-opacity="0.8"/>
+              <line x1="41" y1="2" x2="41" y2="12" stroke="#00e5ff" stroke-width="1.2"/>
+              <!-- Skyscrapers & Domla -->
+              <rect x="49" y="9" width="10" height="17" fill="#103454" stroke="#00e5ff" stroke-width="0.9"/>
+              <rect x="61" y="13" width="8" height="13" fill="#0d2b45" stroke="#00e5ff" stroke-width="0.9"/>
+              <path d="M72 26V17C72 13.5 82 13.5 82 17V26" fill="#123d63" stroke="#00e5ff" stroke-width="1"/>
+              <rect x="85" y="10" width="11" height="16" fill="#103454" stroke="#00e5ff" stroke-width="0.9"/>
+              <rect x="98" y="14" width="8" height="12" fill="#0d2b45" stroke="#00e5ff" stroke-width="0.9"/>
+              <rect x="108" y="17" width="6" height="9" fill="#0d2b45" stroke="#00e5ff" stroke-width="0.9"/>
+            </svg>
+          </div>
         </div>
 
         <div class="lobby-server-bar panel-glass">
@@ -65,11 +87,11 @@
           </span>
           <span class="srv-sep">|</span>
           <span class="srv-item">
-            🌐 Ommaviy: <b id="lobPublicCount">1/30</b>
+            👥 Ommaviy: <b id="lobPublicCount">1/30</b>
           </span>
           <span class="srv-sep">|</span>
           <span class="srv-item">
-            <b id="lobServerStatus" class="cyan-txt">Online</b>
+            🌐 <b id="lobServerStatus" class="cyan-txt">Online</b>
             <small id="lobPingMs">(18 ms)</small>
           </span>
         </div>
@@ -90,15 +112,14 @@
         </div>
       </header>
 
-      <!-- 2. MARKAZIY SAHNA: Chevrolet Malibu Premier 3D Cinematic Ko'rinishi -->
-      <main class="lobby-center hero-center-stage">
-        <div class="malibu-hero-badge">
-          <span class="hero-car-tag">CHEVROLET MALIBU PREMIER · TURBO</span>
-        </div>
-      </main>
+      <!-- 2. MARKAZIY SAHNA: Chevrolet Malibu Premier 3D Ko'rinishi -->
+      <main class="lobby-center hero-center-stage"></main>
 
-      <!-- 3. PASTKI MARKAZ: Katta va Chiroyli O'YINNI BOSHLASH Tugmasi -->
+      <!-- 3. PASTKI MARKAZ: Mashina Begi va Katta O'YINNI BOSHLASH Tugmasi -->
       <footer class="lobby-bottombar hero-bottombar">
+        <div class="malibu-hero-badge">
+          <span class="hero-car-tag" id="heroCarTag">CHEVROLET MALIBU PREMIER - TURBO</span>
+        </div>
         <button type="button" id="playBtn" class="lobby-enter-btn hero-start-btn pulse">
           <span>🏁 O‘YINNI BOSHLASH</span>
           <i>›</i>
@@ -145,7 +166,19 @@
     </div>
 
     <!-- Performance Audit / Debug Panel (F3 yoki Sozlamalar orqali yoqiladi) -->
-    <div id="perfAuditPanel" class="perf-audit-panel hidden"></div>
+    <div id="perfAuditPanel" class="perf-audit-panel hidden">
+      <div class="pa-head">
+        <b>📊 PERFORMANCE AUDIT</b>
+        <button type="button" id="perfAuditClose" title="Yopish">✕</button>
+      </div>
+      <div class="pa-row"><span>FPS:</span><b id="paFps">60</b></div>
+      <div class="pa-row"><span>Frame Time:</span><b id="paFrame">16.6 ms</b></div>
+      <div class="pa-row"><span>Sifat / GPU:</span><b id="paQuality">HIGH</b></div>
+      <div class="pa-row"><span>Draw Calls:</span><b id="paDraws">0</b></div>
+      <div class="pa-row"><span>Poligonlar:</span><b id="paTris">0</b></div>
+      <div class="pa-row"><span>Geo / Tex:</span><b id="paGeoTex">0 / 0</b></div>
+      <div class="pa-row"><span>Xotira (RAM):</span><b id="paMem">N/A</b></div>
+    </div>
 
     <!-- MOBIL HUD YIG'ILUVCHI HARAKATLAR MENYUSI (Garaj, Tuning, Xarita, Poyga, Do'stlar, Kunlik mukofot) -->
     <div id="hudMobileDrawer" class="hud-mob-drawer hidden">
@@ -248,12 +281,6 @@
           <button type="button" data-hotkey="KeyH" class="uzb-round-btn" title="Signal">📯</button>
           <button type="button" id="btnResetCarHud" class="uzb-round-btn" title="Mashinani tiklash">🔄</button>
           <button type="button" id="btnToggleRadial" class="uzb-round-btn" title="Emotsiya va Chaqirish">✨</button>
-        </div>
-        <!-- Burilish chiroqlari (Chap / Avariya / O'ng) -->
-        <div class="turn-signals-row" id="turnSignalsRow">
-          <button type="button" id="btnBlinkLeft" class="uzb-sig-btn" title="Chap burilish chirog'i">⬅</button>
-          <button type="button" id="btnBlinkHazard" class="uzb-sig-btn hazard" title="Avariya chirog'i">⚠️</button>
-          <button type="button" id="btnBlinkRight" class="uzb-sig-btn" title="O'ng burilish chirog'i">➡</button>
         </div>
         <!-- Chap pastda katta, yarim shaffof UZB PARKING Aylanuvchi Ruli (Steering Wheel) -->
         <div class="wheel-pad" id="wheelPad" title="Barmoq bilan rulni chap va o'ngga aylantiring">

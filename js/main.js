@@ -51,7 +51,6 @@ let playing = false, paused = false;
 let playerMode = 'driving'; // 'driving' | 'walking' | 'passenger'
 let ridingWith = '';        // Do'st ID si (agar 'passenger' bo'lsa)
 let lobbyLightsOn = true;
-let blinkerMode = 'off';    // 'off' | 'left' | 'right' | 'hazard'
 let perfAuditVisible = false;
 let activeDepositRace = null; // { raceId, target, totalPrize, status }
 let pendingDepositInvite = null; // { raceId, hostId, hostName, hostDeposit, target }
@@ -169,14 +168,6 @@ function resetCarOnRoad() {
   }
   beep('ok');
   toast('🔄 Mashina yo\'lga tiklandi!', 'ok');
-}
-
-function setBlinkerMode(next) {
-  blinkerMode = blinkerMode === next ? 'off' : next;
-  $('btnBlinkLeft')?.classList.toggle('active', blinkerMode === 'left' || blinkerMode === 'hazard');
-  $('btnBlinkRight')?.classList.toggle('active', blinkerMode === 'right' || blinkerMode === 'hazard');
-  $('btnBlinkHazard')?.classList.toggle('active', blinkerMode === 'hazard');
-  beep('ok');
 }
 
 function renderLobbyCarCarousel() {
@@ -485,9 +476,6 @@ onKey('Escape', keyGuard(() => (isOpen() ? closeModal() : open('pause'))));
 onKey('KeyL', keyGuard(() => { lightsMode = { auto: 'on', on: 'off', off: 'auto' }[lightsMode]; toast(`Faralar: ${{ auto: 'avtomatik', on: 'yoqilgan', off: "o'chirilgan" }[lightsMode]}`); }));
 onKey('KeyH', keyGuard(() => horn()));
 onKey('KeyC', keyGuard(() => { camState.mode = (camState.mode + 1) % 3; }));
-onKey('BracketLeft', keyGuard(() => setBlinkerMode('left')));
-onKey('BracketRight', keyGuard(() => setBlinkerMode('right')));
-onKey('Backslash', keyGuard(() => setBlinkerMode('hazard')));
 onKey('KeyX', keyGuard(() => resetCarOnRoad()));
 onKey('F3', () => window.__togglePerfAudit?.());
 
@@ -553,7 +541,6 @@ function step(dt, t) {
     g.rotation.set(0, vehicle.heading, 0);
     model.update(dist * Math.sign(vehicle.v || 1), vehicle.steer, vehicle.pitch || 0, vehicle.roll || 0);
     model.setBrake(vehicle.braking);
-    model.setBlinker?.(blinkerMode, t);
     model.setDamageState?.(vehicle.inst.dmgParts, vehicle.inst.damage);
 
     updateEngine(vehicle.rpm, input.throttle, vehicle.cfg.pitch, vehicle.slip, vehicle.kmh, {
@@ -567,7 +554,6 @@ function step(dt, t) {
     // Mashina to'xtab turadi, Universal 3D Streetwear Personaj harakatlanadi
     g.position.set(vehicle.x, groundY(vehicle.x, vehicle.z), vehicle.z);
     model.setBrake(false);
-    model.setBlinker?.(blinkerMode, t);
     model.setDamageState?.(vehicle.inst.dmgParts, vehicle.inst.damage);
     charCtrl.step(dt, input, groundY(charCtrl.x, charCtrl.z));
     updateCharCamera(camera, charCtrl, dt);
@@ -823,12 +809,16 @@ function returnToLobby() {
   updateLobbyServerUI();
 }
 
-function setQuality(q, prev) {
-  const a = PRESETS[q], b = PRESETS[prev];
+function setQuality(q) {
+  const a = PRESETS[q] || PRESETS.high;
   if (!sky) return;
-  if (a.traffic !== b.traffic) { save(true); toast("Sifat o'zgardi, qayta yuklanmoqda..."); setTimeout(() => location.reload(), 600); return; }
-  sky.sun.shadow.mapSize.set(a.map, a.map); sky.sun.shadow.map?.dispose(); sky.sun.shadow.map = null;
   R.apply(q);
+  const mapSz = R.preset?.map || a.map;
+  sky.sun.shadow.mapSize.set(mapSz, mapSz);
+  sky.sun.shadow.map?.dispose();
+  sky.sun.shadow.map = null;
+  save(true);
+  toast(`🖼️ Grafik sifati o'zgartirildi: ${q.toUpperCase()}`, 'ok');
 }
 
 async function boot() {
@@ -893,10 +883,22 @@ async function boot() {
     toast(s.steerType === 'wheel' ? '🛞 Aylanuvchi Rul yoqildi' : '◀ ▶ Tugmalar yoqildi', 'ok');
   });
   smoke = new TireSmoke(scene);
-  applyControl(state.settings.control, state.settings.steerType, state.settings.touchScale);
-  addEventListener('resize', () => {
-    if (state.settings.control === 'auto') applyControl('auto', state.settings.steerType, state.settings.touchScale);
+  const syncControlOnViewport = () => {
+    applyControl(state.settings.control, state.settings.steerType, state.settings.touchScale);
+  };
+  syncControlOnViewport();
+  addEventListener('resize', syncControlOnViewport);
+  addEventListener('orientationchange', () => {
+    syncControlOnViewport();
+    setTimeout(syncControlOnViewport, 120);
+    setTimeout(syncControlOnViewport, 350);
   });
+  if (screen.orientation && screen.orientation.addEventListener) {
+    screen.orientation.addEventListener('change', syncControlOnViewport);
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncControlOnViewport);
+  }
 
   onChange(() => {
     updateLobbyProfileUI();
@@ -947,9 +949,6 @@ async function boot() {
     radialWrap?.classList.add('hidden');
     resetCarOnRoad();
   };
-  if ($('btnBlinkLeft')) $('btnBlinkLeft').onclick = (e) => { e.stopPropagation(); setBlinkerMode('left'); };
-  if ($('btnBlinkRight')) $('btnBlinkRight').onclick = (e) => { e.stopPropagation(); setBlinkerMode('right'); };
-  if ($('btnBlinkHazard')) $('btnBlinkHazard').onclick = (e) => { e.stopPropagation(); setBlinkerMode('hazard'); };
   if ($('perfAuditClose')) $('perfAuditClose').onclick = () => window.__togglePerfAudit?.(false);
 
   // Yig'iluvchi (Collapsible) HUD Chat va bildirishnoma nishoni
@@ -1132,20 +1131,30 @@ async function boot() {
     if (ev.depositRace) {
       const dr = ev.depositRace;
       const myId = playerId();
+      const hostIdVal = dr.hostId || dr.p1Id;
+      const hostNameVal = dr.hostName || dr.p1Name || 'Haydovchi';
+      const hostDepVal = dr.hostDeposit ?? dr.p1Deposit ?? 0;
+      const guestIdVal = dr.guestId || dr.p2Id;
+      const guestDepVal = dr.guestDeposit ?? dr.p2Deposit ?? 0;
       if (dr.action === 'invited') {
-        pendingDepositInvite = dr;
+        pendingDepositInvite = {
+          ...dr,
+          hostId: hostIdVal,
+          hostName: hostNameVal,
+          hostDeposit: hostDepVal,
+        };
         beep('ok');
-        toast(dr.text || '🏁 Do\'stingiz Depozit Poygaga chaqirdi!', 'cash');
+        toast(dr.text || `🏁 ${hostNameVal} Depozit Poygaga chaqirdi!`, 'cash');
       } else if (dr.action === 'started') {
         pendingDepositInvite = null;
         activeDepositRace = {
           raceId: dr.raceId,
           target: dr.target,
           totalPrize: dr.totalPrize,
-          hostId: dr.hostId,
-          guestId: dr.guestId,
-          hostDeposit: dr.hostDeposit,
-          guestDeposit: dr.guestDeposit,
+          hostId: hostIdVal,
+          guestId: guestIdVal,
+          hostDeposit: hostDepVal,
+          guestDeposit: guestDepVal,
           status: 'countdown',
         };
         if (dr.target) waypoint = { x: dr.target.x, z: dr.target.z, label: dr.target.name };
@@ -1163,13 +1172,13 @@ async function boot() {
       } else if (dr.action === 'cancelled') {
         if (pendingDepositInvite?.raceId === dr.raceId) pendingDepositInvite = null;
         if (activeDepositRace?.raceId === dr.raceId) activeDepositRace = null;
-        if (dr.hostId === myId && dr.hostDeposit > 0) {
-          addMoney(dr.hostDeposit, 'Depozit poyga bekor qilindi (qaytarildi)');
+        if (hostIdVal === myId && hostDepVal > 0) {
+          addMoney(hostDepVal, 'Depozit poyga bekor qilindi (qaytarildi)');
         }
-        if (dr.guestId === myId && dr.guestDeposit > 0) {
-          addMoney(dr.guestDeposit, 'Depozit poyga bekor qilindi (qaytarildi)');
+        if (guestIdVal === myId && guestDepVal > 0) {
+          addMoney(guestDepVal, 'Depozit poyga bekor qilindi (qaytarildi)');
         }
-        toast(dr.text || 'Depozit poyga bekor qilindi, garov qaytarildi', 'err');
+        toast(dr.text || dr.reason || 'Depozit poyga bekor qilindi, garov qaytarildi', 'err');
       } else if (dr.action === 'finished') {
         pendingDepositInvite = null;
         activeDepositRace = null;
