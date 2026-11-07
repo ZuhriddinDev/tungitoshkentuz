@@ -144,19 +144,30 @@ export function createRenderer(canvas, quality) {
       const rawH = vv && vv.height > 0 ? vv.height : (window.innerHeight || document.documentElement.clientHeight);
 
       const isPhoneDevice = IS_MOBILE || document.body.classList.contains('phone');
-      const autoRotateToLandscape = isPhoneDevice && rawH > rawW;
+      const isPortrait = rawH > rawW;
+      // Agar telefon vertikal bo'lsa va foydalanuvchi "Gorizontal rejim" tugmasini bosgan bo'lsa,
+      // avtomatik 90° buriladi; agar telefon jismonan yonbosh aylantirilsa, tabiiy toza landscape bo'ladi.
+      const shouldRotate90 = isPhoneDevice && isPortrait && !!window.__forceLandscapeRot;
 
-      // Telefon va iPhone'da har doim gorizontal (landscape) o'lcham ishlatiladi:
-      // Agar telefon vertikal ushlangan bo'lsa ham, avtomatik 90° gorizontal rejimga o'tadi!
-      const w = Math.max(240, Math.round(autoRotateToLandscape ? rawH : rawW));
-      const h = Math.max(180, Math.round(autoRotateToLandscape ? rawW : rawH));
+      const w = Math.max(240, Math.round(shouldRotate90 ? rawH : rawW));
+      const h = Math.max(180, Math.round(shouldRotate90 ? rawW : rawH));
 
       document.documentElement.style.setProperty('--app-w', `${w}px`);
       document.documentElement.style.setProperty('--app-h', `${h}px`);
-      document.documentElement.classList.toggle('auto-landscape-html', autoRotateToLandscape);
-      document.body.classList.toggle('auto-landscape-rot', autoRotateToLandscape);
-      document.body.classList.remove('is-portrait');
-      document.body.classList.add('is-landscape');
+      document.documentElement.classList.toggle('auto-landscape-html', shouldRotate90);
+      document.body.classList.toggle('auto-landscape-rot', shouldRotate90);
+      document.body.classList.toggle('is-portrait', isPortrait && !shouldRotate90);
+      document.body.classList.toggle('is-landscape', !isPortrait || shouldRotate90);
+
+      // Portrait rejimda hint ko'rsatish
+      const rHint = document.getElementById('rotateHint');
+      if (rHint) {
+        if (isPhoneDevice && isPortrait && !shouldRotate90 && !window.__hideRotateHint) {
+          rHint.style.display = 'flex';
+        } else {
+          rHint.style.display = 'none';
+        }
+      }
 
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
@@ -187,6 +198,19 @@ export function createRenderer(canvas, quality) {
     setTimeout(() => R.resize(), 80);
     setTimeout(() => R.resize(), 250);
     setTimeout(() => R.resize(), 500);
+  };
+  window.__triggerAutoLandscape = () => {
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+      screen.orientation?.lock?.('landscape').catch(() => {});
+    } catch { /* */ }
+    window.__forceLandscapeRot = true;
+    window.__hideRotateHint = true;
+    const rHint = document.getElementById('rotateHint');
+    if (rHint) rHint.style.display = 'none';
+    triggerResizeSync();
   };
   addEventListener('resize', () => R.resize());
   addEventListener('orientationchange', triggerResizeSync);

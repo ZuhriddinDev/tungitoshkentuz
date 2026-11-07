@@ -864,30 +864,26 @@ function bindStart(body) {
 function pause() {
   const inf = onlineInfo();
   const dailyReady = canClaimDaily();
-  const body = showModal('pause', '⏸ O\'yin Menyusi va Boshqaruv Markazi', `
-    <div class="grid">
+  const body = showModal('pause', 'O\'yin Menyusi', `
+    <div class="grid pause-grid">
       <button class="btn primary big" data-a="resume">▶ O'yinni davom ettirish</button>
-      <button class="btn gold big" data-a="garage">🚗 Garaj, Avtosalon va Tuning (G)</button>
-      <button class="btn big ${dailyReady ? 'gold' : ''}" data-a="daily">🎁 7 Kunlik Kundalik Bonus ${dailyReady ? '🔥' : ''}</button>
-      <button class="btn big" data-a="promocode">🎟️ Promokod va Sovg'alar</button>
-      <button class="btn big" data-a="transfer">💸 Do'stlarga Pul O'tkazish</button>
-      <button class="btn big" data-a="online">👥 Do'stlar va Depozit Poyga (${inf.count}/${inf.max || MAX_PLAYERS})</button>
-      <button class="btn big" data-a="map">🗺️ Toshkent GPS Xaritasi (M)</button>
-      <button class="btn big" data-a="race">🏁 Musobaqalar va Drift (R)</button>
-      <button class="btn big" data-a="jobs">📦 Ishlar, Taksi va Ijara (T)</button>
-      <button class="btn big" data-a="leaderboard">🏆 Reyting va Statistika</button>
-      <button class="btn big" data-a="settings">⚙️ Sozlamalar va Grafika</button>
+      <button class="btn gold big" data-a="garage">🚗 Garaj va Tuning</button>
+      <button class="btn big ${dailyReady ? 'gold' : ''}" data-a="daily">🎁 7 Kunlik Bonus ${dailyReady ? '🔥' : ''}</button>
+      <button class="btn big" data-a="promocode">🎟️ Promokod</button>
+      <button class="btn big" data-a="transfer">💸 Pul O'tkazish</button>
+      <button class="btn big" data-a="online">👥 Do'stlar (${inf.count}/${inf.max || MAX_PLAYERS})</button>
+      <button class="btn big" data-a="settings">⚙️ Sozlamalar</button>
       <button class="btn danger big" data-a="lobby">🏠 Bosh menyuga qaytish</button>
     </div>
 
     ${renderInvitePromoBanner()}
 
-    <div class="section-title">Joriy Sessiya va Profil Statistikasi</div>
+    <div class="section-title">Haydovchi Statistikasi</div>
     <div class="list">
       <div><span>Haydovchi</span><b>${state.name || 'Haydovchi'} (${displayId(inf.id)})</b></div>
-      <div><span>Joriy Xona</span><b style="color:var(--cyan)">${displayId(inf.host || 'PUBLIC')} (${inf.roomType === 'private' ? '🔒 Private' : '🌍 Ommaviy'})</b></div>
+      <div><span>Xona</span><b style="color:var(--cyan)">${displayId(inf.host || 'PUBLIC')} (${inf.roomType === 'private' ? 'Private' : 'Ommaviy'})</b></div>
       <div><span>Jami masofa</span><b>${state.totalKm.toFixed(1)} km</b></div>
-      <div><span>Garajdagi mashinalar</span><b>${state.cars.length} / ${CARS.length}</b></div>
+      <div><span>Garaj</span><b>${state.cars.length} / ${CARS.length} ta mashina</b></div>
       <div><span>Balans</span><b class="plus">${fmt(state.money)}</b></div>
     </div>`);
 
@@ -902,9 +898,6 @@ function pause() {
     promocode: () => open('promocode'),
     transfer: () => open('transfer'),
     map: () => open('map'),
-    race: () => open('race'),
-    jobs: () => open('jobs'),
-    leaderboard: () => open('leaderboard'),
     settings,
   };
   body.querySelectorAll('[data-a]').forEach((b) => (b.onclick = act[b.dataset.a]));
@@ -983,24 +976,14 @@ function online() {
 
     ${renderInvitePromoBanner()}
 
-    <div class="section-title">💬 Real-vaqt suhbat va Online Poyga chaqiruvi</div>
+    <div class="section-title">Suhbat (Chat)</div>
     <div class="card" style="margin-bottom:12px">
-      <div class="opts" style="margin:0">
-        ${['👋 Salom!', '🏁 Poyga o\'ynaymiz!', '🔥 Driftga qarang!', '📍 Yonimga keling!', '👍 Zo\'r mashina!'].map((q) => `<button class="btn sm-btn" data-qchat="${q}">${q}</button>`).join('')}
-      </div>
-      <div class="row" style="margin-top:6px">
-        <input id="chatInput" maxlength="56" placeholder="Xonadagi do'stlarga xabar yozing (3D mashina ustida ko'rinadi)..." style="margin:0" />
-        <button class="btn primary" id="sendChatBtn" style="flex:0 0 auto">💬 Yuborish</button>
+      <div class="row" style="margin-top:4px">
+        <input id="chatInput" maxlength="64" placeholder="Xabar yozing (3D mashina ustida ko'rinadi)..." style="margin:0" autocomplete="off" />
+        <button class="btn primary" id="sendChatBtn" style="flex:0 0 auto">Yuborish</button>
       </div>
       <div id="onlineChatLog" class="list" style="margin-top:8px;max-height:110px;overflow-y:auto">
-        ${chatHistory.length === 0 ? '<div style="color:var(--muted);justify-content:center">Suhbat tarixi shu yerda ko\'rinadi</div>' : chatHistory.slice(-8).map((m) => `<div><span>💬 <b>${m.fromName}:</b> ${m.text}</span><small style="color:var(--muted)">${new Date(m.ts).toLocaleTimeString('uz').slice(0, 5)}</small></div>`).join('')}
-      </div>
-      <div class="section-title" style="margin-top:8px">🏁 Xonadagi do'stlar bilan Online Poyga (Umumiy GPS marra)</div>
-      <div class="opts" style="margin:0">
-        <button class="btn sm-btn gold" data-orace="Tashkent City" data-rx="${blockC(5)}" data-rz="${blockC(7)}">🏙️ Tashkent City gacha!</button>
-        <button class="btn sm-btn gold" data-orace="Chorsu Bozori" data-rx="${blockC(3)}" data-rz="${blockC(5)}">🏛️ Chorsu bozorigacha!</button>
-        <button class="btn sm-btn gold" data-orace="Teleminora" data-rx="${blockC(8)}" data-rz="${blockC(2)}">🗼 Teleminoragacha!</button>
-        <button class="btn sm-btn gold" data-orace="Minor Masjidi" data-rx="${blockC(7)}" data-rz="${blockC(4)}">🕌 Minor masjidigacha!</button>
+        ${chatHistory.length === 0 ? '<div style="color:var(--muted);justify-content:center">Suhbat tarixi shu yerda ko\'rinadi</div>' : chatHistory.slice(-8).map((m) => `<div><span><b>${m.fromName}:</b> ${m.text}</span><small style="color:var(--muted)">${new Date(m.ts).toLocaleTimeString('uz').slice(0, 5)}</small></div>`).join('')}
       </div>
     </div>
 
@@ -1298,53 +1281,47 @@ function online() {
 // ---------- 13. SETTINGS VA QO'SHIMCHA MENYU (V9) ----------
 function settings() {
   const s = state.settings;
-  const seg = (id, items, cur) => `<div class="seg" data-seg="${id}">${items.map(([k, ic, n, d]) => `<button type="button" data-v="${k}" class="${String(cur) === String(k) ? 'on' : ''}"><i>${ic}</i><b>${n}</b>${d ? `<small>${d}</small>` : ''}</button>`).join('')}</div>`;
-  const body = showModal('settings', '⚙️ Sozlamalar va Boshqaruv', `
+  const seg = (id, items, cur) => `<div class="seg" data-seg="${id}">${items.map(([k, n, d]) => `<button type="button" data-v="${k}" class="${String(cur) === String(k) ? 'on' : ''}"><b>${n}</b>${d ? `<small>${d}</small>` : ''}</button>`).join('')}</div>`;
+  const body = showModal('settings', 'Sozlamalar va Boshqaruv', `
     <div class="set-grid">
       <section class="set-card">
-        <h3>🖼️ Grafik Sifati</h3>
+        <h3>Grafik Sifati</h3>
         ${seg('quality', [
-          ['auto',   '✨', 'Auto',   'Avtomatik'],
-          ['low',    '⚡', 'Low',    'Eng tez'],
-          ['medium', '⚖️', 'Medium', "O'rta"],
-          ['high',   '💎', 'High',   'Soyalar + Bloom'],
-          ['ultra',  '🚀', 'Ultra',  'Maksimal'],
+          ['auto',   'Auto',   'Avtomatik'],
+          ['low',    'Low',    'Eng tez'],
+          ['medium', 'Medium', "O'rta"],
+          ['high',   'High',   'Soyalar + Bloom'],
+          ['ultra',  'Ultra',  'Maksimal'],
         ], s.quality || 'high')}
-        <p class="hint">Telefon va kompyuter quvvatiga mos grafik rejimni tanlang.</p>
-        <button type="button" class="btn" id="perfAuditBtn" style="width:100%;margin-top:8px">📊 Performance Audit (FPS / Draw Calls — F3)</button>
+        <p class="hint">Qurilmangiz quvvatiga mos grafik rejimni tanlang.</p>
+        <button type="button" class="btn" id="perfAuditBtn" style="width:100%;margin-top:8px">Performance Audit (FPS / Draw Calls — F3)</button>
       </section>
 
       <section class="set-card">
-        <h3>🔊 Ovoz va Musiqa</h3>
+        <h3>Ovoz va Musiqa</h3>
         <label class="slide"><span>Motor va o'yin ovozi</span><b id="volV">${Math.round((s.volume ?? 0.65) * 100)}%</b><input type="range" id="vol" min="0" max="1" step="0.05" value="${s.volume ?? 0.65}" /></label>
         <label class="slide"><span>Musiqa va muhit balandligi</span><b id="musV">${Math.round((s.musicVolume ?? 0.45) * 100)}%</b><input type="range" id="musVol" min="0" max="1" step="0.05" value="${s.musicVolume ?? 0.45}" /></label>
-        <div class="section-title" style="margin-top:8px">🌐 Til tanlash (Language)</div>
-        ${seg('lang', [
-          ['uz', '🇺🇿', "O'zbek", 'Asosiy'],
-          ['ru', '🇷🇺', 'Русский', 'RU'],
-          ['en', '🇬🇧', 'English', 'EN'],
-        ], s.lang || 'uz')}
       </section>
 
       <section class="set-card">
-        <h3>🎮 Boshqaruv va Sezgirlik</h3>
+        <h3>Boshqaruv va Sezgirlik</h3>
         <label class="slide"><span>Burilish sezgirligi</span><b id="steerSensV">${(s.steerSens ?? 1.0).toFixed(1)}</b><input type="range" id="steerSens" min="0.5" max="2.0" step="0.1" value="${s.steerSens ?? 1.0}" /></label>
         <label class="slide"><span>Kamera sezgirligi</span><b id="sensV">${(s.sens ?? 1.0).toFixed(1)}</b><input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="${s.sens ?? 1.0}" /></label>
-        <div class="section-title" style="margin-top:8px">📱 Mobil tugmalar o'lchami</div>
+        <div class="section-title" style="margin-top:8px">Mobil tugmalar o'lchami</div>
         ${seg('touchScale', [
-          ['normal', '⚖️', "O'rta", 'Standart'],
-          ['large',  '🔎', 'Katta', 'Kattaroq tugmalar'],
+          ['normal', "O'rta", 'Standart'],
+          ['large',  'Katta', 'Kattaroq tugmalar'],
         ], s.touchScale || 'normal')}
-        <button type="button" class="btn primary" id="landscapeBtn" style="width:100%;margin-top:10px">⛶ Gorizontal To'liq Ekran (Landscape)</button>
+        <button type="button" class="btn primary" id="landscapeBtn" style="width:100%;margin-top:10px">Gorizontal To'liq Ekran (Landscape)</button>
       </section>
 
       <section class="set-card">
-        <h3>🖥️ HUD va Ko'rinish</h3>
-        <label class="toggle"><span>📊 FPS ko'rsatkichi</span><input type="checkbox" id="showFpsToggle" ${s.showFps !== false ? 'checked' : ''} /><i></i></label>
-        <label class="toggle"><span>🧭 HUD elementlarini ko'rsatish</span><input type="checkbox" id="showHudToggle" ${s.showHud !== false ? 'checked' : ''} /><i></i></label>
-        <label class="toggle"><span>💨 Drift tutuni effekti</span><input type="checkbox" id="smoke" ${s.smoke !== false ? 'checked' : ''} /><i></i></label>
+        <h3>Ekran va Ko'rinish</h3>
+        <label class="toggle"><span>FPS ko'rsatkichi</span><input type="checkbox" id="showFpsToggle" ${s.showFps !== false ? 'checked' : ''} /><i></i></label>
+        <label class="toggle"><span>Boshqaruv elementlarini ko'rsatish</span><input type="checkbox" id="showHudToggle" ${s.showHud !== false ? 'checked' : ''} /><i></i></label>
+        <label class="toggle"><span>Drift tutuni effekti</span><input type="checkbox" id="smoke" ${s.smoke !== false ? 'checked' : ''} /><i></i></label>
         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">
-          <button type="button" class="btn danger" id="reset" style="width:100%">🗑 Progressni o'chirish va yangilash</button>
+          <button type="button" class="btn danger" id="reset" style="width:100%">Progressni o'chirish va qayta boshlash</button>
         </div>
       </section>
     </div>`);
@@ -1363,19 +1340,19 @@ function settings() {
       const resolved = val === 'auto' ? (matchMedia('(pointer: coarse)').matches ? 'medium' : 'high') : val;
       touch();
       game.setQuality(resolved, prev);
-    } else if (kind === 'lang') {
-      s.lang = b.dataset.v;
-      touch();
-      toast(`Til saqlandi: ${b.dataset.v.toUpperCase()}`, 'ok');
     }
   })));
 
   body.querySelector('#landscapeBtn').onclick = () => {
-    document.documentElement.requestFullscreen?.().then(() => {
+    if (window.__triggerAutoLandscape) {
+      window.__triggerAutoLandscape();
+    } else {
+      document.documentElement.requestFullscreen?.().then(() => {
+        screen.orientation?.lock?.('landscape').catch(() => {});
+      }).catch(() => {});
       screen.orientation?.lock?.('landscape').catch(() => {});
-    }).catch(() => {});
-    screen.orientation?.lock?.('landscape').catch(() => {});
-    toast("Gorizontal to'liq ekran rejimi yoqildi", 'ok');
+    }
+    toast("Gorizontal rejim faollashtirildi", 'ok');
   };
 
   body.querySelector('#vol').oninput = (e) => {

@@ -804,6 +804,25 @@ $('playBtn').onclick = () => play(false);
 if ($('playFriendsBtn')) {
   $('playFriendsBtn').onclick = () => play(true);
 }
+if ($('autoLandscapeBtn')) {
+  $('autoLandscapeBtn').onclick = () => {
+    window.__triggerAutoLandscape?.();
+    toast("⛶ Gorizontal to'liq ekran rejimi yoqildi!", 'ok');
+  };
+}
+if ($('forceLandscapeBtn')) {
+  $('forceLandscapeBtn').onclick = () => {
+    window.__triggerAutoLandscape?.();
+    toast("⛶ Gorizontal to'liq ekran rejimi yoqildi!", 'ok');
+  };
+}
+if ($('closeRotateHint')) {
+  $('closeRotateHint').onclick = () => {
+    window.__hideRotateHint = true;
+    const rHint = $('rotateHint');
+    if (rHint) rHint.style.display = 'none';
+  };
+}
 $('nameInput').addEventListener('change', async () => {
   const v = $('nameInput').value.trim();
   if (!v) return;

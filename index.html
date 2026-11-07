@@ -113,7 +113,7 @@
       <!-- 2. MARKAZIY SAHNA: Realistik Chevrolet Malibu 3D Modeli -->
       <main class="lobby-center hero-center-stage"></main>
 
-      <!-- 3. PASTKI MARKAZ: Ikkita Asosiy Tugma (O'YINNI BOSHLASH va DO'STLAR BILAN O'YNASH) -->
+      <!-- 3. PASTKI MARKAZ: Asosiy Tugmalar (O'YINNI BOSHLASH, DO'STLAR va GORIZONTAL REJIM) -->
       <footer class="lobby-bottombar hero-bottombar">
         <div class="malibu-hero-badge">
           <span class="hero-car-tag" id="heroCarTag">CHEVROLET MALIBU PREMIER - TURBO</span>
@@ -127,6 +127,9 @@
             <span>👥 DO‘STLAR BILAN O‘YNASH</span>
             <i>›</i>
           </button>
+          <button type="button" id="autoLandscapeBtn" class="lobby-enter-btn hero-landscape-btn">
+            <span>⛶ GORIZONTAL REJIM</span>
+          </button>
         </div>
       </footer>
     </div>
@@ -136,11 +139,11 @@
   <div id="rotateHint" class="rotate-hint">
     <div class="rotate-card">
       <div class="rotate-phone-icon">📱🔄</div>
-      <h3>TELEFONNI GORIZONTAL AYLANTIRING</h3>
-      <p>TUNGI TOSHKENT o‘yinini qulay boshqarish uchun telefonni yotiq (landscape) holatga o‘tkazing.</p>
+      <h3>GORIZONTAL REJIM</h3>
+      <p>O‘yinni qulay boshqarish uchun telefonni gorizontal aylantiring yoki quyidagi tugmani bosing:</p>
       <div class="rotate-actions">
-        <button type="button" class="btn sm-btn primary" data-fullscreen="1">⛶ To‘liq ekran</button>
-        <button type="button" class="btn sm-btn" id="closeRotateHint">Davom etish ✕</button>
+        <button type="button" class="btn primary" id="forceLandscapeBtn">⛶ GORIZONTAL REJIMGA O‘TISH</button>
+        <button type="button" class="btn" id="closeRotateHint">Davom etish ✕</button>
       </div>
     </div>
   </div>
@@ -185,7 +188,7 @@
       <div class="pa-row"><span>Xotira (RAM):</span><b id="paMem">N/A</b></div>
     </div>
 
-    <!-- O'YIN ICHIDAGI MENYU DRAWER (Garaj, Tuning, 7 Kunlik Bonus, Promokod, Pul O'tkazish, Poyga, Xarita, Sozlamalar) -->
+    <!-- O'YIN ICHIDAGI MENYU DRAWER (Garaj, Tuning, 7 Kunlik Bonus, Promokod, Pul O'tkazish, Do'stlar, Sozlamalar) -->
     <div id="hudMobileDrawer" class="hud-mob-drawer hidden">
       <div class="hud-mob-grid">
         <button type="button" data-hotkey="KeyG">🚗<span>Garaj & Tuning</span></button>
@@ -193,9 +196,6 @@
         <button type="button" data-open="promocode">🎟️<span>Promokod</span></button>
         <button type="button" data-open="transfer">💸<span>Pul O'tkazish</span></button>
         <button type="button" data-hotkey="KeyO">👥<span>Do'stlar</span></button>
-        <button type="button" data-hotkey="KeyR">🏁<span>Poyga</span></button>
-        <button type="button" data-hotkey="KeyM">🗺️<span>Xarita (GPS)</span></button>
-        <button type="button" data-hotkey="KeyT">📦<span>Ish & Taksi</span></button>
         <button type="button" data-open="leaderboard">🏆<span>Reyting</span></button>
         <button type="button" data-open="settings">⚙️<span>Sozlamalar</span></button>
       </div>
@@ -212,16 +212,13 @@
       </button>
       <div id="hudChatPanel" class="hud-chat-panel hidden">
         <div class="hud-chat-head">
-          <span>💬 Xona suhbati</span>
+          <span>Xona suhbati</span>
           <button type="button" id="hudChatCloseBtn" title="Yopish">✕</button>
         </div>
         <div id="hudChatLog" class="hud-chat-log"></div>
         <div class="hud-chat-bar">
-          <button type="button" class="q-emo" data-hud-chat="👋 Salom!">👋</button>
-          <button type="button" class="q-emo" data-hud-chat="🏁 Poyga!">🏁</button>
-          <button type="button" class="q-emo" data-hud-chat="🔥 Zo'r mashina!">🔥</button>
-          <input id="hudChatInput" maxlength="48" placeholder="Xabar..." autocomplete="off" />
-          <button type="button" id="hudChatSend" title="Yuborish">➤</button>
+          <input id="hudChatInput" maxlength="64" placeholder="Xabar yozing..." autocomplete="off" />
+          <button type="button" id="hudChatSend" title="Yuborish">Yuborish</button>
         </div>
       </div>
     </div>
@@ -254,9 +251,6 @@
       <button data-open="promocode">🎟️<small>Promokod</small></button>
       <button data-open="transfer">💸<small>O'tkazma</small></button>
       <button data-hotkey="KeyO">👥<small>Do'stlar (O)</small></button>
-      <button data-hotkey="KeyR">🏁<small>Poyga (R)</small></button>
-      <button data-hotkey="KeyM">🗺<small>Xarita (M)</small></button>
-      <button data-hotkey="KeyT">📦<small>Ish (T)</small></button>
       <button data-hotkey="KeyL">💡<small>Fara (L)</small></button>
       <button data-hotkey="KeyC">🎥<small>Kamera (C)</small></button>
     </div>
@@ -264,9 +258,9 @@
     <!-- =========================================================
          V9 IPHONE VA ANDROID UCHUN YANGI TUGMALI BOSHQARUV TIZIMI
          Rulsiz, zamonaviy shaffof tugmalar:
-         - Chap tomonda: Chap (◀) va O'ng (▶) burilish + Kamera va Faralar
-         - O'ng tomonda: Spidometr (Drift tepasida), Drift, Nitro, Qo'l tormozi,
-           hamda katta TORMOZ va GAZ tugmalari
+         - Chap tomonda: Chap (◀) va O'ng (▶) burilish + Kamera, Fara va Tiklash
+         - O'ng tomonda: Spidometr, Yagona DRIFT tugmasi,
+           hamda pastda bitta TORMOZ va bitta GAZ pedallari
          ========================================================= -->
     <div class="touch">
       <div class="touch-col left-col">
@@ -283,7 +277,7 @@
       </div>
 
       <div class="touch-col right-col">
-        <!-- MOBIL SPIDOMETR: Drift tugmasining aynan tepasida joylashgan -->
+        <!-- MOBIL SPIDOMETR: Drift tugmasining tepasida joylashgan -->
         <div class="mob-speedo-card" id="mobSpeedoCard">
           <div class="mob-speedo-main">
             <b id="mobHudSpeed">0</b>
@@ -297,21 +291,21 @@
           </div>
         </div>
 
-        <!-- Drift, Nitro va Qo'l tormozi (bir-biriga xalaqit bermaydigan alohida qator) -->
+        <!-- Yagona Drift tugmasi (Nitro va 2-tormoz olib tashlangan) -->
         <div class="touch-sub">
-          <button type="button" data-touch="drift" class="sm drift-btn uzb-round-action">💨<span>DRIFT</span></button>
-          <button type="button" data-touch="boost" class="sm nitro-btn uzb-round-action">⚡<span>NITRO</span></button>
-          <button type="button" data-touch="brake" class="sm handbrake-btn uzb-round-action">🅿️<span>TORMOZ</span></button>
+          <button type="button" data-touch="drift" class="sm drift-btn uzb-round-action" aria-label="Drift rejimi">
+            <span>DRIFT</span>
+          </button>
         </div>
 
-        <!-- O'ng pastda ikkita katta tugma: TORMOZ (BRAKE) va GAZ (GAS) -->
+        <!-- O'ng pastda ikkita asosiy pedal: TORMOZ (BRAKE) va GAZ (GAS) -->
         <div class="pad right uzb-pedals">
-          <button type="button" data-touch="down" class="pedal brake-pedal">
+          <button type="button" data-touch="down" class="pedal brake-pedal" aria-label="Tormoz">
             <span class="pedal-grooves"><i></i><i></i><i></i></span>
             <b>TORMOZ</b>
             <small>BRAKE</small>
           </button>
-          <button type="button" data-touch="up" class="pedal gas">
+          <button type="button" data-touch="up" class="pedal gas" aria-label="Gaz">
             <span class="pedal-grooves"><i></i><i></i><i></i><i></i></span>
             <b>GAZ</b>
             <small>GAS</small>
