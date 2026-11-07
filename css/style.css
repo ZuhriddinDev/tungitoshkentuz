@@ -2384,4 +2384,422 @@ body.phone .dash .gauge {
   font-family: monospace;
 }
 
+/* =========================================================
+   TUNGI TOSHKENT V9 — COMPLETE GAME UPDATE STYLES
+   1) Main Entry Banner Two Buttons (O'YINNI BOSHLASH + DO'STLAR BILAN O'YNASH)
+   2) iPhone & Android Button-Only Controls + Speedometer Above Drift Button
+   3) 7-Day Daily Rewards Modal
+   4) In-Game Promo / Invite Banner
+   ========================================================= */
+
+/* 1. ASOSIY KIRISH BANNERI — IKKITA ASOSIY TUGMA */
+.hero-main-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.hero-friends-btn {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.22), rgba(16, 40, 88, 0.92)) !important;
+  border: 2px solid var(--cyan) !important;
+  box-shadow: 0 10px 32px rgba(0, 229, 255, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+}
+.hero-friends-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 14px 40px rgba(0, 229, 255, 0.48) !important;
+}
+
+@media (max-width: 920px), (max-height: 500px) {
+  .hero-main-actions {
+    gap: 10px;
+  }
+  .hero-main-actions .lobby-enter-btn {
+    padding: 10px 20px !important;
+    font-size: 13.5px !important;
+    min-width: 195px;
+  }
+}
+
+/* 2. MOBIL TUGMALI BOSHQARUV VA DRIFT TUGMASI TEPASIDAGI SPIDOMETR */
+body.phone .dash {
+  display: none !important;
+}
+body.pc .mob-speedo-card {
+  display: none !important;
+}
+
+.mob-speedo-card {
+  align-self: flex-end;
+  min-width: 122px;
+  padding: 6px 12px 7px;
+  margin-bottom: 2px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(6, 12, 28, 0.82), rgba(14, 24, 52, 0.72));
+  border: 1.5px solid rgba(0, 229, 255, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+.mob-speedo-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mob-speedo-main > b {
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+  text-shadow: 0 0 14px rgba(0, 229, 255, 0.65);
+  font-variant-numeric: tabular-nums;
+}
+.mob-speedo-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.mob-speedo-unit span {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--cyan);
+  letter-spacing: 0.6px;
+}
+.mob-speedo-unit .gear-badge {
+  font-style: normal;
+  font-size: 10px;
+  padding: 1px 5px;
+}
+.mob-speedo-bar {
+  width: 100%;
+  height: 4px;
+  margin-top: 5px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.mob-speedo-bar > i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #00e5ff, #ff2bd6);
+  transition: width 0.08s linear;
+}
+
+/* Chap tomondagi zamonaviy shaffof Chap / O'ng burilish tugmalari */
+body.phone #steerPad {
+  display: flex !important;
+  gap: 14px;
+}
+body.phone #steerPad button {
+  width: 78px;
+  height: 78px;
+  border-radius: 22px;
+  font-size: 28px;
+  font-weight: 900;
+  color: #ffffff;
+  background: linear-gradient(145deg, rgba(16, 26, 56, 0.62), rgba(8, 14, 32, 0.76));
+  border: 1.8px solid rgba(0, 229, 255, 0.45);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.08s ease, background 0.12s ease, border-color 0.12s ease;
+}
+body.phone.scale-large #steerPad button {
+  width: 88px;
+  height: 88px;
+  font-size: 32px;
+}
+body.phone #steerPad button.on {
+  transform: scale(0.93);
+  background: linear-gradient(145deg, rgba(0, 229, 255, 0.42), rgba(0, 140, 255, 0.55));
+  border-color: #ffffff;
+  box-shadow: 0 0 22px rgba(0, 229, 255, 0.65);
+}
+
+/* Yuqori chap mini tugmalar (Kamera, Fara, Tiklash) */
+body.phone .touch-mini {
+  display: flex;
+  gap: 8px;
+}
+body.phone .touch-mini .uzb-round-btn {
+  width: auto !important;
+  min-width: 54px;
+  height: 42px !important;
+  padding: 0 10px;
+  border-radius: 13px !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 15px !important;
+  background: rgba(10, 16, 36, 0.62) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.24) !important;
+}
+body.phone .touch-mini .uzb-round-btn span {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Drift, Nitro va Qo'l Tormozi tugmalari bir-biriga xalaqit bermasligi uchun */
+body.phone .touch-sub {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+body.phone .touch-sub .uzb-round-action {
+  width: 58px !important;
+  height: 52px !important;
+  border-radius: 16px !important;
+}
+body.phone .handbrake-btn {
+  background: radial-gradient(circle at 30% 30%, rgba(255, 82, 82, 0.35), rgba(18, 22, 42, 0.82)) !important;
+  border: 1.5px solid rgba(255, 82, 82, 0.65) !important;
+}
+body.phone .handbrake-btn.on {
+  background: rgba(255, 23, 68, 0.65) !important;
+  border-color: #fff !important;
+}
+
+/* Yuqori HUD Bonus tugmasi animatsiyasi */
+.gift-chip {
+  background: linear-gradient(135deg, rgba(255, 215, 64, 0.22), rgba(255, 43, 214, 0.22)) !important;
+  border-color: rgba(255, 215, 64, 0.65) !important;
+  color: var(--gold) !important;
+  font-weight: 800;
+  cursor: pointer;
+}
+.gift-chip.ready-pulse {
+  animation: giftPulse 1.6s infinite ease-in-out;
+}
+@keyframes giftPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 215, 64, 0); }
+  50% { transform: scale(1.06); box-shadow: 0 0 16px rgba(255, 215, 64, 0.55); }
+}
+
+/* 3. 7 KUNLIK KUNDALIK BONUS (DAILY REWARDS) MODAL */
+.daily7-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.daily7-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(255, 43, 214, 0.08));
+  border: 1px solid rgba(0, 229, 255, 0.28);
+}
+.daily7-header h3 {
+  font-size: 16px;
+  margin-bottom: 3px;
+}
+.daily7-header p {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.daily7-streak-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(255, 215, 64, 0.14);
+  border: 1px solid rgba(255, 215, 64, 0.5);
+}
+.daily7-streak-badge span {
+  font-size: 11px;
+  color: var(--gold);
+}
+.daily7-streak-badge b {
+  font-size: 18px;
+  color: #fff;
+}
+.daily7-anim-banner {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(0, 230, 118, 0.22), rgba(255, 215, 64, 0.22));
+  border: 1.5px solid var(--green);
+  text-align: center;
+  font-size: 14px;
+  animation: popIn 0.35s ease;
+}
+@keyframes popIn {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.daily7-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+  gap: 10px;
+}
+.daily7-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 12px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  transition: transform 0.15s, border-color 0.15s;
+}
+.daily7-card.grand {
+  grid-column: span 2;
+  background: linear-gradient(135deg, rgba(255, 215, 64, 0.16), rgba(255, 43, 214, 0.16));
+  border-color: rgba(255, 215, 64, 0.55);
+}
+@media (max-width: 560px) {
+  .daily7-card.grand {
+    grid-column: span 1;
+  }
+}
+.daily7-card.claimed {
+  background: rgba(0, 230, 118, 0.1);
+  border-color: rgba(0, 230, 118, 0.45);
+  opacity: 0.85;
+}
+.daily7-card.current {
+  background: linear-gradient(145deg, rgba(0, 229, 255, 0.2), rgba(255, 215, 64, 0.15));
+  border-color: var(--gold);
+  box-shadow: 0 0 22px rgba(255, 215, 64, 0.32);
+  transform: translateY(-2px);
+}
+.d7-day {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  color: var(--cyan);
+  margin-bottom: 4px;
+}
+.d7-icon {
+  font-size: 28px;
+  margin: 4px 0;
+}
+.d7-title {
+  font-size: 13.5px;
+  color: #fff;
+  margin-bottom: 2px;
+}
+.d7-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.d7-status {
+  margin-top: auto;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--gold);
+}
+.daily7-card.claimed .d7-status {
+  color: var(--green);
+}
+
+/* 4. O'YIN ICHIDA REKLAMA VA DO'STLARNI TAKLIF QILISH BANNERI */
+.tt-promo-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 14px 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(8, 18, 44, 0.95), rgba(28, 12, 54, 0.92));
+  border: 1.5px solid rgba(0, 229, 255, 0.45);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+.tt-promo-left {
+  flex: 1;
+  min-width: 0;
+}
+.tt-promo-logo {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: #fff;
+  margin-bottom: 2px;
+}
+.tt-promo-logo span {
+  color: var(--cyan);
+}
+.tt-promo-left h4 {
+  font-size: 16px;
+  color: var(--gold);
+  margin-bottom: 3px;
+}
+.tt-promo-left p {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.tt-promo-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.tt-promo-url {
+  flex: 1;
+  min-width: 180px;
+  margin: 0 !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  color: var(--cyan) !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  border: 1px solid rgba(0, 229, 255, 0.3) !important;
+  border-radius: 8px !important;
+}
+.tt-promo-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  flex-shrink: 0;
+}
+.tt-promo-qr small {
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  color: var(--cyan);
+  margin-top: 3px;
+}
+@media (max-width: 560px) {
+  .tt-promo-qr {
+    display: none;
+  }
+}
+
+/* HUD ko'rinishini yashirish rejimi */
+body.hide-hud-panels #minimap,
+body.hide-hud-panels .hotbar,
+body.hide-hud-panels #hudChatWidget,
+body.hide-hud-panels #onlinePeersHud {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+
 

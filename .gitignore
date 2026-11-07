@@ -3,3 +3,4 @@ node_modules/
 car/*.glb
 !car/opt/*.glb
 car3d/
+data/

@@ -66,11 +66,12 @@ function genId() {
 
 // Har bir foydalanuvchi uchun takrorlanmas 6 belgili playerId
 export function playerId() {
-  let id = localStorage.getItem('tt-pid');
+  let id = localStorage.getItem('tt-pid') || localStorage.getItem('tt_online_pid_v1');
   if (!id || id.length !== 6) {
     id = genId();
-    localStorage.setItem('tt-pid', id);
   }
+  localStorage.setItem('tt-pid', id);
+  localStorage.setItem('tt_online_pid_v1', id);
   return id;
 }
 
@@ -212,6 +213,11 @@ function connectWebSocket() {
           const tsVal = typeof m.ts === 'number' ? m.ts : m.clientTs;
           const rtt = typeof tsVal === 'number' ? performance.now() - tsVal : null;
           if (m.stats) updateServerStats(m.stats, rtt);
+          return;
+        }
+
+        if (m.t === 'economy_update') {
+          emit({ economyUpdate: m });
           return;
         }
 

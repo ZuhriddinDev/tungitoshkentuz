@@ -1,14 +1,16 @@
-// HUD: neon spidometr, benzin, holat, masofa, pul, soat, ko'cha nomi
+// HUD: neon spidometr (PC + mobil ekranida Drift tugmasi tepasidagi spidometr), benzin, masofa, pul, soat, ko'cha nomi
 import { carById, fmt } from './config.js';
-import { state } from './state.js';
+import { state, canClaimDaily } from './state.js';
 import { hourLabel } from './world/sky.js';
 import { streetAt } from './map.js';
 
 const $ = (s) => document.getElementById(s);
-const sp = $('speedo'); sp.width = sp.height = 440;
-const g = sp.getContext('2d');
+const sp = $('speedo');
+if (sp) sp.width = sp.height = 440;
+const g = sp ? sp.getContext('2d') : null;
 
 export function drawSpeedo(kmh, maxSpeed, rpm) {
+  if (!sp || !g) return;
   const S = sp.width, c = S / 2, r = S * 0.42, a0 = Math.PI * 0.75, a1 = Math.PI * 2.25;
   const max = Math.ceil(maxSpeed / 20) * 20 + 20, f = Math.min(1, kmh / max);
   const arc = (rad, from, to) => { g.beginPath(); g.arc(c, c, rad, from, to); g.stroke(); };
@@ -34,41 +36,70 @@ let lastMoney = -1;
 export function updateHud(v, hour, waypoint, fps) {
   const inst = v.inst, cfg = carById(inst.id);
   if (state.money !== lastMoney) {
-    const el = $('hudMoney'); el.textContent = fmt(state.money);
-    if (lastMoney >= 0) { el.classList.add('bump'); setTimeout(() => el.classList.remove('bump'), 200); }
+    const el = $('hudMoney');
+    if (el) {
+      el.textContent = '💰 ' + fmt(state.money);
+      if (lastMoney >= 0) { el.classList.add('bump'); setTimeout(() => el.classList.remove('bump'), 200); }
+    }
     lastMoney = state.money;
   }
-  $('hudTime').textContent = hourLabel(hour);
-  $('hudStreet').textContent = waypoint ? `📍 GPS: ${Math.round(Math.hypot(waypoint.x - v.x, waypoint.z - v.z))} m` : streetAt(v.x, v.z);
-  $('hudSpeed').textContent = Math.round(v.kmh);
-  const gearEl = $('hudGear');
-  if (gearEl) {
-    if (v.v < -0.5) gearEl.textContent = 'R';
-    else if (v.kmh < 1.5 && v.braking) gearEl.textContent = 'P';
-    else if (v.kmh < 1.5) gearEl.textContent = 'N';
-    else gearEl.textContent = `D${v.gear || 1}`;
+
+  const dailyBtn = $('hudDailyBtn');
+  if (dailyBtn) {
+    dailyBtn.classList.toggle('ready-pulse', canClaimDaily());
   }
+
+  if ($('hudTime')) $('hudTime').textContent = hourLabel(hour);
+  if ($('hudStreet')) {
+    $('hudStreet').textContent = waypoint
+      ? `📍 GPS: ${Math.round(Math.hypot(waypoint.x - v.x, waypoint.z - v.z))} m`
+      : streetAt(v.x, v.z);
+  }
+
+  const speedInt = Math.round(v.kmh || 0);
+  if ($('hudSpeed')) $('hudSpeed').textContent = speedInt;
+  if ($('mobHudSpeed')) $('mobHudSpeed').textContent = speedInt;
+
+  let gearTxt = `D${v.gear || 1}`;
+  if (v.v < -0.5) gearTxt = 'R';
+  else if (v.kmh < 1.5 && v.braking) gearTxt = 'P';
+  else if (v.kmh < 1.5) gearTxt = 'N';
+
+  if ($('hudGear')) $('hudGear').textContent = gearTxt;
+  if ($('mobHudGear')) $('mobHudGear').textContent = gearTxt;
+
+  const mobFill = $('mobSpeedoFill');
+  if (mobFill) {
+    const pct = Math.min(100, Math.max(2, (speedInt / (cfg.maxSpeed || 240)) * 100));
+    mobFill.style.width = pct.toFixed(1) + '%';
+  }
+
   const fp = inst.fuelL / cfg.tank;
-  $('hudFuel').style.width = (fp * 100).toFixed(1) + '%';
-  $('hudFuel').classList.toggle('low', fp < 0.15);
-  $('hudFuelText').textContent = inst.fuelL.toFixed(1) + ' l';
-  $('hudFuelType').textContent = inst.fuelType;
-  $('hudDmg').style.width = (100 - inst.damage) + '%';
-  $('hudDmgText').textContent = Math.round(100 - inst.damage) + '%';
-  $('hudKm').textContent = state.totalKm.toFixed(1);
-  $('hudNextBonus').textContent = (10 - (state.totalKm % 10)).toFixed(1);
-  $('hudFps').textContent = fps + ' FPS';
+  if ($('hudFuel')) {
+    $('hudFuel').style.width = (fp * 100).toFixed(1) + '%';
+    $('hudFuel').classList.toggle('low', fp < 0.15);
+  }
+  if ($('hudFuelText')) $('hudFuelText').textContent = inst.fuelL.toFixed(1) + ' l';
+  if ($('hudFuelType')) $('hudFuelType').textContent = inst.fuelType;
+  if ($('hudKm')) $('hudKm').textContent = state.totalKm.toFixed(1);
+  if ($('hudNextBonus')) $('hudNextBonus').textContent = (10 - (state.totalKm % 10)).toFixed(1);
+  if ($('hudFps')) {
+    $('hudFps').textContent = fps + ' FPS';
+    $('hudFps').style.display = state.settings?.showFps === false ? 'none' : '';
+  }
 }
 
 let promptHtml = '';
 export function setPrompt(html) {
   if (html === promptHtml) return;
   promptHtml = html;
-  $('prompt').innerHTML = html; $('prompt').classList.toggle('hidden', !html);
+  const p = $('prompt');
+  if (p) { p.innerHTML = html; p.classList.toggle('hidden', !html); }
 }
 let missionHtml = null;
 export function setMissionHud(html) {
   if (html === missionHtml) return;
   missionHtml = html;
-  $('missionHud').innerHTML = html; $('missionHud').classList.toggle('hidden', !html);
+  const m = $('missionHud');
+  if (m) { m.innerHTML = html; m.classList.toggle('hidden', !html); }
 }

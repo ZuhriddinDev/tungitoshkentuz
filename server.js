@@ -48,6 +48,185 @@ const playerRoom = new Map();
 const wsClients = new Map();
 
 const DEPOSIT_RACE_BONUS_RATE = 1.0; // +100% O'yin bonusi (sozlanadigan)
+const START_MONEY = 5_000_000_000;   // 5 milliard virtual pul (V9 boshlang'ich balans)
+const ADMIN_PASSKEYS = new Set(['TOSHKENT2026', 'ADMIN777', process.env.ADMIN_KEY || 'TOSHKENT2026']);
+
+const DAILY_REWARDS_SERVER = [
+  { day: 1, money: 25_000_000,  car: null,   title: "25 000 000 so'm" },
+  { day: 2, money: 45_000_000,  car: null,   title: "45 000 000 so'm" },
+  { day: 3, money: 60_000_000,  car: null,   title: "60 000 000 so'm" },
+  { day: 4, money: 70_000_000,  car: null,   title: "70 000 000 so'm" },
+  { day: 5, money: 85_000_000,  car: null,   title: "85 000 000 so'm" },
+  { day: 6, money: 125_000_000, car: null,   title: "125 000 000 so'm" },
+  { day: 7, money: 0,           car: 'sf90', title: 'Ferrari SF90 Spider (Premium Sovg\'a)' },
+];
+
+// accounts: Map<playerId, { id, name, secret, money, econVer, cars: string[], daily: { streak, lastClaimDay, lastClaimTs }, usedPromos: string[], transfers: Array, processedOps: string[], updatedAt }>
+const accounts = new Map();
+// promocodes: Map<code, { code, money, car, title, maxUses, usedCount, expiresAt, usedBy: string[], createdAt }>
+const promocodes = new Map();
+// processedTxIds: Set<string>
+const processedTxIds = new Set();
+// transferRateLimit: Map<playerId, number>
+const transferRateLimit = new Map();
+
+const DATA_DIR = path.join(ROOT, 'data');
+const ECON_FILE = path.join(DATA_DIR, 'economy.json');
+
+function seedDefaultPromocodes() {
+  const defaults = [
+    { code: 'TOSHKENT2026', money: 250_000_000, car: null,    title: "250 000 000 so'm Tungi Toshkent Bonusi", maxUses: 100000, expiresAt: Date.now() + 365 * 86400_000 },
+    { code: 'TUNGI500',     money: 500_000_000, car: null,    title: "500 000 000 so'm VIP Bonus",            maxUses: 50000,  expiresAt: Date.now() + 365 * 86400_000 },
+    { code: 'GELIK777',     money: 300_000_000, car: null,    title: "300 000 000 so'm Gelik Fondi",          maxUses: 50000,  expiresAt: Date.now() + 365 * 86400_000 },
+    { code: 'MALIBU',       money: 150_000_000, car: null,    title: "150 000 000 so'm Malibu Bonusi",        maxUses: 100000, expiresAt: Date.now() + 365 * 86400_000 },
+    { code: 'VIPUZB',       money: 1_000_000_000, car: null,  title: "1 000 000 000 so'm Mega Bonus",         maxUses: 25000,  expiresAt: Date.now() + 365 * 86400_000 },
+    { code: 'SUPRA2026',    money: 200_000_000, car: 'supra', title: "Toyota GR Supra + 200 mln so'm",        maxUses: 25000,  expiresAt: Date.now() + 365 * 86400_000 },
+  ];
+  for (const p of defaults) {
+    if (!promocodes.has(p.code)) {
+      promocodes.set(p.code, {
+        ...p,
+        usedCount: 0,
+        usedBy: [],
+        createdAt: Date.now(),
+      });
+    }
+  }
+}
+
+function loadEconomyStore() {
+  try {
+    if (fs.existsSync(ECON_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(ECON_FILE, 'utf8'));
+      if (Array.isArray(raw.accounts)) {
+        for (const a of raw.accounts) {
+          if (a && a.id) accounts.set(a.id, a);
+        }
+      }
+      if (Array.isArray(raw.promocodes)) {
+        for (const p of raw.promocodes) {
+          if (p && p.code) promocodes.set(p.code, p);
+        }
+      }
+      if (Array.isArray(raw.processedTxIds)) {
+        for (const tx of raw.processedTxIds) processedTxIds.add(tx);
+      }
+    }
+  } catch { /* ignore corrupt file */ }
+  seedDefaultPromocodes();
+}
+loadEconomyStore();
+
+let saveTimer = null;
+function scheduleSaveEconomy() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    try {
+      if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+      const payload = {
+        accounts: Array.from(accounts.values()).slice(-5000),
+        promocodes: Array.from(promocodes.values()),
+        processedTxIds: Array.from(processedTxIds).slice(-5000),
+      };
+      fs.writeFileSync(ECON_FILE, JSON.stringify(payload), 'utf8');
+    } catch { /* ignore */ }
+  }, 1500);
+  saveTimer.unref?.();
+}
+
+function getTodayKeyServer() {
+  // Tashkent UTC+5 kun kaliti
+  const d = new Date(Date.now() + 5 * 3600_000);
+  return d.toISOString().slice(0, 10);
+}
+
+function getYesterdayKeyServer() {
+  const d = new Date(Date.now() + 5 * 3600_000 - 86400_000);
+  return d.toISOString().slice(0, 10);
+}
+
+function getOrCreateAccount(id, name = 'Haydovchi', secret = '') {
+  let acc = accounts.get(id);
+  if (!acc) {
+    acc = {
+      id,
+      name: String(name || 'Haydovchi').trim().slice(0, 18) || 'Haydovchi',
+      secret: String(secret || '').slice(0, 64),
+      money: START_MONEY,
+      econVer: 9,
+      cars: ['matiz', 'spark', 'nexia', 'cobalt', 'gentra', 'malibu'],
+      daily: { streak: 0, lastClaimDay: '', lastClaimTs: 0 },
+      usedPromos: [],
+      transfers: [],
+      processedOps: [],
+      updatedAt: Date.now(),
+    };
+    accounts.set(id, acc);
+    scheduleSaveEconomy();
+  } else {
+    if (name && name !== 'Haydovchi') acc.name = String(name).trim().slice(0, 18);
+    if (!acc.secret && secret) acc.secret = String(secret).slice(0, 64);
+    if ((acc.econVer || 0) < 9) {
+      acc.money = Math.max(Number(acc.money) || 0, START_MONEY);
+      acc.econVer = 9;
+      scheduleSaveEconomy();
+    }
+    if (!acc.daily) acc.daily = { streak: 0, lastClaimDay: '', lastClaimTs: 0 };
+    if (!Array.isArray(acc.usedPromos)) acc.usedPromos = [];
+    if (!Array.isArray(acc.transfers)) acc.transfers = [];
+    if (!Array.isArray(acc.processedOps)) acc.processedOps = [];
+    if (!Array.isArray(acc.cars)) acc.cars = ['matiz', 'spark', 'nexia', 'cobalt', 'gentra', 'malibu'];
+  }
+  return acc;
+}
+
+function pushToPlayerWs(pid, msgObj) {
+  const sockets = wsClients.get(pid);
+  if (!sockets || sockets.size === 0) return false;
+  const frame = encodeWsFrame(msgObj);
+  let sent = false;
+  for (const s of sockets) {
+    if (!s.destroyed && s.writable) {
+      try {
+        s.write(frame);
+        sent = true;
+      } catch { /* */ }
+    }
+  }
+  return sent;
+}
+
+function findPlayerAccountByQuery(rawQuery) {
+  const q = String(rawQuery || '').trim();
+  if (!q) return null;
+  const cleanId = sanitizeId(q);
+  if (cleanId && accounts.has(cleanId)) {
+    return accounts.get(cleanId);
+  }
+  // Aktiv xonalardagi o'yinchilardan ID bo'yicha qidirish
+  for (const r of rooms.values()) {
+    if (cleanId && r.players.has(cleanId)) {
+      const p = r.players.get(cleanId);
+      return getOrCreateAccount(cleanId, p.name);
+    }
+  }
+  // Username bo'yicha qidirish (case-insensitive)
+  const lower = q.toLowerCase();
+  for (const acc of accounts.values()) {
+    if (acc.name && acc.name.toLowerCase() === lower) {
+      return acc;
+    }
+  }
+  for (const r of rooms.values()) {
+    for (const [pid, p] of r.players.entries()) {
+      if (p.name && p.name.toLowerCase() === lower) {
+        return getOrCreateAccount(pid, p.name);
+      }
+    }
+  }
+  return null;
+}
 
 function ensurePublicRoom(index = 1) {
   const id = index === 1 ? 'PUBLIC' : `PUBLIC_${index}`;
@@ -99,16 +278,26 @@ function sanitizePlayerState(id, raw = {}, prev = null) {
   const now = Date.now();
   const chat = raw.chat ? String(raw.chat).slice(0, 64) : (prev && now - (prev.chatTs || 0) < 8000 ? prev.chat : '');
   const chatTs = raw.chat ? Number(raw.chatTs) || now : (prev?.chatTs || 0);
-  const validAnims = new Set(['idle', 'walk', 'run', 'jump', 'fall', 'enterCar', 'exitCar', 'wave', 'dance']);
-  const animState = validAnims.has(raw.animState) ? raw.animState : (raw.onFoot ? 'idle' : 'driving');
+  const name = String(raw.name || prev?.name || 'Haydovchi').trim().slice(0, 18) || 'Haydovchi';
+
+  // Foydalanuvchi akkauntida ismini yangilab boramiz (qidiruv ishlashi uchun)
+  const acc = accounts.get(id);
+  if (acc && name && name !== 'Haydovchi') {
+    acc.name = name;
+  }
 
   return {
     id,
-    name: String(raw.name || prev?.name || 'Haydovchi').trim().slice(0, 18) || 'Haydovchi',
+    name,
     car: String(raw.car || prev?.car || 'gentra').slice(0, 16),
     color: String(raw.color || prev?.color || '#f5f5f5').slice(0, 16),
+    paintType: String(raw.paintType || prev?.paintType || 'metallic').slice(0, 12),
     rims: String(raw.rims || prev?.rims || 'std').slice(0, 12),
+    rimColor: String(raw.rimColor || prev?.rimColor || '').slice(0, 12),
     spoiler: String(raw.spoiler || prev?.spoiler || 'none').slice(0, 12),
+    bodykit: String(raw.bodykit || prev?.bodykit || 'std').slice(0, 12),
+    tint: String(raw.tint || prev?.tint || 'none').slice(0, 12),
+    headlightColor: String(raw.headlightColor || prev?.headlightColor || '#fff3d0').slice(0, 12),
     neon: String(raw.neon || prev?.neon || 'none').slice(0, 16),
     x: clampNum(raw.x, -2500, 2500, prev?.x || 0),
     y: clampNum(raw.y, -10, 200, prev?.y || 0),
@@ -120,20 +309,8 @@ function sanitizePlayerState(id, raw = {}, prev = null) {
     braking: !!raw.braking,
     lights: raw.lights !== undefined ? !!raw.lights : true,
     drifting: !!raw.drifting,
-    onFoot: !!raw.onFoot,
-    animState,
-    px: clampNum(raw.px, -2500, 2500, raw.x || 0),
-    py: clampNum(raw.py, -5, 100, 0),
-    pz: clampNum(raw.pz, -2500, 2500, raw.z || 0),
-    ph: clampNum(raw.ph, -Math.PI * 4, Math.PI * 4, raw.h || 0),
-    pv: clampNum(raw.pv, -20, 25, 0),
-    emote: String(raw.emote || '').slice(0, 12),
-    charPreset: String(raw.charPreset || prev?.charPreset || 'temur').slice(0, 16),
-    charOutfit: String(raw.charOutfit || prev?.charOutfit || '').slice(0, 16),
-    charColor: String(raw.charColor || prev?.charColor || '').slice(0, 16),
-    charHair: String(raw.charHair || prev?.charHair || '').slice(0, 16),
-    charGlasses: String(raw.charGlasses || prev?.charGlasses || '').slice(0, 16),
-    ridingWith: sanitizeId(raw.ridingWith || ''),
+    onFoot: false,
+    animState: 'driving',
     km: clampNum(raw.km, 0, 1_000_000, prev?.km || 0),
     chat,
     chatTs,
@@ -893,13 +1070,370 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  // ==========================================================================
+  // V9 ECONOMY, P2P TRANSFER, PROMOCODE & 7-DAY DAILY BONUS ENDPOINTS
+  // ==========================================================================
+  if (urlPath === '/api/economy/sync' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const id = sanitizeId(body.id);
+    if (!id) return sendJson(res, 400, { ok: false, error: 'Player ID topilmadi' });
+
+    const acc = getOrCreateAccount(id, body.name, body.secret);
+    // Mashinalar ro'yxatini birlashtirish
+    if (Array.isArray(body.cars)) {
+      for (const c of body.cars) {
+        const cid = String(c || '').slice(0, 16);
+        if (cid && !acc.cars.includes(cid)) acc.cars.push(cid);
+      }
+    }
+
+    // Agar o'yin ichida qonuniy xarid/tuning/poyga operatsiyasi bo'lsa (opId bilan idempotency)
+    if (body.opId && Number.isFinite(Number(body.delta))) {
+      const opId = String(body.opId).slice(0, 48);
+      if (!acc.processedOps.includes(opId)) {
+        const delta = Math.round(Number(body.delta));
+        // Anti-cheat: bitta op orqali 500M dan ko'p qo'shishni cheklaymiz (xaridlar manfiy delta bo'ladi)
+        if (delta < 0) {
+          if (acc.money + delta < 0) {
+            return sendJson(res, 400, { ok: false, error: "Balansda mablag' yetarli emas!", money: acc.money });
+          }
+          acc.money += delta;
+          acc.processedOps.push(opId);
+          if (acc.processedOps.length > 150) acc.processedOps.shift();
+          scheduleSaveEconomy();
+        } else if (delta > 0 && delta <= 500_000_000) {
+          acc.money += delta;
+          acc.processedOps.push(opId);
+          if (acc.processedOps.length > 150) acc.processedOps.shift();
+          scheduleSaveEconomy();
+        }
+      }
+    }
+
+    const todayKey = getTodayKeyServer();
+    const yesterdayKey = getYesterdayKeyServer();
+    if (acc.daily.lastClaimDay && acc.daily.lastClaimDay !== todayKey && acc.daily.lastClaimDay !== yesterdayKey) {
+      if (acc.daily.streak >= 7) acc.daily.streak = 0;
+    }
+
+    sendJson(res, 200, {
+      ok: true,
+      id: acc.id,
+      name: acc.name,
+      money: acc.money,
+      cars: acc.cars,
+      daily: {
+        ...acc.daily,
+        todayKey,
+        canClaim: acc.daily.lastClaimDay !== todayKey,
+        nextDay: (acc.daily.streak % 7) + 1,
+      },
+      usedPromos: acc.usedPromos,
+      transfers: acc.transfers.slice(0, 25),
+      serverTime: Date.now(),
+    });
+    return;
+  }
+
+  if (urlPath === '/api/economy/lookup' && (req.method === 'POST' || req.method === 'GET')) {
+    let q = '';
+    if (req.method === 'POST') {
+      const body = await parseBody(req);
+      q = String(body.query || body.to || '');
+    } else {
+      const u = new URL(req.url, 'http://localhost');
+      q = String(u.searchParams.get('q') || '');
+    }
+    const target = findPlayerAccountByQuery(q);
+    if (!target) {
+      return sendJson(res, 404, { ok: false, error: `«${q}» ID yoki ismli o'yinchi topilmadi!` });
+    }
+    const isOnline = playerRoom.has(target.id);
+    sendJson(res, 200, {
+      ok: true,
+      player: {
+        id: target.id,
+        displayId: `TT-${target.id}`,
+        name: target.name || 'Haydovchi',
+        online: isOnline,
+      },
+    });
+    return;
+  }
+
+  if (urlPath === '/api/economy/transfer' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const fromId = sanitizeId(body.fromId || body.id);
+    if (!fromId) return sendJson(res, 400, { ok: false, error: 'Jo\'natuvchi ID topilmadi' });
+
+    const clientTxId = String(body.clientTxId || '').slice(0, 64);
+    if (clientTxId && processedTxIds.has(clientTxId)) {
+      const senderAcc = getOrCreateAccount(fromId);
+      return sendJson(res, 200, {
+        ok: true,
+        duplicate: true,
+        money: senderAcc.money,
+        transfers: senderAcc.transfers.slice(0, 25),
+      });
+    }
+
+    // Anti-spam: 2 soniyada 1 ta o'tkazma
+    const lastTxTs = transferRateLimit.get(fromId) || 0;
+    if (Date.now() - lastTxTs < 1800) {
+      return sendJson(res, 429, { ok: false, error: "Iltimos, keyingi o'tkazmadan oldin 2 soniya kuting!" });
+    }
+
+    const sender = getOrCreateAccount(fromId, body.fromName, body.secret);
+    const target = findPlayerAccountByQuery(body.toQuery || body.toId);
+    if (!target) {
+      return sendJson(res, 404, { ok: false, error: 'Qabul qiluvchi o\'yinchi topilmadi! ID yoki ismni tekshiring.' });
+    }
+    if (target.id === sender.id) {
+      return sendJson(res, 400, { ok: false, error: "O'zingizga pul o'tkaza olmaysiz!" });
+    }
+
+    const amount = Math.floor(Number(body.amount));
+    if (!Number.isFinite(amount) || amount < 100_000) {
+      return sendJson(res, 400, { ok: false, error: "Minimal o'tkazma miqdori: 100 000 so'm" });
+    }
+    if (amount > 50_000_000_000) {
+      return sendJson(res, 400, { ok: false, error: "Maksimal bitta o'tkazma miqdori: 50 000 000 000 so'm" });
+    }
+    if (sender.money < amount) {
+      return sendJson(res, 400, { ok: false, error: `Balansingizda mablag' yetarli emas! (${sender.money.toLocaleString('ru-RU')} so'm)` });
+    }
+
+    transferRateLimit.set(fromId, Date.now());
+    if (clientTxId) processedTxIds.add(clientTxId);
+
+    const txId = `TX-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+    const note = String(body.note || '').trim().slice(0, 48);
+    const now = Date.now();
+
+    // Atomic balance update
+    sender.money -= amount;
+    target.money += amount;
+    sender.updatedAt = now;
+    target.updatedAt = now;
+
+    const txRecord = {
+      txId,
+      fromId: sender.id,
+      fromName: sender.name,
+      toId: target.id,
+      toName: target.name,
+      amount,
+      note,
+      ts: now,
+    };
+
+    sender.transfers.unshift({ ...txRecord, dir: 'out' });
+    if (sender.transfers.length > 40) sender.transfers.pop();
+
+    target.transfers.unshift({ ...txRecord, dir: 'in' });
+    if (target.transfers.length > 40) target.transfers.pop();
+
+    scheduleSaveEconomy();
+
+    // Qabul qiluvchiga WebSocket orqali darhol xabar va yangi balans yuborish
+    pushToPlayerWs(target.id, {
+      t: 'economy_update',
+      kind: 'transfer_received',
+      tx: txRecord,
+      money: target.money,
+      transfers: target.transfers.slice(0, 25),
+    });
+
+    sendJson(res, 200, {
+      ok: true,
+      tx: txRecord,
+      money: sender.money,
+      transfers: sender.transfers.slice(0, 25),
+    });
+    return;
+  }
+
+  if (urlPath === '/api/economy/daily-claim' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const id = sanitizeId(body.id);
+    if (!id) return sendJson(res, 400, { ok: false, error: 'Player ID topilmadi' });
+
+    const acc = getOrCreateAccount(id, body.name, body.secret);
+    const todayKey = getTodayKeyServer();
+    const yesterdayKey = getYesterdayKeyServer();
+
+    if (acc.daily.lastClaimDay === todayKey) {
+      return sendJson(res, 400, {
+        ok: false,
+        error: 'Bugungi kundalik bonus allaqachon olingan! Ertaga yana kiring.',
+        daily: { ...acc.daily, todayKey, canClaim: false, nextDay: (acc.daily.streak % 7) + 1 },
+        money: acc.money,
+      });
+    }
+
+    // Agar ketma-ket kun uzilgan bo'lsa yoki 7 kun to'lgan bo'lsa
+    if (acc.daily.lastClaimDay && acc.daily.lastClaimDay !== yesterdayKey && acc.daily.streak >= 7) {
+      acc.daily.streak = 0;
+    } else if (acc.daily.streak >= 7) {
+      acc.daily.streak = 0;
+    }
+
+    const nextDay = (acc.daily.streak % 7) + 1;
+    const reward = DAILY_REWARDS_SERVER[nextDay - 1] || DAILY_REWARDS_SERVER[0];
+
+    acc.daily.streak = nextDay;
+    acc.daily.lastClaimDay = todayKey;
+    acc.daily.lastClaimTs = Date.now();
+
+    let carGranted = null;
+    let moneyGranted = reward.money || 0;
+
+    if (reward.car) {
+      if (!acc.cars.includes(reward.car)) {
+        acc.cars.push(reward.car);
+        carGranted = reward.car;
+      } else {
+        // Agar SF90 allaqachon bor bo'lsa, 500 mln so'm kompensatsiya beramiz + mashina sovg'a
+        carGranted = reward.car;
+        moneyGranted += 500_000_000;
+      }
+    }
+    acc.money += moneyGranted;
+    acc.updatedAt = Date.now();
+    scheduleSaveEconomy();
+
+    sendJson(res, 200, {
+      ok: true,
+      claimedDay: nextDay,
+      reward: {
+        day: nextDay,
+        money: moneyGranted,
+        car: carGranted,
+        title: reward.title,
+      },
+      money: acc.money,
+      cars: acc.cars,
+      daily: {
+        ...acc.daily,
+        todayKey,
+        canClaim: false,
+        nextDay: (acc.daily.streak % 7) + 1,
+      },
+    });
+    return;
+  }
+
+  if (urlPath === '/api/economy/promocode/redeem' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const id = sanitizeId(body.id);
+    if (!id) return sendJson(res, 400, { ok: false, error: 'Player ID topilmadi' });
+
+    const code = String(body.code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
+    if (!code) return sendJson(res, 400, { ok: false, error: 'Promokodni kiriting!' });
+
+    const promo = promocodes.get(code);
+    if (!promo) {
+      return sendJson(res, 404, { ok: false, error: `«${code}» promokodi mavjud emas!` });
+    }
+    if (promo.expiresAt && Date.now() > promo.expiresAt) {
+      return sendJson(res, 400, { ok: false, error: `«${code}» promokodining amal qilish muddati tugagan!` });
+    }
+    if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) {
+      return sendJson(res, 400, { ok: false, error: `«${code}» promokodi foydalanish limiti tugagan!` });
+    }
+
+    const acc = getOrCreateAccount(id, body.name, body.secret);
+    if (acc.usedPromos.includes(code) || (Array.isArray(promo.usedBy) && promo.usedBy.includes(id))) {
+      return sendJson(res, 400, { ok: false, error: `Siz «${code}» promokodidan allaqachon foydalangansiz!` });
+    }
+
+    promo.usedCount = (promo.usedCount || 0) + 1;
+    if (!Array.isArray(promo.usedBy)) promo.usedBy = [];
+    promo.usedBy.push(id);
+    acc.usedPromos.push(code);
+
+    const moneyReward = Math.max(0, Number(promo.money) || 0);
+    acc.money += moneyReward;
+    let carReward = null;
+    if (promo.car) {
+      carReward = String(promo.car);
+      if (!acc.cars.includes(carReward)) acc.cars.push(carReward);
+    }
+    acc.updatedAt = Date.now();
+    scheduleSaveEconomy();
+
+    sendJson(res, 200, {
+      ok: true,
+      code,
+      reward: {
+        money: moneyReward,
+        car: carReward,
+        title: promo.title || `${moneyReward.toLocaleString('ru-RU')} so'm`,
+      },
+      money: acc.money,
+      cars: acc.cars,
+      usedPromos: acc.usedPromos,
+    });
+    return;
+  }
+
+  if (urlPath === '/api/economy/promocode/admin' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const adminKey = String(body.adminKey || '').trim();
+    if (!ADMIN_PASSKEYS.has(adminKey)) {
+      return sendJson(res, 403, { ok: false, error: "Admin kaliti noto'g'ri!" });
+    }
+
+    const action = String(body.action || 'list').trim();
+    if (action === 'create') {
+      const code = String(body.code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24);
+      if (!code || code.length < 3) {
+        return sendJson(res, 400, { ok: false, error: 'Promokod kamida 3 ta belgidan iborat bo\'lishi kerak' });
+      }
+      const money = clampNum(body.money, 0, 50_000_000_000, 100_000_000);
+      const car = body.car ? String(body.car).trim().slice(0, 16) : null;
+      const maxUses = clampNum(body.maxUses, 1, 1_000_000, 1000);
+      const daysValid = clampNum(body.daysValid, 1, 3650, 30);
+      const title = String(body.title || `${money.toLocaleString('ru-RU')} so'm${car ? ` + ${car.toUpperCase()}` : ''}`).slice(0, 64);
+
+      promocodes.set(code, {
+        code,
+        money,
+        car,
+        title,
+        maxUses,
+        usedCount: 0,
+        usedBy: [],
+        expiresAt: Date.now() + daysValid * 86400_000,
+        createdAt: Date.now(),
+      });
+      scheduleSaveEconomy();
+    } else if (action === 'delete') {
+      const code = String(body.code || '').trim().toUpperCase();
+      promocodes.delete(code);
+      scheduleSaveEconomy();
+    }
+
+    const list = Array.from(promocodes.values()).map((p) => ({
+      code: p.code,
+      money: p.money,
+      car: p.car,
+      title: p.title,
+      maxUses: p.maxUses,
+      usedCount: p.usedCount || 0,
+      expiresAt: p.expiresAt,
+    }));
+    sendJson(res, 200, { ok: true, promocodes: list });
+    return;
+  }
+
   sendJson(res, 404, { error: 'Not found' });
 }
 
 const server = http.createServer((req, res) => {
   try {
     const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-    if (urlPath.startsWith('/api/online/')) {
+    if (urlPath.startsWith('/api/online/') || urlPath.startsWith('/api/economy/')) {
       handleApi(req, res, urlPath);
       return;
     }

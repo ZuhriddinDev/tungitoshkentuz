@@ -1,5 +1,6 @@
-// 3D avtomobil modellari: /car/ papkasidagi GLB modellarni xatosiz va tez yuklash,
-// rang, diska, spoyler, neon va faralarni boshqarish
+// 3D avtomobil modellari: /car/opt/ papkasidagi GLB modellarni xatosiz va tez yuklash,
+// 4 ta g'ildirak haqiqiy aylanishi va burilishi (Gelik va barcha 26 ta model),
+// hamda professional 3D Tuning (bo'yoq turi, disk, disk rangi, spoyler, body kit, tonirovka, fara rangi, neon)
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
@@ -238,14 +239,12 @@ loader.setKTX2Loader(ktx2Loader);
 const glbCache = new Map();
 const glbLoading = new Map();
 
-// Ustuvorlik navbati (o'yinchi mashinasi va garaj birinchi yuklanadi, trafik orqa fonda)
 const loadQueue = [];
 let activeLoads = 0, priorityActive = 0;
 const MAX_CONCURRENT = 4;
-const progressCbs = new Map(); // id -> Set<(0..1 | -1) => void>
+const progressCbs = new Map();
 
 function pumpQueue() {
-  // Ustuvor yuklash (o'yinchi tanlagan mashina) bor ekan, orqa fondagi trafik yuklamalari kutadi
   while (loadQueue.length > 0) {
     const item = loadQueue[0];
     if (item.pri) {
@@ -271,8 +270,35 @@ function radialTex(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)',
 export const GLOW_TEX = radialTex();
 const SHADOW_TEX = radialTex('rgba(0,0,0,0.75)', 'rgba(0,0,0,0)');
 
-const RIM_COLORS = { std: 0x9a9a9a, sport: 0x18181b, chrome: 0xf2f4f8, gold: 0xd4a017 };
+const RIM_COLORS = {
+  std: 0x9a9a9a,
+  sport: 0x18181b,
+  chrome: 0xf2f4f8,
+  gold: 0xd4a017,
+  bbs: 0xcfd8dc,
+  concave: 0x263238,
+};
 const box = new THREE.BoxGeometry(1, 1, 1);
+
+// Ichki salon (SteeringWheel, BrakePedal, HandBrake, DoorPanel) va kuzov qismlarini g'ildirakdan 100% ajratish
+const NON_WHEEL_PART_RE = /steering|steer|swheel|volan|pedal|handbrake|doorpanel|door_l|door_r|bumper|fender|hood|trunk|wing|spoiler|exhaust|light|glass|window|windshield|interior|cockpit|dashboard|seat|carpet|fgrll|license|chassis|lip|spare|zapas|grill|badge|emblem|wiper|antenna|roof/i;
+const WHEEL_MAT_OR_NAME_RE = /tire|tyre|wheel|rim|felge|reifen|caliper|calliper|brakedisk|brake|tormoz|koleso|disc|disk|ssr|bremse|chrome_r|metal_r/i;
+const CALIPER_RE = /caliper|calliper|brakedisk|brake|tormoz|bremse|koleso_support/i;
+const SPIN_WHEEL_RE = /tire|tyre|wheel|rim|felge|reifen|koleso|ssr|disc|disk|chrome_r|metal_r/i;
+const GLASS_MAT_RE = /glass|window|windshield|vitre|steklo/i;
+
+function getObjectFullPath(o) {
+  let path = '';
+  let cur = o;
+  while (cur) {
+    if (cur.name) path = cur.name + ' ' + path;
+    cur = cur.parent;
+  }
+  const matName = o.material
+    ? (Array.isArray(o.material) ? o.material.map((m) => m.name).join(' ') : o.material.name || '')
+    : '';
+  return (path + ' ' + matName).trim();
+}
 
 function extractSubGeometry(geom, triIndices) {
   const remap = new Map();
@@ -313,23 +339,19 @@ function extractSubGeometry(geom, triIndices) {
 function splitMergedWheelMeshes(templateGroup, spec) {
   templateGroup.updateMatrixWorld(true);
   const rimMats = new Set(spec?.rimMats || []);
-  const wheelMatOrName = /tire|tyre|wheel|rim|felge|reifen|caliper|calliper|brakedisk|brake|tormoz|koleso|disc|disk|ssr|bremse|chrome_r|metal_r/i;
-  const bodyExclude = /(?:^|[_: -])(steering|bumper|mirror|door|hood|trunk|wing|exhaust|light|glass|interior|seat|carpet|body|fgrll|license|chassis|lip)(?:[_: -]|$)/i;
 
   const toSplit = [];
   templateGroup.traverse((o) => {
     if (!o.isMesh || !o.geometry || !o.geometry.attributes?.position) return;
-    const name = o.name || '';
     const matName = o.material ? (Array.isArray(o.material) ? o.material.map((m) => m.name).join(' ') : o.material.name) : '';
-    const full = name + ' ' + matName;
-    if (bodyExclude.test(full) && !/caliper|brake|tormoz/i.test(full)) return;
-    if (!wheelMatOrName.test(full) && !rimMats.has(matName)) return;
+    const full = getObjectFullPath(o);
+    if (NON_WHEEL_PART_RE.test(full)) return;
+    if (!WHEEL_MAT_OR_NAME_RE.test(full) && !rimMats.has(matName)) return;
 
-    const box = new THREE.Box3().setFromObject(o);
-    const size = box.getSize(new THREE.Vector3());
-    // Agar mesh ham chap-o'ng (x=0), yoki old-orqa (z=0) o'qlarini kesib o'tsa (birlashgan g'ildiraklar)
-    const spansX = box.min.x < -0.35 && box.max.x > 0.35 && size.x > 1.0;
-    const spansZ = box.min.z < -0.55 && box.max.z > 0.55 && size.z > 1.4;
+    const b = new THREE.Box3().setFromObject(o);
+    const size = b.getSize(new THREE.Vector3());
+    const spansX = b.min.x < -0.35 && b.max.x > 0.35 && size.x > 1.0;
+    const spansZ = b.min.z < -0.55 && b.max.z > 0.55 && size.z > 1.4;
     if ((spansX || spansZ) && size.y < 1.25) {
       toSplit.push(o);
     }
@@ -408,7 +430,6 @@ function prepareGlbTemplate(origScene, cfg, spec) {
     for (const m of mats) {
       if (!m.transparent) m.side = THREE.DoubleSide;
     }
-    // Faqat asosiy kuzov bo'laklari soya tashlasin (yuqori FPS uchun)
     o.castShadow = isPaint.has(o.material.name || '');
     o.receiveShadow = false;
   });
@@ -431,6 +452,7 @@ function instantiateGlb(cached, spec, cfg) {
   const rimMats = [];
   const headMats = [];
   const tailMats = [];
+  const glassMats = [];
 
   const isPaint = new Set(spec.paintMats || []);
   const isRim = new Set(spec.rimMats || []);
@@ -440,7 +462,10 @@ function instantiateGlb(cached, spec, cfg) {
   root.traverse((o) => {
     if (!o.isMesh || !o.material) return;
     const mName = o.material.name || '';
-    if (isPaint.has(mName) || isRim.has(mName) || isHead.has(mName) || isTail.has(mName)) {
+    const isGlassCandidate = !isHead.has(mName) && !isTail.has(mName) && !isPaint.has(mName) && !isRim.has(mName) &&
+      (GLASS_MAT_RE.test(mName) || (o.material.transparent && o.material.opacity < 0.85));
+
+    if (isPaint.has(mName) || isRim.has(mName) || isHead.has(mName) || isTail.has(mName) || isGlassCandidate) {
       let cloned = matClones.get(o.material);
       if (!cloned) {
         cloned = o.material.clone();
@@ -471,6 +496,14 @@ function instantiateGlb(cached, spec, cfg) {
           cloned.emissiveIntensity = 0.3;
           tailMats.push(cloned);
         }
+        if (isGlassCandidate) {
+          cloned.userData = {
+            origColor: cloned.color ? cloned.color.clone() : new THREE.Color(0x111822),
+            origOpacity: cloned.opacity ?? 0.45,
+            origTransparent: cloned.transparent ?? true,
+          };
+          glassMats.push(cloned);
+        }
         matClones.set(o.material, cloned);
       }
       o.material = cloned;
@@ -488,19 +521,19 @@ function instantiateGlb(cached, spec, cfg) {
     rimMats,
     headMats,
     tailMats,
+    glassMats,
     wheels: glbWheels,
     radius: glbRadius || cached.radius,
-    rearTop: cached.rearTop
+    rearTop: cached.rearTop,
   };
 }
 
 /**
- * 3D GLB modelidagi barcha g'ildirak (tire, rim, disc) va kaliper (tormoz) qismlarini topib,
+ * 3D GLB modelidagi barcha 4 ta g'ildirak (tire, rim, disc) va kaliper (tormoz) qismlarini topib,
  * markaziy pivotlariga o'rnatish:
- * - Shina va disklar (rim + tire + center cap) aylanish o'qiga (spin) ulanadi va oldinga tabiiy aylanadi.
- * - Kaliperlar (caliper/brake) esa aylanmaydi (spin'ga EMAS, pivot'ga ulanadi),
- *   lekin rul burilganda old g'ildiraklar bilan birga silliq buriladi!
- * - Klaster markazi butun g'ildirak AABB markazidan olinadi (tebranishsiz/wobble-free).
+ * - Salon ichidagi rul (SteeringWheel), pedallar, eshik panellari va kuzov detallari 100% chiqarib tashlanadi.
+ * - G'ildiraklar faqat haqiqiy o'q koordinatalarida (chap/o'ng chetda, old/orqa o'qda, pastki qismda) bo'lsa olinadi.
+ * - Kaliperlar (caliper/brake) aylanmaydi (pivot'ga ulanadi), lekin rul burilganda old g'ildirak bilan birga buriladi.
  */
 function setupGlbWheels(root, spec, cfg) {
   root.updateMatrixWorld(true);
@@ -508,68 +541,67 @@ function setupGlbWheels(root, spec, cfg) {
   const caliperMeshes = [];
 
   const rimMats = new Set(spec?.rimMats || []);
-  const isCaliperPattern = /caliper|calliper|brakedisk|brake|tormoz|bremse|koleso_support/i;
-  const isSpinPattern = /tire|tyre|wheel|rim|felge|reifen|koleso|ssr|disc|disk|chrome_r|metal_r/i;
-  const isBodyPart = /(?:^|[_: -])(steering|bumper|mirror|door|hood|trunk|wing|exhaust|light|glass|interior|seat|carpet|body|fgrll|license|chassis|lip)(?:[_: -]|$)/i;
   const carId = spec?.id || cfg?.id || '';
+  const minTrackX = Math.max(0.42, (cfg?.wid || 1.8) * 0.27);
+  const minAxleZ = Math.max(0.72, (cfg?.len || 4.5) * 0.18);
+  const maxWheelY = Math.max(0.62, (cfg?.len || 4.5) * 0.145);
 
   root.traverse((o) => {
     if (!o.isMesh) return;
-    const name = o.name || '';
-    const matName = o.material ? (Array.isArray(o.material) ? o.material.map((m) => m.name).join(' ') : o.material.name) : '';
-    const full = name + ' ' + matName;
+    const matName = o.material ? (Array.isArray(o.material) ? o.material.map((m) => m.name).join(' ') : o.material.name || '') : '';
+    const full = getObjectFullPath(o);
 
-    const isCaliper = isCaliperPattern.test(full);
-    if (isBodyPart.test(full) && !isCaliper) return;
+    // Salon ruli (SteeringWheel), pedal, qo'l tormozi, eshik paneli va kuzov qismlarini o'tkazib yuborish
+    if (NON_WHEEL_PART_RE.test(full)) return;
 
-    const isSpin = (isSpinPattern.test(full) || rimMats.has(matName)) && !isCaliper;
+    const isCaliper = CALIPER_RE.test(full) && !/disk|disc/i.test(o.name || '');
+    const isSpin = (SPIN_WHEEL_RE.test(full) || rimMats.has(matName)) && !isCaliper;
     const isGentraCap = carId === 'gentra' && /chrome/i.test(matName);
 
     if (!isCaliper && !isSpin && !isGentraCap) return;
 
-    const box = new THREE.Box3().setFromObject(o);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
+    const b = new THREE.Box3().setFromObject(o);
+    const center = b.getCenter(new THREE.Vector3());
+    const size = b.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
 
-    // G'ildiraklar va kaliperlar mashina markazidan chetda (g'ildirak o'qlarida) joylashgan
-    if (Math.abs(center.x) < 0.35 || maxDim > 2.5) return;
-    if (isGentraCap && maxDim > 0.4) return; // Gentra faqat kichik xrom markaziy qalpoqchalari
+    // G'ildirak o'qlarining qat'iy fazoviy chegaralari (rul, zapaska yoki kuzov qismlari kirmasligi uchun)
+    if (Math.abs(center.x) < minTrackX || Math.abs(center.z) < minAxleZ || center.y > maxWheelY || maxDim > 2.2) return;
+    if (isGentraCap && maxDim > 0.4) return;
 
     if (isCaliper) {
-      caliperMeshes.push({ mesh: o, center, size });
+      caliperMeshes.push({ mesh: o, center, size, box: b });
     } else {
-      wheelMeshes.push({ mesh: o, center, size });
+      wheelMeshes.push({ mesh: o, center, size, box: b });
     }
   });
 
   if (wheelMeshes.length === 0) return { wheels: null, radius: null };
 
-  // 4 ta g'ildirak klasteriga ajratish (Old-Chap, Old-O'ng, Orqa-Chap, Orqa-O'ng)
   const clusters = { FL: [], FR: [], RL: [], RR: [] };
   const caliperClusters = { FL: [], FR: [], RL: [], RR: [] };
 
   for (const item of wheelMeshes) {
-    const isFwd = item.center.z > 0;
-    const isLeft = item.center.x < 0;
-    const key = (isFwd ? 'F' : 'R') + (isLeft ? 'L' : 'R');
+    const key = (item.center.z >= 0 ? 'F' : 'R') + (item.center.x < 0 ? 'L' : 'R');
     clusters[key].push(item);
   }
   for (const item of caliperMeshes) {
-    const isFwd = item.center.z > 0;
-    const isLeft = item.center.x < 0;
-    const key = (isFwd ? 'F' : 'R') + (isLeft ? 'L' : 'R');
+    const key = (item.center.z >= 0 ? 'F' : 'R') + (item.center.x < 0 ? 'L' : 'R');
     caliperClusters[key].push(item);
   }
 
   const glbWheels = [];
   let detectedRadius = null;
 
-  for (const [key, items] of Object.entries(clusters)) {
+  for (const [key, rawItems] of Object.entries(clusters)) {
+    if (rawItems.length === 0) continue;
+
+    // Agar klaster ichida g'ildirak o'qidan uzoqda qolgan tasodifiy bo'lak bo'lsa, uni filtrlash
+    const medZ = rawItems.reduce((s, it) => s + it.center.z, 0) / rawItems.length;
+    const medY = rawItems.reduce((s, it) => s + it.center.y, 0) / rawItems.length;
+    const items = rawItems.filter((it) => Math.abs(it.center.z - medZ) < 0.55 && Math.abs(it.center.y - medY) < 0.55);
     if (items.length === 0) continue;
 
-    // Klasterdagi BARCHA detallar (shina, disk, qalpoq) bo'yicha to'liq 3D AABB markazi:
-    // Bu g'ildirak o'qining 100% aniq geometrik o'qi bo'ladi (hech qanday tebranishsiz/wobble-free)
     const clusterBox = new THREE.Box3();
     for (const it of items) clusterBox.expandByObject(it.mesh);
     const exactCenter = clusterBox.getCenter(new THREE.Vector3());
@@ -593,10 +625,9 @@ function setupGlbWheels(root, spec, cfg) {
       spin.attach(it.mesh);
     }
 
-    // Kaliperlar (tormoz kolodkalari): spin'ga EMAS, pivot'ga biriktiriladi.
-    // Mashina yurganda kaliper aylanmaydi (joyida qoladi),
-    // rul burilganda esa old g'ildiraklar bilan birga buriladi!
-    const cals = caliperClusters[key] || [];
+    const cals = (caliperClusters[key] || []).filter(
+      (cal) => Math.abs(cal.center.z - exactCenter.z) < 0.55 && Math.abs(cal.center.y - exactCenter.y) < 0.55
+    );
     for (const cal of cals) {
       pivot.attach(cal.mesh);
     }
@@ -616,9 +647,17 @@ function loadGlb(id, cfg, priority = false) {
   if (!spec) return Promise.resolve(null);
   if (glbCache.has(id)) return Promise.resolve(instantiateGlb(glbCache.get(id), spec, cfg));
   if (glbLoading.has(id)) {
-    if (priority) { const i = loadQueue.findIndex((q) => q.id === id && !q.pri); if (i >= 0) { const [q] = loadQueue.splice(i, 1); q.pri = true; loadQueue.unshift(q); pumpQueue(); } }
+    if (priority) {
+      const i = loadQueue.findIndex((q) => q.id === id && !q.pri);
+      if (i >= 0) {
+        const [q] = loadQueue.splice(i, 1);
+        q.pri = true;
+        loadQueue.unshift(q);
+        pumpQueue();
+      }
+    }
+    return glbLoading.get(id).then((cached) => (cached ? instantiateGlb(cached, spec, cfg) : null));
   }
-  if (glbLoading.has(id)) return glbLoading.get(id).then((cached) => (cached ? instantiateGlb(cached, spec, cfg) : null));
 
   const p = new Promise((resolve) => {
     const task = () =>
@@ -636,7 +675,10 @@ function loadGlb(id, cfg, priority = false) {
             }
             done();
           },
-          (ev) => { const cbs = progressCbs.get(id); if (cbs) for (const f of cbs) f(ev.lengthComputable && ev.total ? ev.loaded / ev.total : -1); },
+          (ev) => {
+            const cbs = progressCbs.get(id);
+            if (cbs) for (const f of cbs) f(ev.lengthComputable && ev.total ? ev.loaded / ev.total : -1);
+          },
           (err) => {
             console.warn(`[GLB] Yuklab bo'lmadi: ${spec.file}`, err);
             resolve(null);
@@ -654,11 +696,13 @@ function loadGlb(id, cfg, priority = false) {
   return p.then((cached) => (cached ? instantiateGlb(cached, spec, cfg) : null));
 }
 
-/** O'yin boshlanishida o'yinchi mashinasini oldindan yuklash */
 export function preloadCar(cfg, onProgress) {
   if (!cfg || !GLB_SPECS[cfg.id] || glbCache.has(cfg.id)) return Promise.resolve();
   let set = progressCbs.get(cfg.id);
-  if (onProgress) { if (!set) progressCbs.set(cfg.id, (set = new Set())); set.add(onProgress); }
+  if (onProgress) {
+    if (!set) progressCbs.set(cfg.id, (set = new Set()));
+    set.add(onProgress);
+  }
   return loadGlb(cfg.id, cfg, true).finally(() => set && onProgress && set.delete(onProgress));
 }
 
@@ -700,16 +744,16 @@ function geos(cfg) {
 }
 
 const tireMat = new THREE.MeshStandardMaterial({ color: 0x151518, roughness: 0.85 });
-const glassMat = new THREE.MeshStandardMaterial({ color: 0x0a0f18, roughness: 0.05, metalness: 0.9 });
 
 function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
   const G = geos(cfg);
   const group = new THREE.Group();
   const procGroup = new THREE.Group();
   const paint = new THREE.MeshStandardMaterial({ color: look.color || '#ffffff', metalness: 0.6, roughness: 0.3 });
+  const procGlassMat = new THREE.MeshStandardMaterial({ color: 0x0a0f18, roughness: 0.05, metalness: 0.9 });
   const body = new THREE.Mesh(G.body, paint);
   body.castShadow = true;
-  procGroup.add(body, new THREE.Mesh(G.glass, glassMat));
+  procGroup.add(body, new THREE.Mesh(G.glass, procGlassMat));
 
   const L = cfg.len, W = cfg.wid;
   const frontY = G.p.low[2][1] - 0.15, rearY = G.p.low.at(-1)[1] - 0.15;
@@ -744,59 +788,35 @@ function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
     group.add(headBeam);
   }
 
-  const extras = new THREE.Group(); chassisTilt.add(extras);
-
-  // Vizual Shikastlanish (Front, Rear, Left, Right zarba chiziqlari va kapot tutuni)
-  const dmgGroup = new THREE.Group();
-  const dmgFrontMat = new THREE.MeshBasicMaterial({ color: 0x16181f, transparent: true, opacity: 0, depthWrite: false });
-  const dmgRearMat = new THREE.MeshBasicMaterial({ color: 0x16181f, transparent: true, opacity: 0, depthWrite: false });
-  const dmgLeftMat = new THREE.MeshBasicMaterial({ color: 0x16181f, transparent: true, opacity: 0, depthWrite: false });
-  const dmgRightMat = new THREE.MeshBasicMaterial({ color: 0x16181f, transparent: true, opacity: 0, depthWrite: false });
-
-  const dfMesh = new THREE.Mesh(box, dmgFrontMat);
-  dfMesh.scale.set(W * 0.78, 0.24, 0.35);
-  dfMesh.position.set(0, frontY + 0.08, L * 0.46);
-  const drMesh = new THREE.Mesh(box, dmgRearMat);
-  drMesh.scale.set(W * 0.78, 0.24, 0.35);
-  drMesh.position.set(0, rearY + 0.08, -L * 0.46);
-  const dlMesh = new THREE.Mesh(box, dmgLeftMat);
-  dlMesh.scale.set(0.12, 0.34, L * 0.52);
-  dlMesh.position.set(-W * 0.49, frontY + 0.12, 0);
-  const drtMesh = new THREE.Mesh(box, dmgRightMat);
-  drtMesh.scale.set(0.12, 0.34, L * 0.52);
-  drtMesh.position.set(W * 0.49, frontY + 0.12, 0);
-
-  const hoodSmokeMat = new THREE.MeshBasicMaterial({
-    map: GLOW_TEX,
-    color: 0x555b66,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-  });
-  const hoodSmoke = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), hoodSmokeMat);
-  hoodSmoke.rotation.x = -Math.PI / 2;
-  hoodSmoke.position.set(0, frontY + 0.35, L * 0.32);
-
-  dmgGroup.add(dfMesh, drMesh, dlMesh, drtMesh, hoodSmoke);
-  chassisTilt.add(dmgGroup);
+  const extras = new THREE.Group();
+  chassisTilt.add(extras);
 
   return {
-    group, chassisTilt, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam,
-    dmgFrontMat, dmgRearMat, dmgLeftMat, dmgRightMat, hoodSmoke, hoodSmokeMat,
+    group, chassisTilt, procGroup, wheels, paint, procGlassMat, headMat, tailMat, rimMat, extras, headBeam,
     radius: G.r, rearTop: G.p.low.at(-1)[1],
   };
 }
 
 // ============================================================
-// Asosiy API: buildCar — GLB model bilan
+// Asosiy API: buildCar — GLB model va to'liq 3D Tuning bilan
 // ============================================================
 export function buildCar(cfg, look = {}, opts = {}) {
   const proc = buildProceduralCar(cfg, look, opts);
   const {
-    group, chassisTilt, procGroup, wheels, paint, headMat, tailMat, rimMat, extras, headBeam,
-    dmgFrontMat, dmgRearMat, dmgLeftMat, dmgRightMat, hoodSmoke, hoodSmokeMat,
+    group, chassisTilt, procGroup, wheels, paint, procGlassMat, headMat, tailMat, rimMat, extras, headBeam,
   } = proc;
-  let currentLook = { color: '#f5f5f5', rims: 'std', spoiler: 'none', neon: 'none', ...look };
+  let currentLook = {
+    color: '#f5f5f5',
+    paintType: 'metallic',
+    rims: 'std',
+    rimColor: '',
+    spoiler: 'none',
+    bodykit: 'std',
+    tint: 'none',
+    headlightColor: '#fff3d0',
+    neon: 'none',
+    ...look,
+  };
   const isPriority = opts.beam !== false || opts.priority === true;
 
   const api = {
@@ -811,6 +831,7 @@ export function buildCar(cfg, look = {}, opts = {}) {
     _glbRimMats: [],
     _glbHeadMats: [],
     _glbTailMats: [],
+    _glbGlassMats: [],
 
     setColor(c) {
       if (!c) return;
@@ -821,9 +842,17 @@ export function buildCar(cfg, look = {}, opts = {}) {
 
     setLights(on) {
       api.lightsOn = on;
+      const hCol = currentLook.headlightColor || '#fff3d0';
+      headMat.emissive.set(hCol);
       headMat.emissiveIntensity = on ? 3 : 0.2;
-      if (headBeam) headBeam.visible = on;
-      for (const m of api._glbHeadMats) m.emissiveIntensity = on ? 3.2 : 0.2;
+      if (headBeam) {
+        headBeam.visible = on;
+        headBeam.material.color.set(hCol);
+      }
+      for (const m of api._glbHeadMats) {
+        if (m.emissive) m.emissive.set(hCol);
+        m.emissiveIntensity = on ? 3.2 : 0.2;
+      }
       const tailInt = api.braking ? 4 : on ? 1.4 : 0.3;
       tailMat.emissiveIntensity = tailInt;
       for (const m of api._glbTailMats) m.emissiveIntensity = tailInt;
@@ -836,45 +865,79 @@ export function buildCar(cfg, look = {}, opts = {}) {
       for (const m of api._glbTailMats) m.emissiveIntensity = tailInt;
     },
 
-    setDamageState(dmgParts = null, totalDmg = 0) {
-      const f = dmgParts ? (dmgParts.front || 0) : totalDmg * 0.6;
-      const r = dmgParts ? (dmgParts.rear || 0) : totalDmg * 0.4;
-      const l = dmgParts ? (dmgParts.left || 0) : totalDmg * 0.35;
-      const rt = dmgParts ? (dmgParts.right || 0) : totalDmg * 0.35;
-      dmgFrontMat.opacity = Math.min(0.68, (f / 100) * 0.72);
-      dmgRearMat.opacity = Math.min(0.68, (r / 100) * 0.72);
-      dmgLeftMat.opacity = Math.min(0.65, (l / 100) * 0.68);
-      dmgRightMat.opacity = Math.min(0.65, (rt / 100) * 0.68);
-      const smokeAmt = Math.max(0, (Math.max(f, totalDmg) - 45) / 55);
-      hoodSmokeMat.opacity = smokeAmt * 0.48;
-      if (smokeAmt > 0 && hoodSmoke) {
-        const s = 1.0 + Math.sin(performance.now() * 0.006) * 0.22;
-        hoodSmoke.scale.set(s, s, 1);
-      }
-      // Og'ir zararda kuzov yaltiroqligi biroz xiralashadi
-      const roughAdd = Math.min(0.28, (totalDmg / 100) * 0.25);
-      for (const m of api._glbPaintMats) {
-        m.roughness = 0.18 + roughAdd;
-      }
+    setDamageState() {
+      // Avariya va kuzov shikastlanish tizimi olib tashlangan
     },
 
     setTuning(t = {}) {
       currentLook = { ...currentLook, ...t };
       if (currentLook.color) api.setColor(currentLook.color);
+
+      // 1. Kuzov bo'yoq qoplamasi (Metallik / Mat / Xrom / Marvarid)
+      const pType = currentLook.paintType || 'metallic';
+      const pSpec = pType === 'matte'
+        ? { metalness: 0.15, roughness: 0.65, env: 0.75 }
+        : pType === 'chrome'
+          ? { metalness: 0.98, roughness: 0.05, env: 2.1 }
+          : pType === 'pearl'
+            ? { metalness: 0.84, roughness: 0.10, env: 1.75 }
+            : { metalness: 0.72, roughness: 0.18, env: 1.45 };
+      paint.metalness = pSpec.metalness;
+      paint.roughness = pSpec.roughness;
+      for (const m of api._glbPaintMats) {
+        m.metalness = pSpec.metalness;
+        m.roughness = pSpec.roughness;
+        m.envMapIntensity = pSpec.env;
+      }
+
+      // 2. Spoyler, Body Kit, Bamperlar va Neon
       applyTuning(extras, cfg, api.rearTop, currentLook);
+
+      // 3. Disk turi va Disk rangi
       const rType = currentLook.rims || 'std';
-      rimMat.color.setHex(RIM_COLORS[rType] ?? RIM_COLORS.std);
+      const customRimCol = currentLook.rimColor || '';
+      const rimHex = customRimCol ? new THREE.Color(customRimCol).getHex() : (RIM_COLORS[rType] ?? RIM_COLORS.std);
+      rimMat.color.setHex(rimHex);
       for (const m of api._glbRimMats) {
-        if (rType === 'std' && m.userData?.origColor) {
+        if (rType === 'std' && !customRimCol && m.userData?.origColor) {
           m.color.copy(m.userData.origColor);
           m.metalness = m.userData.origMetal;
           m.roughness = m.userData.origRough;
         } else {
-          m.color.setHex(RIM_COLORS[rType] ?? RIM_COLORS.std);
-          m.metalness = rType === 'sport' ? 0.5 : 0.92;
-          m.roughness = rType === 'sport' ? 0.35 : 0.18;
+          m.color.setHex(rimHex);
+          m.metalness = rType === 'sport' ? 0.55 : rType === 'chrome' || rType === 'gold' ? 0.95 : 0.85;
+          m.roughness = rType === 'sport' ? 0.35 : 0.15;
         }
       }
+
+      // 4. Oyna qoraytirish (Tonirovka)
+      const tint = currentLook.tint || 'none';
+      const applyGlass = (gm) => {
+        if (tint === 'dark') {
+          gm.color?.setHex(0x030508);
+          gm.opacity = 0.94;
+          gm.metalness = 0.95;
+          gm.roughness = 0.04;
+        } else if (tint === 'light') {
+          gm.color?.setHex(0x0a101a);
+          gm.opacity = 0.72;
+          gm.metalness = 0.88;
+          gm.roughness = 0.08;
+        } else if (tint === 'chameleon') {
+          gm.color?.setHex(0x1e1045);
+          gm.opacity = 0.84;
+          gm.metalness = 0.96;
+          gm.roughness = 0.05;
+        } else if (gm.userData?.origColor) {
+          gm.color?.copy(gm.userData.origColor);
+          gm.opacity = gm.userData.origOpacity;
+        }
+      };
+      applyGlass(procGlassMat);
+      for (const gm of api._glbGlassMats) applyGlass(gm);
+
+      // 5. Faralar rangi
+      api.setLights(api.lightsOn);
     },
 
     setTilt(pitch = 0, roll = 0, steer = 0) {
@@ -886,13 +949,15 @@ export function buildCar(cfg, look = {}, opts = {}) {
 
     update(dist, steer, pitch = 0, roll = 0) {
       const r = Math.max(api.radius, 0.2);
+      // Mashina to'xtaganda g'ildiraklar 100% to'xtaydi (harakat paytida esa aniq aylanadi)
+      const spinAngle = Math.abs(dist) > 1e-4 ? dist / r : 0;
       for (const w of wheels) {
-        w.spin.rotation.x += dist / r;
+        if (spinAngle !== 0) w.spin.rotation.x += spinAngle;
         if (w.front) w.pivot.rotation.y = steer;
       }
       if (api._glbWheels) {
         for (const w of api._glbWheels) {
-          w.spin.rotation.x += dist / r;
+          if (spinAngle !== 0) w.spin.rotation.x += spinAngle;
           if (w.front) w.pivot.rotation.y = steer;
         }
       }
@@ -912,6 +977,7 @@ export function buildCar(cfg, look = {}, opts = {}) {
       api._glbRimMats = inst.rimMats;
       api._glbHeadMats = inst.headMats;
       api._glbTailMats = inst.tailMats;
+      api._glbGlassMats = inst.glassMats || [];
       api._glbWheels = inst.wheels;
       api.radius = inst.radius;
       api.rearTop = inst.rearTop;
@@ -940,28 +1006,71 @@ export function buildCar(cfg, look = {}, opts = {}) {
 function applyTuning(extras, cfg, rearTop, t) {
   extras.clear();
   const L = cfg.len, W = cfg.wid;
+  const carbonMat = new THREE.MeshStandardMaterial({ color: 0x12151e, metalness: 0.65, roughness: 0.28 });
+  const accentMat = new THREE.MeshStandardMaterial({ color: t.color || 0x00e5ff, metalness: 0.8, roughness: 0.2 });
+
+  // 1. Spoyler turlari
   if (t.spoiler === 'lip') {
-    const m = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 }));
-    m.scale.set(W - 0.32, 0.06, 0.22);
-    m.position.set(0, rearTop + 0.04, -L / 2 + 0.22);
+    const m = new THREE.Mesh(box, carbonMat);
+    m.scale.set(W - 0.28, 0.055, 0.20);
+    m.position.set(0, rearTop + 0.035, -L / 2 + 0.22);
     extras.add(m);
   } else if (t.spoiler === 'wing') {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.6, roughness: 0.3 });
-    const wing = new THREE.Mesh(box, mat);
-    wing.scale.set(W * 0.92, 0.05, 0.34);
-    wing.position.set(0, rearTop + 0.32, -L / 2 + 0.25);
+    const wing = new THREE.Mesh(box, carbonMat);
+    wing.scale.set(W * 0.94, 0.045, 0.32);
+    wing.position.set(0, rearTop + 0.30, -L / 2 + 0.24);
     extras.add(wing);
     for (const sx of [-1, 1]) {
-      const p = new THREE.Mesh(box, mat);
-      p.scale.set(0.05, 0.30, 0.12);
-      p.position.set(sx * W * 0.3, rearTop + 0.16, -L / 2 + 0.25);
+      const p = new THREE.Mesh(box, carbonMat);
+      p.scale.set(0.045, 0.28, 0.12);
+      p.position.set(sx * W * 0.30, rearTop + 0.15, -L / 2 + 0.24);
       extras.add(p);
     }
+  } else if (t.spoiler === 'gt_pro') {
+    const wing = new THREE.Mesh(box, carbonMat);
+    wing.scale.set(W * 1.02, 0.05, 0.38);
+    wing.position.set(0, rearTop + 0.38, -L / 2 + 0.18);
+    extras.add(wing);
+    for (const sx of [-1, 1]) {
+      const p = new THREE.Mesh(box, carbonMat);
+      p.scale.set(0.05, 0.36, 0.16);
+      p.position.set(sx * W * 0.34, rearTop + 0.19, -L / 2 + 0.20);
+      extras.add(p);
+      const plate = new THREE.Mesh(box, accentMat);
+      plate.scale.set(0.025, 0.16, 0.44);
+      plate.position.set(sx * W * 0.51, rearTop + 0.39, -L / 2 + 0.18);
+      extras.add(plate);
+    }
   }
+
+  // 2. Body Kit va Bamperlar (Old splitter, yon poroglar, orqa diffuzor)
+  if (t.bodykit === 'street' || t.bodykit === 'wide') {
+    const isWide = t.bodykit === 'wide';
+    const frontSplitter = new THREE.Mesh(box, carbonMat);
+    frontSplitter.scale.set(W * (isWide ? 1.04 : 0.96), 0.045, isWide ? 0.28 : 0.18);
+    frontSplitter.position.set(0, 0.13, L / 2 - 0.06);
+    extras.add(frontSplitter);
+
+    for (const sx of [-1, 1]) {
+      const sideSkirt = new THREE.Mesh(box, carbonMat);
+      sideSkirt.scale.set(isWide ? 0.11 : 0.06, 0.055, L * 0.56);
+      sideSkirt.position.set(sx * (W / 2 + (isWide ? 0.02 : -0.01)), 0.13, 0);
+      extras.add(sideSkirt);
+    }
+
+    if (isWide) {
+      const rearDiff = new THREE.Mesh(box, carbonMat);
+      rearDiff.scale.set(W * 0.88, 0.08, 0.22);
+      rearDiff.position.set(0, 0.16, -L / 2 + 0.08);
+      extras.add(rearDiff);
+    }
+  }
+
+  // 3. Taglik Neon
   if (t.neon && t.neon !== 'none') {
     const n = new THREE.Mesh(
-      new THREE.PlaneGeometry(W * 2, L * 1.4),
-      new THREE.MeshBasicMaterial({ map: GLOW_TEX, color: t.neon, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
+      new THREE.PlaneGeometry(W * 2.05, L * 1.42),
+      new THREE.MeshBasicMaterial({ map: GLOW_TEX, color: t.neon, transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     n.rotation.x = -Math.PI / 2;
     n.position.y = 0.06;
@@ -970,8 +1079,3 @@ function applyTuning(extras, cfg, rearTop, t) {
 }
 
 export { TUNING };
-
-
-
-
-

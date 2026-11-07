@@ -1,9 +1,7 @@
-// Online o'yinchilarning 3D mashinalari va 3D Personajlari:
-// real vaqtda silliq harakat, mashinadan tushib yurish, yo'lovchi bo'lib o'tirish va 3D suhbat yorlig'i
+// Online o'yinchilarning 3D mashinalari (V9: barcha o'yinchilar doimo avtomobil ichida, to'liq 3D tuning bilan)
 import * as THREE from 'three';
 import { CARS } from './config.js';
 import { buildCar } from './carModel.js';
-import { buildCharacterModel } from './character.js';
 import { sendOnlineEvent } from './online.js';
 
 const beaconGeo = new THREE.CylinderGeometry(0.18, 0.65, 55, 12, 1, true);
@@ -75,51 +73,40 @@ export class RemoteCars {
     const now = performance.now();
     const seen = new Set();
 
-    // Qaysi mashinada kim yo'lovchi bo'lib o'tirganini aniqlash
-    const passengersByHost = new Map();
-    for (const p of players) {
-      if (p.ridingWith) {
-        const arr = passengersByHost.get(p.ridingWith) || [];
-        arr.push(p.name || 'Do\'st');
-        passengersByHost.set(p.ridingWith, arr);
-      }
-    }
-
     for (const p of players) {
       seen.add(p.id);
       let r = this.map.get(p.id);
       const cfg = CARS.find((c) => c.id === p.car) || CARS[0];
       const chatText = p.chat || '';
-      const passList = passengersByHost.get(p.id);
-      const subBadge = p.onFoot
-        ? `🚶 Piyoda · TT-${p.id}`
-        : passList?.length
-          ? `💺 +${passList.join(', ')}`
-          : `🟢 TT-${p.id}`;
+      const subBadge = `🟢 TT-${p.id}`;
       const labelKey = `${p.name}|${chatText}|${subBadge}`;
-      const tuneKey = `${p.color || '#f5f5f5'}|${p.rims || 'std'}|${p.spoiler || 'none'}|${p.neon || 'none'}|${p.charPreset || 'temur'}|${p.charOutfit || ''}|${p.charColor || ''}|${p.charHair || ''}|${p.charGlasses || ''}`;
+      const tuneKey = [
+        p.color || '#f5f5f5',
+        p.paintType || 'metallic',
+        p.rims || 'std',
+        p.rimColor || '',
+        p.spoiler || 'none',
+        p.bodykit || 'std',
+        p.tint || 'none',
+        p.headlightColor || '#fff3d0',
+        p.neon || 'none',
+      ].join('|');
 
       if (!r || r.carId !== cfg.id) {
         if (r) this.dispose(r);
         const look = {
           color: p.color || '#f5f5f5',
+          paintType: p.paintType || 'metallic',
           rims: p.rims || 'std',
+          rimColor: p.rimColor || '',
           spoiler: p.spoiler || 'none',
+          bodykit: p.bodykit || 'std',
+          tint: p.tint || 'none',
+          headlightColor: p.headlightColor || '#fff3d0',
           neon: p.neon || 'none',
         };
         const model = buildCar(cfg, look, { beam: true, priority: true });
         model.group.rotation.order = 'YXZ';
-
-        const charModel = buildCharacterModel(p.color || '#00e5ff');
-        charModel.setConfig?.({
-          preset: p.charPreset || 'temur',
-          outfit: p.charOutfit || undefined,
-          color: p.charColor || undefined,
-          hair: p.charHair || undefined,
-          glasses: p.charGlasses || undefined,
-        });
-        charModel.group.visible = false;
-        this.scene.add(charModel.group);
 
         const label = makeLabel(p.name || 'Haydovchi', p.id, chatText, subBadge);
         label.position.set(0, cfg.hei + (chatText ? 1.35 : 1.05), 0);
@@ -132,7 +119,6 @@ export class RemoteCars {
         this.scene.add(model.group);
         r = {
           model,
-          charModel,
           label,
           beacon,
           carId: cfg.id,
@@ -144,17 +130,13 @@ export class RemoteCars {
           y: p.y || 0,
           h: p.h || 0,
           v: p.v || 0,
-          px: p.px || p.x || 0,
-          pz: p.pz || p.z || 0,
-          py: p.py || 0,
-          ph: p.ph || 0,
           roll: 0,
           pitch: 0,
           id: p.id,
           len: cfg.len,
           mass: cfg.body === 'suv' ? 2350 : cfg.body === 'super' ? 1580 : 1480,
           onHit(nx, nz, kmh) {
-            const push = Math.min(2.2, Math.max(0.4, (kmh || 20) * 0.03));
+            const push = Math.min(1.4, Math.max(0.25, (kmh || 20) * 0.02));
             r.x += nx * push;
             r.z += nz * push;
             sendOnlineEvent({
@@ -162,7 +144,7 @@ export class RemoteCars {
               toId: p.id,
               nx,
               nz,
-              force: Math.max(5, (kmh || 20) * 0.35),
+              force: Math.max(4, (kmh || 20) * 0.25),
             });
           },
         };
@@ -173,30 +155,28 @@ export class RemoteCars {
         r.label.material.map.dispose();
         r.label.material.dispose();
         r.label = makeLabel(p.name || 'Haydovchi', p.id, chatText, subBadge);
+        r.model.group.add(r.label);
       }
 
       if (r.tuneKey !== tuneKey) {
         r.tuneKey = tuneKey;
         r.model.setTuning?.({
           color: p.color || '#f5f5f5',
+          paintType: p.paintType || 'metallic',
           rims: p.rims || 'std',
+          rimColor: p.rimColor || '',
           spoiler: p.spoiler || 'none',
+          bodykit: p.bodykit || 'std',
+          tint: p.tint || 'none',
+          headlightColor: p.headlightColor || '#fff3d0',
           neon: p.neon || 'none',
-        });
-        r.charModel.setColor(p.color || '#00e5ff');
-        r.charModel.setConfig?.({
-          preset: p.charPreset || 'temur',
-          outfit: p.charOutfit || undefined,
-          color: p.charColor || undefined,
-          hair: p.charHair || undefined,
-          glasses: p.charGlasses || undefined,
         });
       }
 
-      // 1. Mashina harakatini silliq yangilash
+      // Mashina harakatini silliq yangilash
       const age = Math.min(0.22, (now - (p.t || now)) / 1000);
       const predH = (p.h || 0) + (p.yawRate || 0) * age * 0.6;
-      const pv = p.onFoot ? 0 : (p.v || 0);
+      const pv = Math.abs(p.v || 0) > 0.12 ? (p.v || 0) : 0;
       const tx = (p.x || 0) + Math.sin(predH) * pv * age;
       const tz = (p.z || 0) + Math.cos(predH) * pv * age;
 
@@ -227,55 +207,20 @@ export class RemoteCars {
       g.rotation.set(r.pitch, r.h, r.roll, 'YXZ');
 
       if (!far) {
-        const stepDist = Math.hypot(r.x - ox, r.z - oz) * Math.sign(pv || 1);
+        // Mashina to'xtaganda g'ildiraklar aylanmasin
+        const rawStep = Math.hypot(r.x - ox, r.z - oz);
+        const stepDist = (Math.abs(pv) > 0.12 && rawStep > 0.001) ? rawStep * Math.sign(pv) : 0;
         r.model.update(stepDist, p.steer || 0);
         r.model.setLights?.(p.lights !== undefined ? p.lights : night > 0.35);
         r.model.setBrake?.(!!p.braking);
       }
 
-      // 2. Agar o'yinchi mashinadan tushib yurgan bo'lsa (p.onFoot && !p.ridingWith), 3D Personajini ko'rsatamiz
-      const showChar = (!!p.onFoot || p.animState === 'enterCar' || p.animState === 'exitCar') && !p.ridingWith && !far;
-      r.charModel.group.visible = showChar;
-      if (showChar) {
-        const tpx = (p.px || r.x) + Math.sin(p.ph || 0) * (p.pv || 0) * age;
-        const tpz = (p.pz || r.z) + Math.cos(p.ph || 0) * (p.pv || 0) * age;
-        if (Math.hypot(tpx - r.px, tpz - r.pz) > 30) {
-          r.px = tpx;
-          r.pz = tpz;
-          r.ph = p.ph || 0;
-        }
-        r.px += (tpx - r.px) * k;
-        r.pz += (tpz - r.pz) * k;
-        r.ph += angDiff(p.ph || 0, r.ph) * k;
-        r.py += ((p.py || 0) - r.py) * Math.min(1, dt * 16);
-
-        r.charModel.group.position.set(r.px, r.py, r.pz);
-        r.charModel.group.rotation.set(0, r.ph, 0);
-        const remAnim = p.emote || p.animState || '';
-        r.charModel.animate(dt, p.pv || 0, remAnim, 0.5);
-
-        if (r.label.parent !== r.charModel.group) {
-          r.charModel.group.add(r.label);
-        }
-        const charDist = Math.hypot(r.px - me.x, r.pz - me.z);
-        const lblScale = THREE.MathUtils.clamp(1 + (charDist - 25) * 0.014, 1, 4.5);
-        r.label.scale.set(4.3 * lblScale, (chatText ? 1.66 : 1.16) * lblScale, 1);
-        r.label.position.set(0, 2.25 + (lblScale - 1) * 0.5, 0);
-        r.beacon.visible = charDist > 55;
-      } else {
-        if (!p.ridingWith) {
-          if (r.label.parent !== g) g.add(r.label);
-          const lblScale = THREE.MathUtils.clamp(1 + (distToMe - 25) * 0.014, 1, 4.5);
-          r.label.scale.set(4.3 * lblScale, (chatText ? 1.66 : 1.16) * lblScale, 1);
-          r.label.position.set(0, cfg.hei + (chatText ? 1.35 : 1.05) + (lblScale - 1) * 0.65, 0);
-          r.label.visible = true;
-          r.beacon.visible = distToMe > 55;
-        } else {
-          // Do'stining mashinasida o'tirgan o'yinchining yorlig'i o'sha mashinada ko'rinadi
-          r.label.visible = false;
-          r.beacon.visible = false;
-        }
-      }
+      if (r.label.parent !== g) g.add(r.label);
+      const lblScale = THREE.MathUtils.clamp(1 + (distToMe - 25) * 0.014, 1, 4.5);
+      r.label.scale.set(4.3 * lblScale, (chatText ? 1.66 : 1.16) * lblScale, 1);
+      r.label.position.set(0, cfg.hei + (chatText ? 1.35 : 1.05) + (lblScale - 1) * 0.65, 0);
+      r.label.visible = true;
+      r.beacon.visible = distToMe > 55;
     }
 
     for (const [id, r] of this.map) {
@@ -289,7 +234,6 @@ export class RemoteCars {
 
   dispose(r) {
     this.scene.remove(r.model.group);
-    this.scene.remove(r.charModel.group);
     r.label.material.map.dispose();
     r.label.material.dispose();
   }

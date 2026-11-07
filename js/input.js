@@ -1,14 +1,9 @@
-// Klaviatura, sichqoncha (360° kamera), aylanuvchi rul (Steering Wheel) va qulay mobil sensorli boshqaruv
+// Klaviatura, sichqoncha (360° kamera) va iPhone/Android uchun zamonaviy tugmali sensorli boshqaruv (V9)
 const keys = new Set();
-const touch = { up: 0, down: 0, left: 0, right: 0, boost: 0, brake: 0 };
+const touch = { up: 0, down: 0, left: 0, right: 0, boost: 0, brake: 0, drift: 0 };
 const hot = new Map();
 export const cam = { yaw: 0, pitch: 0.25, dist: 9, lastMove: 0 };
 let enabled = true;
-
-// Aylanuvchi rul (Steering Wheel) holati: -1 (o'ng) .. +1 (chap)
-let wheelSteer = 0;
-let wheelDeg = 0;
-let wheelPointerId = null;
 
 export function onKey(code, fn) { hot.set(code, fn); }
 export function setEnabled(v) {
@@ -16,17 +11,11 @@ export function setEnabled(v) {
   if (!v) {
     keys.clear();
     for (const k of Object.keys(touch)) touch[k] = 0;
-    wheelSteer = 0;
-    wheelDeg = 0;
-    wheelPointerId = null;
-    const disc = document.getElementById('wheelDisc');
-    if (disc) disc.style.transform = 'rotate(0deg)';
-    document.getElementById('wheelPad')?.classList.remove('active');
     document.querySelectorAll('[data-touch].on').forEach((b) => b.classList.remove('on'));
   }
 }
 
-export function initInput(canvas, onSteerToggle) {
+export function initInput(canvas) {
   addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
       if (e.code === 'Escape') e.target.blur?.();
@@ -40,9 +29,7 @@ export function initInput(canvas, onSteerToggle) {
   addEventListener('blur', () => {
     keys.clear();
     for (const k of Object.keys(touch)) touch[k] = 0;
-    wheelSteer = 0;
-    wheelDeg = 0;
-    wheelPointerId = null;
+    document.querySelectorAll('[data-touch].on').forEach((b) => b.classList.remove('on'));
   });
 
   // Sichqoncha / barmoq: bo'sh joyni bosib sudrash — kamerani 360° aylantirish
@@ -64,7 +51,7 @@ export function initInput(canvas, onSteerToggle) {
   canvas.addEventListener('pointercancel', end);
   canvas.addEventListener('wheel', (e) => { cam.dist = Math.max(5, Math.min(22, cam.dist + e.deltaY * 0.01)); }, { passive: true });
 
-  // Sensorli tugmalar (multi-touch qo'llab-quvvatlanadi)
+  // Sensorli tugmalar (multi-touch qo'llab-quvvatlanadi: Gaz + Chap/O'ng + Drift/Nitro bir vaqtda ishlaydi)
   const activePointers = new Map(); // pointerId -> { k, el }
   document.querySelectorAll('[data-touch]').forEach((b) => {
     const k = b.dataset.touch;
@@ -97,7 +84,7 @@ export function initInput(canvas, onSteerToggle) {
     b.addEventListener('lostpointercapture', off);
   });
 
-  // Klassik tugmalarda barmoqni uzmasdan chapga-o'ngga surish (Slide-to-steer)
+  // Chap/O'ng tugmalarda barmoqni uzmasdan surish (Slide-to-steer)
   const steerPad = document.getElementById('steerPad');
   if (steerPad) {
     const leftBtn = steerPad.querySelector('[data-touch="left"]');
@@ -108,7 +95,7 @@ export function initInput(canvas, onSteerToggle) {
       const rect = steerPad.getBoundingClientRect();
       const mid = rect.left + rect.width / 2;
       const wantKey = e.clientX < mid ? 'left' : 'right';
-      if (wantKey !== entry.k) {
+      if (wantKey !== entry.k && leftBtn && rightBtn) {
         touch[entry.k] = 0;
         entry.el.classList.remove('on');
         entry.k = wantKey;
@@ -116,82 +103,6 @@ export function initInput(canvas, onSteerToggle) {
         touch[wantKey] = 1;
         entry.el.classList.add('on');
       }
-    });
-  }
-
-  // Aylanuvchi Rul (Steering Wheel) — silliq analog boshqaruv
-  const wheelPad = document.getElementById('wheelPad');
-  const wheelDisc = document.getElementById('wheelDisc');
-  if (wheelPad && wheelDisc) {
-    let startX = 0;
-    let startAngle = 0;
-
-    const updateWheelFromEvent = (e, isStart = false) => {
-      const rect = wheelPad.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
-      const radius = Math.max(22, rect.width * 0.35);
-
-      if (isStart) {
-        startX = e.clientX;
-        startAngle = Math.atan2(dx, -dy) * (180 / Math.PI);
-      }
-
-      // Gorizontal siljish va burchak aylanishini tabiiy uyg'unlashtiramiz
-      const horizNorm = Math.max(-1, Math.min(1, dx / radius));
-      const curAngle = Math.atan2(dx, -dy) * (180 / Math.PI);
-      let deltaAngle = curAngle - startAngle;
-      if (deltaAngle > 180) deltaAngle -= 360;
-      if (deltaAngle < -180) deltaAngle += 360;
-
-      const slideNorm = Math.max(-1, Math.min(1, (e.clientX - startX) / (radius * 0.78)));
-      const angleNorm = Math.max(-1, Math.min(1, deltaAngle / 95));
-      // Bosh barmoq bilan ham aylantirish, ham chap-o'ngga surish sezgir ishlaydi
-      const rawCombined = Math.max(-1, Math.min(1, horizNorm * 0.55 + slideNorm * 0.30 + angleNorm * 0.15));
-      const combined = Math.sign(rawCombined) * Math.pow(Math.abs(rawCombined), 0.88);
-      wheelDeg = combined * 115; // ±115° gacha vizual burilish
-      // physics.js da steer > 0 chapga, steer < 0 o'ngga
-      wheelSteer = -combined;
-      wheelDisc.style.transform = `rotate(${wheelDeg.toFixed(1)}deg)`;
-    };
-
-    wheelPad.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      wheelPointerId = e.pointerId;
-      try { wheelPad.setPointerCapture(e.pointerId); } catch { /* */ }
-      wheelPad.classList.add('active');
-      updateWheelFromEvent(e, true);
-    });
-
-    wheelPad.addEventListener('pointermove', (e) => {
-      if (wheelPointerId !== e.pointerId) return;
-      e.preventDefault();
-      updateWheelFromEvent(e, false);
-    });
-
-    const releaseWheel = (e) => {
-      if (wheelPointerId !== e.pointerId) return;
-      wheelPointerId = null;
-      wheelSteer = 0;
-      wheelDeg = 0;
-      wheelPad.classList.remove('active');
-      wheelDisc.style.transform = 'rotate(0deg)';
-    };
-
-    wheelPad.addEventListener('pointerup', releaseWheel);
-    wheelPad.addEventListener('pointercancel', releaseWheel);
-    wheelPad.addEventListener('lostpointercapture', releaseWheel);
-  }
-
-  // Rul / Tugmalar tezkor almashtirgichi
-  const toggleSteerBtn = document.getElementById('toggleSteerBtn');
-  if (toggleSteerBtn) {
-    toggleSteerBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      onSteerToggle?.();
     });
   }
 
@@ -211,7 +122,7 @@ export function initInput(canvas, onSteerToggle) {
     })
   );
 
-  // Minimap bosilganda katta xaritani ochish (telefonda juda qulay)
+  // Minimap bosilganda katta xaritani ochish
   const mm = document.getElementById('minimap');
   if (mm) {
     mm.style.pointerEvents = 'auto';
@@ -236,20 +147,20 @@ export function initInput(canvas, onSteerToggle) {
 }
 
 export function readDrive() {
-  if (!enabled) return { throttle: 0, reverse: 0, steer: 0, boost: false, handbrake: false };
+  if (!enabled) return { throttle: 0, reverse: 0, steer: 0, boost: false, handbrake: false, drift: false };
   const k = (c) => keys.has(c);
   const up = k('KeyW') || k('ArrowUp') || touch.up;
   const down = k('KeyS') || k('ArrowDown') || touch.down;
   const left = k('KeyA') || k('ArrowLeft') || touch.left;
   const right = k('KeyD') || k('ArrowRight') || touch.right;
-  const digitalSteer = (left ? 1 : 0) - (right ? 1 : 0);
-  const steer = Math.abs(wheelSteer) > 0.02 ? wheelSteer : digitalSteer;
+  const steer = (left ? 1 : 0) - (right ? 1 : 0);
   return {
     throttle: up ? 1 : 0,
     reverse: down ? 1 : 0,
     steer,
     boost: !!(k('ShiftLeft') || k('ShiftRight') || touch.boost),
     handbrake: !!(k('Space') || touch.brake),
+    drift: !!(k('KeyQ') || k('ControlLeft') || touch.drift),
   };
 }
 
@@ -258,16 +169,16 @@ export const isTouch = () =>
   /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
   (navigator.maxTouchPoints > 0 && Math.min(innerWidth, innerHeight) < 950);
 
-// Boshqaruv turi va mobil rul/tugma sozlamalarini qo'llash
-export function applyControl(mode = 'auto', steerType = 'wheel', touchScale = 'normal') {
+// Boshqaruv turi va mobil tugma o'lchami sozlamalarini qo'llash (V9: doimo tugmali boshqaruv)
+export function applyControl(mode = 'auto', _steerType = 'buttons', touchScale = 'normal') {
   const phone = mode === 'phone' || (mode === 'auto' && isTouch());
   const isPortrait = innerHeight > innerWidth;
   document.body.classList.toggle('phone', phone);
   document.body.classList.toggle('pc', !phone);
   document.body.classList.toggle('is-portrait', isPortrait);
   document.body.classList.toggle('is-landscape', !isPortrait);
-  document.body.classList.toggle('steer-wheel', steerType !== 'buttons');
-  document.body.classList.toggle('steer-buttons', steerType === 'buttons');
+  document.body.classList.remove('steer-wheel');
+  document.body.classList.add('steer-buttons');
   document.body.classList.toggle('scale-large', touchScale === 'large');
   return phone ? 'phone' : 'pc';
 }

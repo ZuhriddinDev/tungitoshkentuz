@@ -1,13 +1,46 @@
-// Interfeys: modal oynalar, xabarlar, zapravka, xizmat paneli, xarita, poyga, ishlar, pauza, sozlamalar
-import { FUELS, carById, fmt, CARS } from './config.js';
-import { state, activeCar, spend, touch, claimDaily, canClaimDaily, dailyTasks, resetSave, setName } from './state.js';
+// Interfeys V9: modal oynalar, 7 kunlik bonus, P2P pul o'tkazish, promokod + admin panel, reklama banneri, garaj, xarita, poyga, sozlamalar
+import { FUELS, carById, fmt, CARS, DAILY_REWARDS_7 } from './config.js';
+import {
+  state,
+  activeCar,
+  spend,
+  touch,
+  canClaimDaily,
+  getDaily7Status,
+  claimDaily7,
+  dailyTasks,
+  resetSave,
+  setName,
+  lookupPlayerServer,
+  transferMoneyServer,
+  redeemPromocodeServer,
+  adminPromocodeServer,
+  applyServerTransferPush,
+} from './state.js';
 import { MISSIONS, mission, startMission, cancelMission } from './missions.js';
 import { drawBigMap, bigMapToWorld, mapState, MAP_CATEGORIES, findNearestPOI, findMapItemAt } from './map.js';
 import { beep, setVolume } from './audio.js';
 import { openGarage } from './ui-garage.js';
 import { stopGarage } from './garage3d.js';
 import { applyControl } from './input.js';
-import { goOnline, joinFriend, createPrivateRoom, joinRoomByCode, joinPublicServer, leave, info as onlineInfo, list as onlineList, displayId, playerId, onOnline, sendChat, sendOnlineEvent, chatHistory, serverStats, MAX_PLAYERS, PRIVATE_MAX_PLAYERS } from './online.js';
+import {
+  goOnline,
+  createPrivateRoom,
+  joinRoomByCode,
+  joinPublicServer,
+  leave,
+  info as onlineInfo,
+  list as onlineList,
+  displayId,
+  playerId,
+  onOnline,
+  sendChat,
+  sendOnlineEvent,
+  chatHistory,
+  serverStats,
+  MAX_PLAYERS,
+  PRIVATE_MAX_PLAYERS,
+} from './online.js';
 import { blockC } from './world/layout.js';
 
 const $ = (s) => document.querySelector(s);
@@ -24,7 +57,9 @@ export function initUI(api) {
 export const isOpen = () => !!current;
 export function closeModal() {
   if (!current) return;
-  current = null; clearInterval(mapTimer); stopGarage();
+  current = null;
+  clearInterval(mapTimer);
+  stopGarage();
   $('#modal').classList.remove('show');
   game.onModal(false);
 }
@@ -32,20 +67,527 @@ export function showModal(name, title, html) {
   current = name;
   $('#modalTitle').textContent = title;
   $('#modalBody').innerHTML = html;
-  const m = $('#modal'); m.classList.remove('show'); void m.offsetWidth; m.classList.add('show');
+  const m = $('#modal');
+  m.classList.remove('show');
+  void m.offsetWidth;
+  m.classList.add('show');
   game.onModal(true);
   return $('#modalBody');
 }
-// Bir xil tugma ikki marta bosilsa — yopiladi
 export function toggle(name) { if (current === name) closeModal(); else open(name); }
 export function open(name) { beep('ok'); (PANELS[name] || (() => {}))(); }
 
 export function toast(msg, type = 'ok') {
   const el = document.createElement('div');
-  el.className = 'toast ' + type; el.textContent = msg;
+  el.className = 'toast ' + type;
+  el.textContent = msg;
   $('#toasts').appendChild(el);
-  setTimeout(() => el.classList.add('out'), 2600);
-  setTimeout(() => el.remove(), 3100);
+  setTimeout(() => el.classList.add('out'), 2800);
+  setTimeout(() => el.remove(), 3300);
+}
+
+// ---------- O'YIN ICHIDA REKLAMA / DO'STLARNI TAKLIF QILISH BANNERI ----------
+function renderInvitePromoBanner() {
+  const inviteUrl = 'https://tungi-toshkent-3d.onrender.com/';
+  return `
+    <div class="tt-promo-banner">
+      <div class="tt-promo-left">
+        <div class="tt-promo-logo">TUNGI <span>TOSHKENT</span></div>
+        <h4>🚀 Do‘stlaringni taklif qil!</h4>
+        <p>Toshkent ko‘chalarida birga hayda! Har bir yangi o‘yinchiga <b style="color:var(--gold)">5 000 000 000 so‘m</b> boshlang‘ich balans beriladi.</p>
+        <div class="tt-promo-actions">
+          <input type="text" readonly value="${inviteUrl}" class="tt-promo-url" id="promoInviteUrlInput" />
+          <button type="button" class="btn sm-btn gold" id="copyPromoInviteBtn">📋 Havolani nusxalash</button>
+        </div>
+      </div>
+      <div class="tt-promo-qr" title="Tungi Toshkent QR-kod">
+        <svg viewBox="0 0 64 64" width="68" height="68" fill="#00e5ff">
+          <rect x="4" y="4" width="18" height="18" fill="none" stroke="#00e5ff" stroke-width="4"/>
+          <rect x="9" y="9" width="8" height="8"/>
+          <rect x="42" y="4" width="18" height="18" fill="none" stroke="#00e5ff" stroke-width="4"/>
+          <rect x="47" y="9" width="8" height="8"/>
+          <rect x="4" y="42" width="18" height="18" fill="none" stroke="#00e5ff" stroke-width="4"/>
+          <rect x="9" y="47" width="8" height="8"/>
+          <rect x="26" y="6" width="4" height="4"/><rect x="32" y="10" width="4" height="8"/>
+          <rect x="26" y="18" width="8" height="4"/><rect x="6" y="26" width="8" height="4"/>
+          <rect x="18" y="28" width="6" height="6"/><rect x="28" y="26" width="10" height="6"/>
+          <rect x="42" y="26" width="6" height="6"/><rect x="52" y="28" width="8" height="4"/>
+          <rect x="26" y="36" width="6" height="8"/><rect x="36" y="38" width="8" height="6"/>
+          <rect x="48" y="36" width="10" height="6"/><rect x="26" y="48" width="8" height="4"/>
+          <rect x="38" y="48" width="6" height="10"/><rect x="48" y="46" width="12" height="6"/>
+          <rect x="48" y="54" width="6" height="6"/>
+        </svg>
+        <small>SCAN & PLAY</small>
+      </div>
+    </div>
+  `;
+}
+
+function bindInvitePromoBanner(root) {
+  const btn = root?.querySelector('#copyPromoInviteBtn');
+  if (!btn) return;
+  btn.onclick = () => {
+    const url = 'https://tungi-toshkent-3d.onrender.com/';
+    navigator.clipboard?.writeText(url).catch(() => {});
+    beep('ok');
+    toast("🔗 O'yin havolasi nusxalandi! Do'stlaringizga yuboring.", 'cash');
+  };
+}
+
+// ---------- 9. 7 KUNLIK KUNDALIK BONUS (DAILY REWARDS) ----------
+function dailyRewardsModal() {
+  const st = getDaily7Status();
+  const body = showModal('daily', '🎁 7 Kunlik Kundalik Bonus (Daily Rewards)', `
+    <div class="daily7-wrap">
+      <div class="daily7-header">
+        <div>
+          <h3>Har kuni o‘yinga kiring va mukofot oling!</h3>
+          <p>Ketma-ket 7 kun kiring — 7-kuni <b style="color:var(--gold)">Ferrari SF90 Spider</b> superkari bepul sovg‘a qilinadi!</p>
+        </div>
+        <div class="daily7-streak-badge">
+          <span>🔥 Joriy seriya</span>
+          <b>${st.streak} / 7 kun</b>
+        </div>
+      </div>
+
+      <div id="dailyRewardAnim" class="daily7-anim-banner hidden"></div>
+
+      <div class="daily7-grid">
+        ${DAILY_REWARDS_7.map((r) => {
+          const isClaimed = !st.canClaim ? r.day <= st.streak : r.day < st.activeDay;
+          const isCurrent = st.canClaim && r.day === st.activeDay;
+          const isGrand = r.day === 7;
+          return `
+            <div class="daily7-card ${isClaimed ? 'claimed' : ''} ${isCurrent ? 'current' : ''} ${isGrand ? 'grand' : ''}">
+              <div class="d7-day">${r.day}-KUN</div>
+              <div class="d7-icon">${r.icon}</div>
+              <b class="d7-title">${r.title}</b>
+              <small class="d7-sub">${r.subtitle}</small>
+              <div class="d7-status">
+                ${isClaimed ? '✅ Olingan' : isCurrent ? '🔥 Bugun olish mumkin!' : '🔒 Kutilmoqda'}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="daily7-footer">
+        <button type="button" class="btn gold big" id="claimDaily7Btn" ${st.canClaim ? '' : 'disabled'}>
+          ${st.canClaim ? `🎁 ${st.activeDay}-Kunlik Bonusni Olish (${DAILY_REWARDS_7[st.activeDay - 1]?.title})` : "✅ Bugungi bonus olingan — Ertaga yana kiring!"}
+        </button>
+      </div>
+    </div>
+    ${renderInvitePromoBanner()}
+  `);
+
+  bindInvitePromoBanner(body);
+
+  const claimBtn = body.querySelector('#claimDaily7Btn');
+  if (claimBtn) {
+    claimBtn.onclick = async () => {
+      claimBtn.disabled = true;
+      claimBtn.textContent = '⏳ Tekshirilmoqda...';
+      const res = await claimDaily7();
+      if (!res.ok) {
+        beep('err');
+        toast(res.error || 'Bonus olishda xatolik', 'err');
+        dailyRewardsModal();
+        return;
+      }
+      beep('win');
+      const r = res.reward || {};
+      if (r.car) {
+        await game.changeCar?.();
+        toast(`🏆 TABRIKLAYMIZ! 7-kun mukofoti: ${r.title} garajingizga qo'shildi!`, 'cash');
+      } else {
+        toast(`🎁 ${res.claimedDay}-kunlik bonus olindi: +${fmt(r.money || 0)}!`, 'cash');
+      }
+      dailyRewardsModal();
+      const animEl = document.getElementById('dailyRewardAnim');
+      if (animEl) {
+        animEl.classList.remove('hidden');
+        animEl.innerHTML = `🎉 Tabriklaymiz! <b>${res.claimedDay}-kun</b> mukofoti muvaffaqiyatli topshirildi: <b style="color:var(--gold)">${r.title}</b>!`;
+      }
+    };
+  }
+}
+
+// ---------- 6. FOYDALANUVCHILAR O'RTASIDA PUL O'TKAZISH (P2P TRANSFER) ----------
+let verifiedTarget = null;
+function transferModal() {
+  const inf = onlineInfo();
+  const peers = onlineList();
+  const myCode = displayId(inf.id);
+
+  const body = showModal('transfer', '💸 Foydalanuvchilar O‘rtasida Pul O‘tkazish', `
+    <div class="set-grid">
+      <section class="set-card">
+        <h3>💳 Pul Jo‘natish</h3>
+        <div class="id-box" style="margin-bottom:10px">
+          <div>
+            <small>Sizning balansingiz (ID: <b>${myCode}</b>):</small>
+            <strong style="color:var(--gold);font-size:20px" id="trMyBalance">${fmt(state.money)}</strong>
+          </div>
+        </div>
+
+        <label class="online-lbl">1️⃣ Qabul qiluvchi ID (TT-XXXXXX) yoki Ismini kiriting:
+          <div class="row" style="margin-top:6px">
+            <input id="trTargetInput" maxlength="20" placeholder="Masalan: TT-7K2M9Q yoki Sardor" value="${verifiedTarget ? verifiedTarget.displayId : ''}" style="margin:0;font-weight:700" autocomplete="off" />
+            <button type="button" class="btn primary" id="trVerifyBtn" style="flex:0 0 auto">🔍 Tekshirish</button>
+          </div>
+        </label>
+
+        ${peers.length > 0 ? `
+          <div style="margin-top:8px">
+            <small style="color:var(--muted)">Xonadagi do'stlardan tez tanlash:</small>
+            <div class="opts" style="margin-top:4px">
+              ${peers.map((p) => `<button type="button" class="btn sm-btn" data-pick-peer="TT-${p.id}">👤 ${p.name || 'Haydovchi'} (TT-${p.id})</button>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div id="trVerifyBox" class="id-box ${verifiedTarget ? '' : 'hidden'}" style="margin-top:10px;border-color:var(--green)">
+          ${verifiedTarget ? `
+            <div>
+              <small>✅ Tasdiqlangan qabul qiluvchi:</small>
+              <strong>${verifiedTarget.name} (${verifiedTarget.displayId}) ${verifiedTarget.online ? '🟢 Online' : ''}</strong>
+            </div>
+          ` : ''}
+        </div>
+
+        <label class="online-lbl" style="margin-top:10px">2️⃣ O‘tkazma miqdori (so‘m):
+          <input type="number" id="trAmountInput" min="100000" max="50000000000" step="1000000" placeholder="Masalan: 50000000" value="50000000" style="margin-top:6px;font-weight:800;font-size:16px" />
+        </label>
+        <div class="opts" style="margin-top:6px">
+          ${[
+            [10_000_000, '10 mln'],
+            [50_000_000, '50 mln'],
+            [100_000_000, '100 mln'],
+            [500_000_000, '500 mln'],
+            [1_000_000_000, '1 mlrd'],
+          ].map(([val, lbl]) => `<button type="button" class="btn sm-btn" data-tr-amt="${val}">+${lbl}</button>`).join('')}
+        </div>
+
+        <label class="online-lbl" style="margin-top:8px">3️⃣ Izoh (ixtiyoriy):
+          <input id="trNoteInput" maxlength="40" placeholder="Masalan: Mashina uchun sovg'a 🚗" style="margin-top:4px" autocomplete="off" />
+        </label>
+
+        <!-- Tasdiqlash dialogi -->
+        <div id="trConfirmWrap" class="card hidden" style="margin-top:10px;border-color:var(--gold)">
+          <p id="trConfirmText" style="font-size:13px;color:var(--text);margin-bottom:8px"></p>
+          <div class="row">
+            <button type="button" class="btn gold" id="trFinalSendBtn">✅ Tasdiqlash va Jo‘natish</button>
+            <button type="button" class="btn danger" id="trCancelConfirmBtn">Bekor qilish</button>
+          </div>
+        </div>
+
+        <button type="button" class="btn gold big" id="trInitSendBtn" style="width:100%;margin-top:12px">💸 Pul Jo‘natish</button>
+      </section>
+
+      <section class="set-card">
+        <h3>📜 O‘tkazmalar Tarixi (Transaction ID bilan)</h3>
+        <div class="list" id="trHistoryList" style="max-height:360px;overflow-y:auto">
+          ${(!state.transfers || state.transfers.length === 0)
+            ? '<div style="color:var(--muted);justify-content:center">Hozircha o‘tkazmalar tarixi bo‘sh</div>'
+            : state.transfers.slice(0, 20).map((tx) => {
+                const isOut = tx.dir === 'out' || tx.fromId === state.playerId;
+                const peerLabel = isOut ? `➡️ ${tx.toName} (TT-${tx.toId})` : `⬅️ ${tx.fromName} (TT-${tx.fromId})`;
+                return `
+                  <div style="flex-direction:column;align-items:flex-start;gap:4px">
+                    <div style="display:flex;justify-content:space-between;width:100%">
+                      <b>${peerLabel}</b>
+                      <b class="${isOut ? 'minus' : 'plus'}">${isOut ? '−' : '+'}${fmt(tx.amount)}</b>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;width:100%;font-size:11px;color:var(--muted)">
+                      <span>🆔 ${tx.txId} ${tx.note ? `· «${tx.note}»` : ''}</span>
+                      <span>${new Date(tx.ts).toLocaleTimeString('uz')}</span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+        </div>
+      </section>
+    </div>
+  `);
+
+  const targetInp = body.querySelector('#trTargetInput');
+  const amtInp = body.querySelector('#trAmountInput');
+  const noteInp = body.querySelector('#trNoteInput');
+  const verifyBox = body.querySelector('#trVerifyBox');
+  const confirmWrap = body.querySelector('#trConfirmWrap');
+  const confirmText = body.querySelector('#trConfirmText');
+  const initSendBtn = body.querySelector('#trInitSendBtn');
+
+  const doVerify = async (rawQ) => {
+    const q = String(rawQ ?? targetInp.value).trim();
+    if (!q) {
+      toast("O'yinchi ID yoki ismini kiriting!", 'err');
+      return null;
+    }
+    const res = await lookupPlayerServer(q);
+    if (!res.ok) {
+      verifiedTarget = null;
+      verifyBox.classList.add('hidden');
+      beep('err');
+      toast(res.error || "O'yinchi topilmadi", 'err');
+      return null;
+    }
+    verifiedTarget = res.player;
+    verifyBox.classList.remove('hidden');
+    verifyBox.innerHTML = `
+      <div>
+        <small>✅ Tasdiqlangan qabul qiluvchi:</small>
+        <strong>${verifiedTarget.name} (${verifiedTarget.displayId}) ${verifiedTarget.online ? '🟢 Online' : ''}</strong>
+      </div>
+    `;
+    beep('ok');
+    return verifiedTarget;
+  };
+
+  body.querySelector('#trVerifyBtn').onclick = () => doVerify();
+  body.querySelectorAll('[data-pick-peer]').forEach((b) => {
+    b.onclick = () => {
+      targetInp.value = b.dataset.pickPeer;
+      doVerify(b.dataset.pickPeer);
+    };
+  });
+
+  body.querySelectorAll('[data-tr-amt]').forEach((b) => {
+    b.onclick = () => {
+      amtInp.value = b.dataset.trAmt;
+      beep('ok');
+    };
+  });
+
+  initSendBtn.onclick = async () => {
+    const q = targetInp.value.trim();
+    const amount = Math.floor(Number(amtInp.value) || 0);
+    if (!q) return toast("Qabul qiluvchi ID yoki ismini kiriting!", 'err');
+    if (amount < 100_000) return toast("Minimal o'tkazma miqdori: 100 000 so'm", 'err');
+    if (amount > state.money) return toast("Balansingizda mablag' yetarli emas!", 'err');
+
+    if (!verifiedTarget || (verifiedTarget.displayId !== q.toUpperCase() && verifiedTarget.name.toLowerCase() !== q.toLowerCase())) {
+      const v = await doVerify(q);
+      if (!v) return;
+    }
+
+    confirmText.innerHTML = `Haqiqatan ham <b>${verifiedTarget.name} (${verifiedTarget.displayId})</b> ga <b style="color:var(--gold)">${fmt(amount)}</b> o‘tkazishni tasdiqlaysizmi?`;
+    confirmWrap.classList.remove('hidden');
+    initSendBtn.classList.add('hidden');
+  };
+
+  body.querySelector('#trCancelConfirmBtn').onclick = () => {
+    confirmWrap.classList.add('hidden');
+    initSendBtn.classList.remove('hidden');
+  };
+
+  body.querySelector('#trFinalSendBtn').onclick = async () => {
+    const finalBtn = body.querySelector('#trFinalSendBtn');
+    finalBtn.disabled = true;
+    finalBtn.textContent = '⏳ Yuborilmoqda...';
+
+    const amount = Math.floor(Number(amtInp.value) || 0);
+    const note = noteInp.value.trim();
+    const res = await transferMoneyServer({
+      toQuery: verifiedTarget ? verifiedTarget.id : targetInp.value.trim(),
+      amount,
+      note,
+    });
+
+    if (!res.ok) {
+      beep('err');
+      toast(res.error || "Pul o'tkazishda xatolik", 'err');
+      finalBtn.disabled = false;
+      finalBtn.textContent = '✅ Tasdiqlash va Jo‘natish';
+      return;
+    }
+
+    beep('cash');
+    toast(`✅ Muvaffaqiyatli! ${res.tx.toName} ga ${fmt(res.tx.amount)} o'tkazildi [${res.tx.txId}]`, 'cash');
+    verifiedTarget = null;
+    transferModal();
+  };
+}
+
+// ---------- 7. PROMOKOD TIZIMI VA ADMIN PANEL ----------
+let unlockedAdminKey = '';
+let adminPromoList = [];
+
+function promocodeModal() {
+  const body = showModal('promocode', '🎟️ Promokod va Bonuslar Markazi', `
+    <div class="set-grid">
+      <section class="set-card">
+        <h3>🎁 Promokod Kiritish</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:10px">
+          Maxsus promokodni kiriting va virtual pul yoki eksklyuziv avtomobil sovg‘asiga ega bo‘ling!
+        </p>
+        <div class="row">
+          <input id="promoCodeInput" maxlength="24" placeholder="PROMOKODNI KIRITING..." style="margin:0;text-transform:uppercase;font-weight:900;letter-spacing:1.5px;font-size:16px" autocomplete="off" />
+          <button type="button" class="btn gold" id="redeemPromoBtn" style="flex:0 0 auto">🎉 Faollashtirish</button>
+        </div>
+
+        <div id="promoResultBox" class="card hidden" style="margin-top:10px;border-color:var(--green)"></div>
+
+        <div class="section-title" style="margin-top:14px">🔥 Faol rasmiy promokodlar (bosing va oling)</div>
+        <div class="opts">
+          ${['TOSHKENT2026', 'TUNGI500', 'GELIK777', 'MALIBU', 'VIPUZB', 'SUPRA2026'].map((code) => {
+            const used = state.usedPromos?.includes(code);
+            return `<button type="button" class="btn sm-btn ${used ? '' : 'primary'}" data-fill-promo="${code}" ${used ? 'disabled' : ''}>
+              ${used ? '✅' : '🎟️'} ${code}
+            </button>`;
+          }).join('')}
+        </div>
+
+        <div class="section-title" style="margin-top:14px">Foydalanilgan promokodlar (${state.usedPromos?.length || 0})</div>
+        <div class="list">
+          ${(!state.usedPromos || state.usedPromos.length === 0)
+            ? '<div style="color:var(--muted);justify-content:center">Hali promokod ishlatilmagan</div>'
+            : state.usedPromos.map((c) => `<div><span>✅ <b>${c}</b></span><small style="color:var(--green)">Faollashtirilgan</small></div>`).join('')}
+        </div>
+      </section>
+
+      <section class="set-card">
+        <h3>🔐 Admin Panel (Promokod Boshqaruvi)</h3>
+        ${!unlockedAdminKey ? `
+          <p style="font-size:12px;color:var(--muted);margin-bottom:8px">
+            Yangi promokod yaratish, limit belgilash yoki o‘chirish uchun Admin kalitini kiriting:
+          </p>
+          <div class="row">
+            <input type="password" id="adminKeyInput" placeholder="Admin kaliti..." style="margin:0" />
+            <button type="button" class="btn primary" id="unlockAdminBtn" style="flex:0 0 auto">🔓 Kirish</button>
+          </div>
+        ` : `
+          <div class="card" style="margin-bottom:10px">
+            <h4 style="margin-bottom:6px;color:var(--cyan)">➕ Yangi Promokod Yaratish</h4>
+            <div class="row" style="margin-bottom:6px">
+              <input id="admNewCode" maxlength="20" placeholder="KOD (masalan: BONUS999)" style="margin:0;text-transform:uppercase;font-weight:800" />
+              <input type="number" id="admNewMoney" value="250000000" step="50000000" placeholder="Pul mukofoti (so'm)" style="margin:0" />
+            </div>
+            <div class="row" style="margin-bottom:6px">
+              <select id="admNewCar" style="margin:0">
+                <option value="">🚗 Mashina sovg'asi yo'q (Faqat pul)</option>
+                ${CARS.map((c) => `<option value="${c.id}">🎁 + ${c.name}</option>`).join('')}
+              </select>
+              <input type="number" id="admNewMaxUses" value="500" min="1" placeholder="Limit (ta)" style="margin:0;max-width:110px" />
+            </div>
+            <button type="button" class="btn gold" id="admCreatePromoBtn" style="width:100%">➕ Promokodni Saqlash</button>
+          </div>
+
+          <div class="section-title">Serverdagi barcha promokodlar (${adminPromoList.length})</div>
+          <div class="list" style="max-height:220px;overflow-y:auto">
+            ${adminPromoList.map((p) => `
+              <div>
+                <span>
+                  <b>${p.code}</b> · <small style="color:var(--gold)">${p.title}</small>
+                  <br/><small style="color:var(--muted)">Ishlatildi: ${p.usedCount}/${p.maxUses}</small>
+                </span>
+                <button type="button" class="btn sm-btn danger" data-del-promo="${p.code}">🗑</button>
+              </div>
+            `).join('')}
+          </div>
+        `}
+      </section>
+    </div>
+  `);
+
+  const codeInp = body.querySelector('#promoCodeInput');
+  const redeemBtn = body.querySelector('#redeemPromoBtn');
+  const resBox = body.querySelector('#promoResultBox');
+
+  body.querySelectorAll('[data-fill-promo]').forEach((b) => {
+    b.onclick = () => {
+      codeInp.value = b.dataset.fillPromo;
+      redeemBtn.click();
+    };
+  });
+
+  redeemBtn.onclick = async () => {
+    const code = codeInp.value.trim().toUpperCase();
+    if (!code) return toast('Promokodni kiriting!', 'err');
+    redeemBtn.disabled = true;
+    redeemBtn.textContent = '⏳...';
+
+    const res = await redeemPromocodeServer(code);
+    if (!res.ok) {
+      beep('err');
+      toast(res.error || 'Promokod xatosi', 'err');
+      redeemBtn.disabled = false;
+      redeemBtn.textContent = '🎉 Faollashtirish';
+      return;
+    }
+
+    beep('win');
+    if (res.reward?.car) {
+      await game.changeCar?.();
+    }
+    toast(`🎉 Promokod (${res.code}) faollashtirildi: ${res.reward?.title}!`, 'cash');
+    promocodeModal();
+    const box = document.getElementById('promoResultBox');
+    if (box) {
+      box.classList.remove('hidden');
+      box.innerHTML = `✅ <b>${res.code}</b> muvaffaqiyatli faollashtirildi! Mukofot: <b style="color:var(--gold)">${res.reward?.title}</b>`;
+    }
+  };
+
+  const unlockBtn = body.querySelector('#unlockAdminBtn');
+  if (unlockBtn) {
+    unlockBtn.onclick = async () => {
+      const key = body.querySelector('#adminKeyInput')?.value.trim();
+      if (!key) return toast('Admin kalitini kiriting', 'err');
+      const res = await adminPromocodeServer({ adminKey: key, action: 'list' });
+      if (!res.ok) {
+        beep('err');
+        return toast(res.error || "Admin kaliti noto'g'ri!", 'err');
+      }
+      unlockedAdminKey = key;
+      adminPromoList = res.promocodes || [];
+      beep('ok');
+      toast('🔓 Admin panel ochildi', 'ok');
+      promocodeModal();
+    };
+  }
+
+  const createBtn = body.querySelector('#admCreatePromoBtn');
+  if (createBtn) {
+    createBtn.onclick = async () => {
+      const code = body.querySelector('#admNewCode')?.value.trim().toUpperCase();
+      const money = Number(body.querySelector('#admNewMoney')?.value) || 0;
+      const car = body.querySelector('#admNewCar')?.value || null;
+      const maxUses = Number(body.querySelector('#admNewMaxUses')?.value) || 500;
+      if (!code || code.length < 3) return toast("Promokod kamida 3 ta belgidan iborat bo'lsin", 'err');
+
+      const res = await adminPromocodeServer({
+        adminKey: unlockedAdminKey,
+        action: 'create',
+        code,
+        money,
+        car,
+        maxUses,
+        daysValid: 90,
+      });
+      if (!res.ok) return toast(res.error || 'Xatolik', 'err');
+      adminPromoList = res.promocodes || [];
+      beep('cash');
+      toast(`✅ Promokod «${code}» yaratildi!`, 'cash');
+      promocodeModal();
+    };
+  }
+
+  body.querySelectorAll('[data-del-promo]').forEach((b) => {
+    b.onclick = async () => {
+      const code = b.dataset.delPromo;
+      const res = await adminPromocodeServer({
+        adminKey: unlockedAdminKey,
+        action: 'delete',
+        code,
+      });
+      if (res.ok) {
+        adminPromoList = res.promocodes || [];
+        toast(`🗑 «${code}» o'chirildi`, 'ok');
+        promocodeModal();
+      }
+    };
+  });
 }
 
 // ---------- Zapravka ----------
@@ -65,10 +607,10 @@ function gasStation() {
   let type = inst.fuelType || cfg.fuel;
   const lit = body.querySelector('#lit');
   const sync = () => {
-    // Boshqa turga o'tilsa, eski benzin to'kib tashlanadi
     const space = type === inst.fuelType ? cfg.tank - inst.fuelL : cfg.tank;
-    lit.max = Math.max(1, Math.floor(space)); if (+lit.value > +lit.max) lit.value = lit.max;
-    body.querySelector('#litVal').textContent = `${lit.value} l${type !== inst.fuelType ? ' (eski benzin to\'kiladi)' : ''}`;
+    lit.max = Math.max(1, Math.floor(space));
+    if (+lit.value > +lit.max) lit.value = lit.max;
+    body.querySelector('#litVal').textContent = `${lit.value} l${type !== inst.fuelType ? " (eski benzin to'kiladi)" : ''}`;
     body.querySelector('#fuelTotal').textContent = fmt(lit.value * FUELS[type].price);
     body.querySelectorAll('[data-fuel]').forEach((b) => b.classList.toggle('sel', b.dataset.fuel === type));
     body.querySelector('#fillBtn').disabled = space < 1;
@@ -80,45 +622,52 @@ function gasStation() {
     const l = +lit.value, cost = Math.round(l * FUELS[type].price);
     if (!spend(cost, `Benzin ${type}: ${l} l`)) { beep('err'); return toast("Mablag' yetarli emas", 'err'); }
     if (type !== inst.fuelType) { inst.fuelL = 0; inst.fuelType = type; }
-    inst.fuelL = Math.min(cfg.tank, inst.fuelL + l); touch();
-    beep('cash'); toast(`${l} l ${type} quyildi: −${fmt(cost)}`, 'cash'); closeModal();
+    inst.fuelL = Math.min(cfg.tank, inst.fuelL + l);
+    touch();
+    beep('cash');
+    toast(`${l} l ${type} quyildi: −${fmt(cost)}`, 'cash');
+    closeModal();
   };
   sync();
 }
 
 // ---------- Xizmat paneli (E) ----------
 function service() {
-  const inst = activeCar(), cfg = carById(inst.id), repair = Math.round(inst.damage * cfg.price * 0.0008);
+  const inst = activeCar(), cfg = carById(inst.id);
   const tasks = dailyTasks();
-  const body = showModal('service', '🛠 Xizmat paneli', `
+  const body = showModal('service', '🛠 Xizmat va Bonuslar Markazi', `
     <div class="grid">
-      <div class="card"><h3>🔧 Ta'mirlash</h3><p>Holat: ${Math.round(100 - inst.damage)}%</p><p class="price">${fmt(repair)}</p><button class="btn" id="svRepair" ${inst.damage < 1 ? 'disabled' : ''}>Ta'mirlash</button></div>
+      <div class="card"><h3>🎁 7 Kunlik Bonus</h3><p>Har kuni pul va 7-kuni SF90 Spider sovg'a!</p><p class="price">${canClaimDaily() ? 'Tayyor!' : 'Olingan'}</p><button class="btn gold" id="svOpenDaily">Bonus oynasi</button></div>
+      <div class="card"><h3>🎟️ Promokod</h3><p>Maxsus kod orqali bonus olish</p><p class="price">VIP Sovg'alar</p><button class="btn primary" id="svOpenPromo">Kiritish</button></div>
+      <div class="card"><h3>💸 Pul O'tkazish</h3><p>Do'stlarga ID yoki ism orqali pul jo'natish</p><p class="price">P2P Transfer</p><button class="btn primary" id="svOpenTransfer">O'tkazish</button></div>
       <div class="card"><h3>🚚 Evakuator</h3><p>Mashinani avtosalon oldiga olib borish</p><p class="price">${fmt(1_500_000)}</p><button class="btn" id="svTow">Chaqirish</button></div>
-      <div class="card"><h3>⛽ Benzin olib kelish</h3><p>10 litr ${inst.fuelType}, joyiga yetkazib beriladi</p><p class="price">${fmt(10 * FUELS[inst.fuelType].price * 1.5)}</p><button class="btn" id="svFuel">Buyurtma</button></div>
-      <div class="card"><h3>🎁 Kunlik bonus</h3><p>Har 20 soatda bir marta</p><p class="price">${fmt(25_000_000)}</p><button class="btn gold" id="svDaily" ${canClaimDaily() ? '' : 'disabled'}>${canClaimDaily() ? 'Olish' : 'Olingan'}</button></div>
+      <div class="card"><h3>⛽ Benzin yetkazish</h3><p>10 litr ${inst.fuelType}, joyiga yetkazib beriladi</p><p class="price">${fmt(10 * FUELS[inst.fuelType].price * 1.5)}</p><button class="btn" id="svFuel">Buyurtma</button></div>
     </div>
     <div class="section-title">Kundalik topshiriqlar</div>
     <div class="list">${tasks.map((t) => `<div><span>${t.done ? '✅' : '⬜'} ${t.name}</span><span>${t.stat === 'km' ? t.progress.toFixed(1) : Math.floor(t.progress)}/${t.goal} · <b class="plus">+${fmt(t.reward)}</b></span></div>`).join('')}</div>
     <div class="section-title">So'nggi tranzaksiyalar</div>
-    <div class="list">${state.tx.slice(0, 12).map((t) => `<div><span>${new Date(t.t).toLocaleTimeString('uz')} · ${t.reason}</span><b class="${t.amount >= 0 ? 'plus' : 'minus'}">${t.amount >= 0 ? '+' : ''}${fmt(t.amount)}</b></div>`).join('') || '<div>Hali tranzaksiyalar yo\'q</div>'}</div>`);
-  body.querySelector('#svRepair').onclick = () => {
-    if (!spend(repair, `Ta'mirlash: ${cfg.name}`)) return toast("Mablag' yetarli emas", 'err');
-    inst.damage = 0;
-    inst.dmgParts = { front: 0, rear: 0, left: 0, right: 0 };
-    touch(); beep('cash'); toast('Mashina to\'liq ta\'mirlandi', 'ok'); service();
-  };
+    <div class="list">${state.tx.slice(0, 12).map((t) => `<div><span>${new Date(t.t).toLocaleTimeString('uz')} · ${t.reason}</span><b class="${t.amount >= 0 ? 'plus' : 'minus'}">${t.amount >= 0 ? '+' : ''}${fmt(t.amount)}</b></div>`).join('') || "<div>Hali tranzaksiyalar yo'q</div>"}</div>`);
+
+  body.querySelector('#svOpenDaily').onclick = () => open('daily');
+  body.querySelector('#svOpenPromo').onclick = () => open('promocode');
+  body.querySelector('#svOpenTransfer').onclick = () => open('transfer');
   body.querySelector('#svTow').onclick = () => {
     if (!spend(1_500_000, 'Evakuator xizmati')) return toast("Mablag' yetarli emas", 'err');
-    game.tow(); closeModal(); toast('Mashina avtosalon oldiga olib kelindi', 'ok');
+    game.tow();
+    closeModal();
+    toast('Mashina avtosalon oldiga olib kelindi', 'ok');
   };
   body.querySelector('#svFuel').onclick = () => {
     const cost = Math.round(10 * FUELS[inst.fuelType].price * 1.5);
-    if (inst.fuelL > cfg.tank - 10) return toast('Bak deyarli to\'la', 'err');
+    if (inst.fuelL > cfg.tank - 10) return toast("Bak deyarli to'la", 'err');
     if (!spend(cost, `Benzin yetkazish: 10 l ${inst.fuelType}`)) return toast("Mablag' yetarli emas", 'err');
-    inst.fuelL += 10; touch(); beep('cash'); service();
+    inst.fuelL += 10;
+    touch();
+    beep('cash');
+    service();
   };
-  body.querySelector('#svDaily').onclick = () => { if (claimDaily()) { beep('cash'); toast(`Kunlik bonus: +${fmt(25_000_000)}`, 'cash'); service(); } };
 }
+
 // ---------- Katta Interaktiv Toshkent GPS Xaritasi (M) ----------
 function bigMap() {
   const pl = game.player();
@@ -211,7 +760,6 @@ function bigMap() {
     syncClearBtn();
   };
 
-  // Kategoriya filtrlari
   body.querySelectorAll('[data-mcat]').forEach((b) => {
     b.onclick = () => {
       mapState.filter = b.dataset.mcat;
@@ -221,7 +769,6 @@ function bigMap() {
     };
   });
 
-  // Tezkor tugmalar: Eng yaqin Zapravka va Eng yaqin Garaj
   body.querySelector('#gpsNearGas').onclick = () => {
     const pNow = game.player();
     const near = findNearestPOI(pNow.x, pNow.z, 'gas');
@@ -279,7 +826,6 @@ function bigMap() {
     draw();
   };
 
-  // Drag-to-pan va Click-to-select / Waypoint
   let dragStart = null;
   let moved = false;
 
@@ -377,14 +923,41 @@ function jobs() {
     <div class="section-title">🔑 Avtomobil ijarasi (10 daqiqa)</div>
     ${state.rental ? `<div class="card"><h3>Ijarada: ${carById(state.rental.car.id).name}</h3><p>Qolgan vaqt: ${Math.ceil((state.rental.until - Date.now()) / 60000)} daqiqa</p><button class="btn danger" id="endRent">Qaytarish</button></div>` : `
     <div class="grid">${RENTALS.map((id) => { const c = carById(id), price = Math.round(c.price * 0.004); return `
-      <div class="card"><h3>${c.name}</h3><div class="stats"><span>Maks: <b>${c.maxSpeed} km/s</b></span><span>0-100: <b>${(27.8 / c.accel).toFixed(1)} s</b></span></div>
+      <div class="card"><h3>${c.name}</h3><div class="stats"><span>Maks: <b>${c.maxSpeed} km/h</b></span><span>0-100: <b>${(27.8 / c.accel).toFixed(1)} s</b></span></div>
       <p class="price">${fmt(price)}</p><button class="btn" data-rent="${id}">Ijaraga olish</button></div>`; }).join('')}</div>`}`);
   bindStart(body);
   body.querySelectorAll('[data-rent]').forEach((b) => (b.onclick = () => {
     const c = carById(b.dataset.rent), price = Math.round(c.price * 0.004);
     if (!spend(price, `Ijara: ${c.name}`)) return toast("Mablag' yetarli emas", 'err');
-    state.rental = { car: { uid: 'rent', id: c.id, color: '#111111', rims: 'chrome', spoiler: 'none', neon: 'none', engine: 0, fuelL: c.tank, fuelType: c.fuel, damage: 0 }, until: Date.now() + 10 * 60000 };
-    touch(); game.changeCar(); beep('cash'); toast(`${c.name} 10 daqiqaga ijaraga olindi`, 'cash'); closeModal();
+    state.rental = {
+      car: {
+        uid: 'rent',
+        id: c.id,
+        color: c.defaultColor || '#111111',
+        paintType: 'metallic',
+        rims: 'vossen',
+        rimColor: '',
+        spoiler: 'none',
+        bodykit: 'std',
+        tint: 'none',
+        headlightColor: '#fff3d0',
+        neon: 'none',
+        engine: 0,
+        turbo: 0,
+        accelTune: 0,
+        brakeTune: 0,
+        handlingTune: 0,
+        fuelL: c.tank,
+        fuelType: c.fuel,
+        damage: 0,
+      },
+      until: Date.now() + 10 * 60000,
+    };
+    touch();
+    game.changeCar();
+    beep('cash');
+    toast(`${c.name} 10 daqiqaga ijaraga olindi`, 'cash');
+    closeModal();
   }));
   const end = body.querySelector('#endRent');
   if (end) end.onclick = () => { game.endRental(); closeModal(); };
@@ -396,7 +969,7 @@ function bindStart(body) {
   if (c) c.onclick = () => { cancelMission(); closeModal(); };
 }
 
-// ---------- Pauza (ESC), sozlamalar, yordam ----------
+// ---------- Pauza (ESC) va Boshqaruv Markazi ----------
 function pause() {
   const inf = onlineInfo();
   const dailyReady = canClaimDaily();
@@ -404,18 +977,21 @@ function pause() {
     <div class="grid">
       <button class="btn primary big" data-a="resume">▶ O'yinni davom ettirish</button>
       <button class="btn gold big" data-a="garage">🚗 Garaj, Avtosalon va Tuning (G)</button>
+      <button class="btn big ${dailyReady ? 'gold' : ''}" data-a="daily">🎁 7 Kunlik Kundalik Bonus ${dailyReady ? '🔥' : ''}</button>
+      <button class="btn big" data-a="promocode">🎟️ Promokod va Sovg'alar</button>
+      <button class="btn big" data-a="transfer">💸 Do'stlarga Pul O'tkazish</button>
+      <button class="btn big" data-a="online">👥 Do'stlar va Depozit Poyga (${inf.count}/${inf.max || MAX_PLAYERS})</button>
       <button class="btn big" data-a="map">🗺️ Toshkent GPS Xaritasi (M)</button>
       <button class="btn big" data-a="race">🏁 Musobaqalar va Drift (R)</button>
-      <button class="btn big" data-a="online">💰 Do'stlar va Depozit Poyga (${inf.count}/${inf.max || MAX_PLAYERS})</button>
       <button class="btn big" data-a="jobs">📦 Ishlar, Taksi va Ijara (T)</button>
-      <button class="btn big ${dailyReady ? 'gold' : ''}" data-a="service">🛠 Xizmat va Kunlik Mukofot ${dailyReady ? '🎁' : ''}</button>
       <button class="btn big" data-a="leaderboard">🏆 Reyting va Statistika</button>
-      <button class="btn big" data-a="settings">⚙ Sozlamalar va Grafika</button>
-      <button class="btn big" data-a="help">⌨ Boshqaruv Yordami</button>
-      <button class="btn big" data-a="save">💾 O'yinni Saqlash</button>
+      <button class="btn big" data-a="settings">⚙️ Sozlamalar va Grafika</button>
       <button class="btn danger big" data-a="lobby">🏠 Bosh menyuga qaytish</button>
     </div>
-    <div class="section-title">Joriy Sessiya va Statistika</div>
+
+    ${renderInvitePromoBanner()}
+
+    <div class="section-title">Joriy Sessiya va Profil Statistikasi</div>
     <div class="list">
       <div><span>Haydovchi</span><b>${state.name || 'Haydovchi'} (${displayId(inf.id)})</b></div>
       <div><span>Joriy Xona</span><b style="color:var(--cyan)">${displayId(inf.host || 'PUBLIC')} (${inf.roomType === 'private' ? '🔒 Private' : '🌍 Ommaviy'})</b></div>
@@ -423,23 +999,27 @@ function pause() {
       <div><span>Garajdagi mashinalar</span><b>${state.cars.length} / ${CARS.length}</b></div>
       <div><span>Balans</span><b class="plus">${fmt(state.money)}</b></div>
     </div>`);
+
+  bindInvitePromoBanner(body);
+
   const act = {
     resume: closeModal,
     lobby: () => { closeModal(); game.returnToLobby?.(); },
     online,
     garage: () => open('garage'),
+    daily: () => open('daily'),
+    promocode: () => open('promocode'),
+    transfer: () => open('transfer'),
     map: () => open('map'),
     race: () => open('race'),
     jobs: () => open('jobs'),
-    service: () => open('service'),
     leaderboard: () => open('leaderboard'),
     settings,
-    help,
-    save: () => { game.save(); toast("O'yin saqlandi", 'ok'); },
   };
   body.querySelectorAll('[data-a]').forEach((b) => (b.onclick = act[b.dataset.a]));
 }
 
+// ---------- Multiplayer Xona Tizimi (O) ----------
 function online() {
   const inf = onlineInfo();
   const peers = onlineList();
@@ -460,7 +1040,6 @@ function online() {
   }[inf.status] || '';
 
   const body = showModal('online', `🌐 Multiplayer Xona Tizimi (${inf.count}/${maxCap})`, `
-    <!-- Jonli Server Statistikasi -->
     <div class="list" style="margin-bottom:12px">
       <div id="onlineStatsBar" style="flex-wrap:wrap;gap:8px;background:rgba(0,229,255,0.08);border:1px solid var(--line)">
         <span>🟢 Jami Online: <b>${serverStats.totalOnline}</b></span>
@@ -504,22 +1083,22 @@ function online() {
             <button class="btn primary" id="joinFriendBtn" style="flex:0 0 auto">🔗 Xonaga kirish</button>
           </div>
         </label>
-        <div class="list" style="margin-top:12px;font-size:12px">
-          <div><span>1️⃣ Do'stlar xonasi yaratish</span><b>6 belgili kod beriladi</b></div>
-          <div><span>2️⃣ Kodni do'stlarga ulashish</span><b>📋 Nusxalab yuboring</b></div>
-          <div><span>3️⃣ Bo'sh xonalar tozalanishi</span><b>2 daqiqada avtomatik</b></div>
+        <div class="row" style="margin-top:10px">
+          <button type="button" class="btn gold" id="openTransferFromOnlineBtn" style="width:100%">💸 Do'stga Pul O'tkazish (P2P)</button>
         </div>
-        <p class="hint">Faqat bitta xonadagi o'yinchilar bir-birini ko'radi va birga Toshkentda hayday oladi.</p>
+        <p class="hint" style="margin-top:8px">Faqat bitta xonadagi o'yinchilar bir-birini ko'radi va birga Toshkentda hayday oladi.</p>
       </section>
     </div>
+
+    ${renderInvitePromoBanner()}
 
     <div class="section-title">💬 Real-vaqt suhbat va Online Poyga chaqiruvi</div>
     <div class="card" style="margin-bottom:12px">
       <div class="opts" style="margin:0">
-        ${['👋 Salom!', '💺 Mashinamga o\'tiring!', '🏁 Poyga o\'ynaymiz!', '🔥 Driftga qarang!', '📍 Yonimga keling!', '👍 Zo\'r mashina!'].map((q) => `<button class="btn sm-btn" data-qchat="${q}">${q}</button>`).join('')}
+        ${['👋 Salom!', '🏁 Poyga o\'ynaymiz!', '🔥 Driftga qarang!', '📍 Yonimga keling!', '👍 Zo\'r mashina!'].map((q) => `<button class="btn sm-btn" data-qchat="${q}">${q}</button>`).join('')}
       </div>
       <div class="row" style="margin-top:6px">
-        <input id="chatInput" maxlength="56" placeholder="Xonadagi do'stlarga xabar yozing (3D mashina va personaj ustida ko'rinadi)..." style="margin:0" />
+        <input id="chatInput" maxlength="56" placeholder="Xonadagi do'stlarga xabar yozing (3D mashina ustida ko'rinadi)..." style="margin:0" />
         <button class="btn primary" id="sendChatBtn" style="flex:0 0 auto">💬 Yuborish</button>
       </div>
       <div id="onlineChatLog" class="list" style="margin-top:8px;max-height:110px;overflow-y:auto">
@@ -537,7 +1116,7 @@ function online() {
     <div class="section-title">💰 Do'stlar bilan Depozit Poyga (Garov + 100% O'yin Bonusi)</div>
     <div class="card" style="margin-bottom:12px;border-color:rgba(255,215,64,0.45)">
       <p style="font-size:12px;color:var(--muted)">
-        Har ikki o'yinchi virtual valyutada (so'm) garov qo'yadi. O'yin umumiy fondga <b>+100% bonus</b> qo'shadi va g'olib barchasini oladi! (Masalan: 10M + 5M = 15M fond + 15M bonus = <b style="color:var(--gold)">30 000 000 so'm</b>)
+        Har ikki o'yinchi virtual valyutada (so'm) garov qo'yadi. O'yin umumiy fondga <b>+100% bonus</b> qo'shadi va g'olib barchasini oladi!
       </p>
       ${(() => {
         const drState = game.getDepositRaceState?.() || {};
@@ -608,17 +1187,21 @@ function online() {
         const c = carById(p.car);
         const spd = Math.round(Math.abs(p.v || 0) * 3.6);
         return `<div>
-          <span>🟢 <b>${p.name || 'Haydovchi'}</b> <small style="color:var(--cyan)">(${displayId(p.id)})</small> ${p.onFoot ? '<small style="color:var(--gold)">🚶 Piyoda</small>' : ''}${p.chat ? ` · <b style="color:var(--gold)">«${p.chat}»</b>` : ''}</span>
+          <span>🟢 <b>${p.name || 'Haydovchi'}</b> <small style="color:var(--cyan)">(${displayId(p.id)})</small>${p.chat ? ` · <b style="color:var(--gold)">«${p.chat}»</b>` : ''}</span>
           <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <small style="color:var(--muted)">${spd} km/s</small>
+            <small style="color:var(--muted)">${spd} km/h</small>
             <b>${c.name}</b>
             <button class="btn sm-btn" data-tp="${p.id}">📍 Yoniga borish</button>
-            <button class="btn sm-btn primary" data-sit="${p.id}">💺 Mashinasiga o'tirish</button>
+            <button class="btn sm-btn gold" data-send-cash="${p.id}">💸 Pul o'tkazish</button>
           </span>
         </div>`;
       }).join('')}
     </div>
   `);
+
+  bindInvitePromoBanner(body);
+
+  body.querySelector('#openTransferFromOnlineBtn').onclick = () => open('transfer');
 
   body.querySelector('#copyIdBtn').onclick = () => {
     const codeToCopy = isPrivate ? roomCode : inf.id;
@@ -659,7 +1242,7 @@ function online() {
   };
   body.querySelector('#joinFriendBtn').onclick = () => {
     const code = body.querySelector('#friendIdInput').value.trim();
-    if (!code) return toast("6 belgili xona kodini kiriting", 'err');
+    if (!code) return toast('6 belgili xona kodini kiriting', 'err');
     doJoin(code);
   };
   body.querySelector('#friendIdInput').addEventListener('keydown', (e) => {
@@ -686,11 +1269,12 @@ function online() {
     toast(`${p.name} yoniga o'tdingiz!`, 'ok');
   }));
 
-  body.querySelectorAll('[data-sit]').forEach((b) => (b.onclick = () => {
-    const p = peers.find((x) => x.id === b.dataset.sit);
-    if (!p) return;
-    game.sitInFriendCar?.(p.id);
-    closeModal();
+  body.querySelectorAll('[data-send-cash]').forEach((b) => (b.onclick = () => {
+    const p = peers.find((x) => x.id === b.dataset.sendCash);
+    if (p) {
+      verifiedTarget = { id: p.id, displayId: `TT-${p.id}`, name: p.name || 'Haydovchi', online: true };
+    }
+    open('transfer');
   }));
 
   body.querySelectorAll('[data-orace]').forEach((b) => (b.onclick = () => {
@@ -708,7 +1292,6 @@ function online() {
     closeModal();
   }));
 
-  // Do'stlar bilan Depozit Poyga (Invite / Accept / Cancel)
   const createDepBtn = body.querySelector('#createDepRaceBtn');
   if (createDepBtn) {
     createDepBtn.onclick = () => {
@@ -808,54 +1391,81 @@ function online() {
   }
 }
 
+// ---------- 13. SETTINGS VA QO'SHIMCHA MENYU (V9) ----------
 function settings() {
   const s = state.settings;
-  const seg = (id, items, cur) => `<div class="seg" data-seg="${id}">${items.map(([k, ic, n, d]) => `<button data-v="${k}" class="${String(cur) === String(k) ? 'on' : ''}"><i>${ic}</i><b>${n}</b>${d ? `<small>${d}</small>` : ''}</button>`).join('')}</div>`;
-  const body = showModal('settings', '⚙ Sozlamalar', `
+  const seg = (id, items, cur) => `<div class="seg" data-seg="${id}">${items.map(([k, ic, n, d]) => `<button type="button" data-v="${k}" class="${String(cur) === String(k) ? 'on' : ''}"><i>${ic}</i><b>${n}</b>${d ? `<small>${d}</small>` : ''}</button>`).join('')}</div>`;
+  const body = showModal('settings', '⚙️ Sozlamalar va Boshqaruv', `
     <div class="set-grid">
       <section class="set-card">
-        <h3>🎮 Boshqaruv rejimi</h3>
-        ${seg('control', [['auto', '✨', 'Avto', 'Qurilmani o\'zi aniqlaydi'], ['pc', '🖥️', 'Kompyuter', 'Klaviatura + sichqoncha'], ['phone', '📱', 'Telefon', 'Gorizontal + Rul']], s.control)}
-        <p class="hint" id="ctlHint"></p>
+        <h3>🖼️ Grafik Sifati</h3>
+        ${seg('quality', [
+          ['auto',   '✨', 'Auto',   'Avtomatik'],
+          ['low',    '⚡', 'Low',    'Eng tez'],
+          ['medium', '⚖️', 'Medium', "O'rta"],
+          ['high',   '💎', 'High',   'Soyalar + Bloom'],
+          ['ultra',  '🚀', 'Ultra',  'Maksimal'],
+        ], s.quality || 'high')}
+        <p class="hint">Telefon va kompyuter quvvatiga mos grafik rejimni tanlang.</p>
+        <button type="button" class="btn" id="perfAuditBtn" style="width:100%;margin-top:8px">📊 Performance Audit (FPS / Draw Calls — F3)</button>
       </section>
+
       <section class="set-card">
-        <h3>🛞 Telefon rul va tugmalar</h3>
-        <div class="section-title" style="margin-top:0">Burilish boshqaruvi</div>
-        ${seg('steerType', [['wheel', '🛞', 'Aylanuvchi Rul', 'Silliq analog rul'], ['buttons', '◀▶', 'Tugmalar', 'Chap / O\'ng tugma']], s.steerType || 'wheel')}
-        <div class="section-title">Tugmalar va rul o'lchami</div>
-        ${seg('touchScale', [['normal', '⚖️', "O'rta", 'Standart o\'lcham'], ['large', '🔎', 'Katta', 'Kattaroq rul va pedallar']], s.touchScale || 'normal')}
-        <button class="btn primary" id="landscapeBtn" style="width:100%;margin-top:10px">⛶ Gorizontal To'liq Ekran (Landscape)</button>
+        <h3>🔊 Ovoz va Musiqa</h3>
+        <label class="slide"><span>Motor va o'yin ovozi</span><b id="volV">${Math.round((s.volume ?? 0.65) * 100)}%</b><input type="range" id="vol" min="0" max="1" step="0.05" value="${s.volume ?? 0.65}" /></label>
+        <label class="slide"><span>Musiqa va muhit balandligi</span><b id="musV">${Math.round((s.musicVolume ?? 0.45) * 100)}%</b><input type="range" id="musVol" min="0" max="1" step="0.05" value="${s.musicVolume ?? 0.45}" /></label>
+        <div class="section-title" style="margin-top:8px">🌐 Til tanlash (Language)</div>
+        ${seg('lang', [
+          ['uz', '🇺🇿', "O'zbek", 'Asosiy'],
+          ['ru', '🇷🇺', 'Русский', 'RU'],
+          ['en', '🇬🇧', 'English', 'EN'],
+        ], s.lang || 'uz')}
       </section>
+
       <section class="set-card">
-        <h3>🖼️ Grafik sifati</h3>
-        ${seg('quality', [['low', '⚡', 'Past', 'Eng tez'], ['medium', '⚖️', "O'rta", ''], ['high', '💎', 'Yuqori', 'Soyalar + Bloom'], ['ultra', '🚀', 'Ultra', 'Maksimal']], s.quality)}
-        <p class="hint">Past — soyalar va bloom o'chiriladi. Kuchli telefon va kompyuterlarda «Yuqori» yoki «Ultra» ham to'liq ishlaydi.</p>
-        <button class="btn" id="perfAuditBtn" style="width:100%;margin-top:8px">📊 Performance Audit (FPS / Draw Calls — F3)</button>
+        <h3>🎮 Boshqaruv va Sezgirlik</h3>
+        <label class="slide"><span>Burilish sezgirligi</span><b id="steerSensV">${(s.steerSens ?? 1.0).toFixed(1)}</b><input type="range" id="steerSens" min="0.5" max="2.0" step="0.1" value="${s.steerSens ?? 1.0}" /></label>
+        <label class="slide"><span>Kamera sezgirligi</span><b id="sensV">${(s.sens ?? 1.0).toFixed(1)}</b><input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="${s.sens ?? 1.0}" /></label>
+        <div class="section-title" style="margin-top:8px">📱 Mobil tugmalar o'lchami</div>
+        ${seg('touchScale', [
+          ['normal', '⚖️', "O'rta", 'Standart'],
+          ['large',  '🔎', 'Katta', 'Kattaroq tugmalar'],
+        ], s.touchScale || 'normal')}
+        <button type="button" class="btn primary" id="landscapeBtn" style="width:100%;margin-top:10px">⛶ Gorizontal To'liq Ekran (Landscape)</button>
       </section>
+
       <section class="set-card">
-        <h3>🔊 Motor ovozi va kamera</h3>
-        <label class="slide"><span>Motor va o'yin ovozi</span><b id="volV">${Math.round(s.volume * 100)}%</b><input type="range" id="vol" min="0" max="1" step="0.05" value="${s.volume}" /></label>
-        <label class="slide"><span>Kamera sezgirligi</span><b id="sensV">${s.sens.toFixed(1)}</b><input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="${s.sens}" /></label>
-        <label class="toggle"><span>💨 Drift tutuni</span><input type="checkbox" id="smoke" ${s.smoke !== false ? 'checked' : ''} /><i></i></label>
-      </section>
-      <section class="set-card danger-zone">
-        <h3>🗂️ Ma'lumotlar</h3>
-        <button class="btn danger" id="reset">🗑 Progressni o'chirish va qaytadan boshlash</button>
+        <h3>🖥️ HUD va Ko'rinish</h3>
+        <label class="toggle"><span>📊 FPS ko'rsatkichi</span><input type="checkbox" id="showFpsToggle" ${s.showFps !== false ? 'checked' : ''} /><i></i></label>
+        <label class="toggle"><span>🧭 HUD elementlarini ko'rsatish</span><input type="checkbox" id="showHudToggle" ${s.showHud !== false ? 'checked' : ''} /><i></i></label>
+        <label class="toggle"><span>💨 Drift tutuni effekti</span><input type="checkbox" id="smoke" ${s.smoke !== false ? 'checked' : ''} /><i></i></label>
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">
+          <button type="button" class="btn danger" id="reset" style="width:100%">🗑 Progressni o'chirish va yangilash</button>
+        </div>
       </section>
     </div>`);
-  const hint = () => {
-    const mode = applyControl(s.control, s.steerType, s.touchScale);
-    body.querySelector('#ctlHint').textContent = (s.control === 'auto' ? 'Avto: ' : '') + (mode === 'phone' ? `ekranda ${s.steerType === 'buttons' ? 'chap/o\'ng tugmalar' : 'aylanuvchi rul (🛞)'} va gaz/tormoz pedallari yoqilgan.` : 'W A S D / strelkalar, Shift — nitro, Space — drift.');
-  };
-  hint();
+
   body.querySelectorAll('[data-seg]').forEach((g) => g.querySelectorAll('button').forEach((b) => (b.onclick = () => {
     g.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
     const kind = g.dataset.seg;
-    if (kind === 'control') { s.control = b.dataset.v; touch(); hint(); }
-    else if (kind === 'steerType') { s.steerType = b.dataset.v; touch(); hint(); }
-    else if (kind === 'touchScale') { s.touchScale = b.dataset.v; touch(); hint(); }
-    else if (kind === 'quality') { const prev = s.quality; s.quality = b.dataset.v; touch(); game.setQuality(s.quality, prev); }
+    if (kind === 'touchScale') {
+      s.touchScale = b.dataset.v;
+      applyControl('auto', 'buttons', s.touchScale);
+      touch();
+    } else if (kind === 'quality') {
+      const prev = s.quality;
+      const val = b.dataset.v;
+      s.quality = val;
+      const resolved = val === 'auto' ? (matchMedia('(pointer: coarse)').matches ? 'medium' : 'high') : val;
+      touch();
+      game.setQuality(resolved, prev);
+    } else if (kind === 'lang') {
+      s.lang = b.dataset.v;
+      touch();
+      toast(`Til saqlandi: ${b.dataset.v.toUpperCase()}`, 'ok');
+    }
   })));
+
   body.querySelector('#landscapeBtn').onclick = () => {
     document.documentElement.requestFullscreen?.().then(() => {
       screen.orientation?.lock?.('landscape').catch(() => {});
@@ -863,64 +1473,68 @@ function settings() {
     screen.orientation?.lock?.('landscape').catch(() => {});
     toast("Gorizontal to'liq ekran rejimi yoqildi", 'ok');
   };
-  body.querySelector('#vol').oninput = (e) => { s.volume = +e.target.value; body.querySelector('#volV').textContent = Math.round(s.volume * 100) + '%'; setVolume(s.volume); touch(); };
-  body.querySelector('#sens').oninput = (e) => { s.sens = +e.target.value; window.__sens = s.sens; body.querySelector('#sensV').textContent = s.sens.toFixed(1); touch(); };
-  body.querySelector('#smoke').onchange = (e) => { s.smoke = e.target.checked; touch(); };
+
+  body.querySelector('#vol').oninput = (e) => {
+    s.volume = +e.target.value;
+    body.querySelector('#volV').textContent = Math.round(s.volume * 100) + '%';
+    setVolume(s.volume);
+    touch();
+  };
+  body.querySelector('#musVol').oninput = (e) => {
+    s.musicVolume = +e.target.value;
+    body.querySelector('#musV').textContent = Math.round(s.musicVolume * 100) + '%';
+    touch();
+  };
+  body.querySelector('#steerSens').oninput = (e) => {
+    s.steerSens = +e.target.value;
+    window.__steerSens = s.steerSens;
+    body.querySelector('#steerSensV').textContent = s.steerSens.toFixed(1);
+    touch();
+  };
+  body.querySelector('#sens').oninput = (e) => {
+    s.sens = +e.target.value;
+    window.__sens = s.sens;
+    body.querySelector('#sensV').textContent = s.sens.toFixed(1);
+    touch();
+  };
+  body.querySelector('#showFpsToggle').onchange = (e) => {
+    s.showFps = e.target.checked;
+    const fpsEl = document.getElementById('hudFps');
+    if (fpsEl) fpsEl.style.display = s.showFps ? '' : 'none';
+    touch();
+  };
+  body.querySelector('#showHudToggle').onchange = (e) => {
+    s.showHud = e.target.checked;
+    document.body.classList.toggle('hide-hud-panels', !s.showHud);
+    touch();
+  };
+  body.querySelector('#smoke').onchange = (e) => {
+    s.smoke = e.target.checked;
+    touch();
+  };
   const paBtn = body.querySelector('#perfAuditBtn');
   if (paBtn) paBtn.onclick = () => { window.__togglePerfAudit?.(); };
-  body.querySelector('#reset').onclick = () => { if (confirm("Barcha progress (pul, mashinalar) o'chiriladi. Davom etasizmi?")) resetSave(); };
-}
-function about() {
-  const f = (i, t, d, soon) => `<div class="feat${soon ? ' soon' : ''}"><b>${i} ${t}${soon ? '<em>TEZDA</em>' : ''}</b><span>${d}</span></div>`;
-  showModal('about', 'ℹ️ O\'yin haqida', `
-    <p class="about-hero"><b style="color:var(--text)">TUNGI TOSHKENT</b> — brauzerda ishlaydigan 3D ochiq dunyo avtosimulyator. Toshkent ko'chalarida haydang, pul ishlang, mashina sotib oling va tuning qiling. Hech narsa o'rnatish shart emas, progress qurilmangizda saqlanadi.</p>
-    <div class="section-title">Nimalar bor</div>
-    <div class="feat-grid">
-      ${f('🚗', '26 ta 3D mashina', 'Chevrolet, BMW, Mercedes, Ferrari, Porsche, Lamborghini va Bugatti — haqiqiy 3D GLB modellar.')}
-      ${f('🏁', 'Poyga va drift', 'Raqiblar bilan poyga, drift paytida shinadan tutun.')}
-      ${f('🚕', 'Ish va missiyalar', 'Taksi, yetkazib berish, ijara va kunlik topshiriqlar.')}
-      ${f('🎨', 'Tuning', 'Rang, disk, spoyler, neon va dvigatel kuchaytirish.')}
-      ${f('⛽', 'Benzin va ta\'mir', 'Yoqilg\'i turi, zapravka, xizmat paneli va evakuator.')}
-      ${f('🌗', 'Kun va tun', '24 daqiqada bir kecha-kunduz, shahar chiroqlari va yulduzlar.')}
-      ${f('🚶', '3D piyodalar va transport', 'Yo\'llarda jonli NPC mashinalar va yuruvchi odamlar.')}
-      ${f('📱', 'Har qanday qurilma', 'Avto / Kompyuter / Telefon boshqaruvi.')}
-    </div>`);
+  body.querySelector('#reset').onclick = () => {
+    if (confirm("Barcha progress (pul, mashinalar) o'chiriladi va 5 mlrd boshlang'ich balans tiklanadi. Davom etasizmi?")) resetSave();
+  };
 }
 
-function ideas() {
-  const f = (i, t, d) => `<div class="feat soon"><b>${i} ${t}<em>G'OYA</em></b><span>${d}</span></div>`;
-  showModal('ideas', '💡 G\'oyalar va rejalar', `
-    <p class="about-hero">O'yinni keyingi versiyalarda shunday rivojlantirish mumkin. Qaysi biri yoqsa, ayting — birinchi shuni qo'shamiz!</p>
-    <div class="feat-grid">
-      ${f('🌧️', 'Ob-havo', 'Yomg\'ir, tuman va ho\'l asfalt aksi.')}
-      ${f('👮', 'Yo\'l politsiyasi', 'Tezlikni oshirsangiz, DPX mashinasi quvib keladi.')}
-      ${f('🌐', 'Onlayn rejim', 'Do\'stlar bilan bitta shaharda haydash va poyga.')}
-      ${f('🏠', 'Uy va garaj', 'Pul yig\'ib uy sotib olish, garajni bezash.')}
-      ${f('🏆', 'Reyting jadvali', 'Eng tez davra, eng uzun drift va haftalik musobaqalar.')}
-      ${f('📸', 'Foto rejim', 'Kamerani erkin qo\'yib, mashinani suratga olish.')}
-      ${f('🔊', 'Radio', 'Mashinada o\'zbek va jahon musiqalari bilan radio.')}
-      ${f('🔧', 'Chuqur tuning', 'G\'ildirak, pasaytirilgan podveska, bo\'yoq turlari va stiker.')}
-      ${f('🕹️', 'Gamepad', 'Joystik / o\'yin pulti qo\'llab-quvvatlashi.')}
-      ${f('🗺️', 'Yangi tumanlar', 'Chilonzor, Yunusobod, Mirobod — alohida muhit va missiyalar.')}
-    </div>`);
-}
 function help() {
   const keys = [
-    ['W A S D / ↑↓←→', 'Haydash (mashinada) / Yurish (piyoda)'],
-    ['Shift', 'Nitro (mashinada) / Yugurish (piyoda)'],
-    ['Space', "Qo'l tormozi va Drift / Sakrash (piyoda)"],
-    ['E', 'Mashinaga kirish (piyoda) / Xizmat paneli va Zapravka'],
-    ['F', 'Mashinadan tushish (ExitCar animatsiyasi bilan)'],
-    ['G', 'Garaj, Avtosalon va 3D Tuning'],
+    ['W A S D / ↑↓←→', 'Avtomobilni boshqarish (Gaz, Tormoz, Chap, O\'ng)'],
+    ['Shift', 'Nitro tezlatgich'],
+    ['Space', "Qo'l tormozi"],
+    ['Q / Ctrl', 'Drift rejimi'],
+    ['G', 'Garaj, Avtosalon va Professional 3D Tuning'],
+    ['E', 'Xizmat paneli va Zapravka'],
     ['M', 'Toshkent katta xaritasi va GPS'],
     ['R', 'Poygalar va Tungi Drift musobaqalari'],
     ['T', 'Taksi, Yetkazib berish va Avto-ijara'],
     ['O', "Online Multiplayer va Do'stlar xonasi"],
     ['L', 'Faralarni yoqish / o\'chirish'],
-    ['H', 'Avtomobil signali'],
     ['C', "Kamera ko'rinishini almashtirish"],
     ['ESC', 'Pauza va Boshqaruv Markazi'],
-    ['Sichqoncha / Surish', 'Kamerani 360° aylantirish, g\'ildirak — masofa'],
+    ['Sichqoncha / Surish', 'Kamerani 360° aylantirish'],
   ];
   showModal('help', '⌨ Boshqaruv va Tugmalar', `<div class="keys">${keys.map(([k, d]) => `<div><span class="key">${k}</span>${d}</div>`).join('')}</div>`);
 }
@@ -954,7 +1568,22 @@ function leaderboard() {
   `);
 }
 
-const PANELS = { gas: gasStation, service, garage: () => openGarage({ showModal, toast, closeModal, game }), map: bigMap, race: races, jobs, pause, online, settings, help, leaderboard, about, ideas };
+const PANELS = {
+  gas: gasStation,
+  service,
+  daily: dailyRewardsModal,
+  promocode: promocodeModal,
+  transfer: transferModal,
+  garage: () => openGarage({ showModal, toast, closeModal, game }),
+  map: bigMap,
+  race: races,
+  jobs,
+  pause,
+  online,
+  settings,
+  help,
+  leaderboard,
+};
 
 function renderModalChatLog() {
   const logEl = document.getElementById('onlineChatLog');
@@ -1006,12 +1635,12 @@ function updateOnlineModalDynamic() {
         const c = carById(p.car);
         const spd = Math.round(Math.abs(p.v || 0) * 3.6);
         return `<div>
-          <span>🟢 <b>${p.name || 'Haydovchi'}</b> <small style="color:var(--cyan)">(${displayId(p.id)})</small> ${p.onFoot ? '<small style="color:var(--gold)">🚶 Piyoda</small>' : ''}${p.chat ? ` · <b style="color:var(--gold)">«${p.chat}»</b>` : ''}</span>
+          <span>🟢 <b>${p.name || 'Haydovchi'}</b> <small style="color:var(--cyan)">(${displayId(p.id)})</small>${p.chat ? ` · <b style="color:var(--gold)">«${p.chat}»</b>` : ''}</span>
           <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <small style="color:var(--muted)">${spd} km/s</small>
+            <small style="color:var(--muted)">${spd} km/h</small>
             <b>${c.name}</b>
             <button class="btn sm-btn" data-tp="${p.id}">📍 Yoniga borish</button>
-            <button class="btn sm-btn primary" data-sit="${p.id}">💺 Mashinasiga o'tirish</button>
+            <button class="btn sm-btn gold" data-send-cash="${p.id}">💸 Pul o'tkazish</button>
           </span>
         </div>`;
       }).join('')}
@@ -1023,23 +1652,30 @@ function updateOnlineModalDynamic() {
       closeModal();
       toast(`${p.name} yoniga o'tdingiz!`, 'ok');
     }));
-    peersEl.querySelectorAll('[data-sit]').forEach((b) => (b.onclick = () => {
-      const p = peers.find((x) => x.id === b.dataset.sit);
-      if (!p) return;
-      game.sitInFriendCar?.(p.id);
-      closeModal();
+    peersEl.querySelectorAll('[data-send-cash]').forEach((b) => (b.onclick = () => {
+      const p = peers.find((x) => x.id === b.dataset.sendCash);
+      if (p) {
+        verifiedTarget = { id: p.id, displayId: `TT-${p.id}`, name: p.name || 'Haydovchi', online: true };
+      }
+      open('transfer');
     }));
   }
 }
 
 onOnline((ev) => {
+  if (ev.economyUpdate) {
+    applyServerTransferPush(ev.economyUpdate);
+    const tx = ev.economyUpdate.tx;
+    if (tx) {
+      beep('cash');
+      toast(`💸 ${tx.fromName} (TT-${tx.fromId}) sizga +${fmt(tx.amount)} o'tkazdi!`, 'cash');
+    }
+    if (current === 'transfer') transferModal();
+    return;
+  }
   if (ev.join) toast(`🌐 ${ev.join} o'yinga qo'shildi!`, 'ok');
   if (ev.leave) toast(`🌐 ${ev.leave} o'yindan chiqdi`, 'err');
-  if (ev.left === 'host') toast("🌐 Xona egasi chiqib ketdi", 'err');
-  if (ev.passengerJoin) {
-    beep('ok');
-    toast(`💺 ${ev.passengerJoin} sizning mashinangizga o'tirdi!`, 'cash');
-  }
+  if (ev.left === 'host') toast('🌐 Xona egasi chiqib ketdi', 'err');
   if (ev.raceEvent) {
     beep('go');
     toast(ev.raceEvent.text || '🏁 Online Poyga boshlandi!', 'cash');
@@ -1067,6 +1703,3 @@ onOnline((ev) => {
     updateOnlineModalDynamic();
   }
 });
-
-
-
