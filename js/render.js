@@ -210,8 +210,6 @@ export function createRenderer(canvas, quality) {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('tt_landscape_dismissed', '1');
       }
-      const b = document.getElementById('autoLandscapeBtn');
-      if (b) b.style.display = 'none';
       if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(() => {});
       }

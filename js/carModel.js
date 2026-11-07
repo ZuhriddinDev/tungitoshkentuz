@@ -97,16 +97,6 @@ export const GLB_SPECS = {
     headMats: ['bM_LightGlassNormal_Clear_Low1', 'emis'],
     tailMats: ['bM_LightGlassNormal_OuterRed_Low1', 'bM_LightGlass_Red_Low1'],
   },
-  bmwx6m: {
-    file: 'opt/bmw_x6m.glb',
-    rotX: -Math.PI / 2, // 3D modelning 90° ag'darilgan Y-o'qini to'g'rilaydi
-    rotY: 0,
-    scaleMul: 1.15, // Haqiqiy BMW X6M Competition SUV o'lchamiga to'liq moslashtiradi
-    paintMats: ['body', 'coloured'],
-    rimMats: ['rim1', 'rim2'],
-    headMats: ['lights', 'Front'],
-    tailMats: ['Material_44'],
-  },
   bmw: {
     file: 'opt/2022_bmw_m5_cs.glb',
     rotY: 0,
@@ -131,14 +121,6 @@ export const GLB_SPECS = {
     headMats: ['BMW_M8RewardRecycled_2020LightA_Material', 'whitelight'],
     tailMats: ['redlight'],
   },
-  lancia037: {
-    file: 'opt/lancia_037_stradale_1978.glb',
-    rotY: 0,
-    paintMats: ['Part1Mtl', 'Meshpart1Mtl'],
-    rimMats: ['SsrFormulaSpf1Mtl'],
-    headMats: [],
-    tailMats: [],
-  },
   mercedes: {
     file: 'opt/2025_mercedes-benz_g-class_amg_g_63.glb',
     rotY: 0,
@@ -155,14 +137,6 @@ export const GLB_SPECS = {
     headMats: ['gls_fara.003', 'gls_svet.003', 'gls_run.001'],
     tailMats: ['gls_stop.001', 'gls_rear.001'],
   },
-  gt40: {
-    file: 'opt/ford_gt40.glb',
-    rotY: 0,
-    paintMats: ['Paint1Mtl'],
-    rimMats: ['Wheel1Mtl'],
-    headMats: [],
-    tailMats: [],
-  },
   ferrari599: {
     file: 'opt/ferrari_599.glb',
     rotY: 0,
@@ -178,14 +152,6 @@ export const GLB_SPECS = {
     rimMats: ['Porsche_911GT3RS992Tribute_2023_Wheel1A_3D_3DWheel1G_Material'],
     headMats: ['Porsche_911GT3RS992Tribute_2023LightA_Material'],
     tailMats: ['RED_GLASS'],
-  },
-  concept037: {
-    file: 'opt/free_concept_car_037_-_public_domain_cc0.glb',
-    rotY: Math.PI,
-    paintMats: ['body_color_supra.001'],
-    rimMats: ['rims.001'],
-    headMats: ['headlightCovers'],
-    tailMats: [],
   },
   lambo: {
     file: 'opt/lamborgini_aventador.glb',
@@ -210,19 +176,6 @@ export const GLB_SPECS = {
     rimMats: ['Rims'],
     headMats: ['headlights_main', 'headlights_AHO'],
     tailMats: ['Glass_rear_lights_main', 'Glass_rear_lights_DHO'],
-  },
-  bolide: {
-    file: 'opt/bugatti_bolide_2024.glb',
-    rotY: 0,
-    paintMats: ['Bugatti_X16Gold_2024Paint_Material.002', 'Bugatti_X16Gold_2024Coloured_Material.002'],
-    rimMats: [
-      'Bugatti_X16Gold_2024_Wheel1A_3D_3DWheel1B_Material',
-      'Bugatti_X16Gold_2024_Wheel1A_3D_3DWheel1B_Material.001',
-      'Bugatti_X16Gold_2024_Wheel1A_3D_3DWheel1B_Material.002',
-      'Bugatti_X16Gold_2024_Wheel1A_3D_3DWheel1B_Material.003',
-    ],
-    headMats: ['Bugatti_X16Gold_2024LightA_Material.002', 'Bugatti_X16Gold_2024LightEmissiveA_Material.002'],
-    tailMats: ['Bugatti_X16Gold_2024LightEmissiveA_Material.002'],
   },
 };
 
