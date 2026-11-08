@@ -236,7 +236,7 @@ const RIM_COLORS = {
 const box = new THREE.BoxGeometry(1, 1, 1);
 
 // Ichki salon (SteeringWheel, BrakePedal, HandBrake, DoorPanel) va kuzov qismlarini g'ildirakdan 100% ajratish
-const NON_WHEEL_PART_RE = /steering|steer|swheel|volan|pedal|handbrake|doorpanel|door_l|door_r|bumper|fender|hood|trunk|wing|spoiler|exhaust|light|glass|window|windshield|interior|cockpit|dashboard|seat|carpet|fgrll|license|chassis|lip|spare|zapas|grill|badge|emblem|wiper|antenna|roof/i;
+const NON_WHEEL_PART_RE = /steering|steer|swheel|volan|pedal|handbrake|doorpanel|door_l|door_r|bumper|fender|hood|trunk|wing|spoiler|exhaust|light|glass|window|windshield|interior|cockpit|dashboard|seat|carpet|fgrll|license|chassis|lip|spare|zapas|grill|badge|emblem|wiper|antenna|roof|sideskirt|skirt|side_skirt|engine|dvig|motor|diffuser|splitter/i;
 const WHEEL_MAT_OR_NAME_RE = /tire|tyre|wheel|rim|felge|reifen|caliper|calliper|brakedisk|brake|tormoz|koleso|disc|disk|ssr|bremse|chrome_r|metal_r/i;
 const CALIPER_RE = /caliper|calliper|brakedisk|brake|tormoz|bremse|koleso_support/i;
 const SPIN_WHEEL_RE = /tire|tyre|wheel|rim|felge|reifen|koleso|ssr|disc|disk|chrome_r|metal_r/i;
@@ -360,6 +360,14 @@ function splitMergedWheelMeshes(templateGroup, spec) {
  * to'g'ri yo'nalish, markaz va o'lchamga keltiradi.
  */
 function prepareGlbTemplate(origScene, cfg, spec) {
+  // Model ichidagi noto'g'ri chetdagi adashgan meshlar (masalan Kia K5 dagi Object_156) markazni buzmasligi uchun olib tashlanadi
+  origScene.traverse((o) => {
+    if (o.isMesh && (o.name === 'Object_156' || (o.geometry?.attributes?.position && Math.abs(o.position.x) > 100))) {
+      o.geometry?.dispose?.();
+      o.parent?.remove(o);
+    }
+  });
+
   origScene.rotation.set(spec.rotX || 0, spec.rotY || 0, spec.rotZ || 0);
   origScene.position.set(0, 0, 0);
   origScene.scale.setScalar(1);
@@ -581,6 +589,10 @@ function setupGlbWheels(root, spec, cfg) {
     root.updateMatrixWorld(true);
 
     for (const it of items) {
+      if (it.mesh && it.mesh.material) {
+        const mats = Array.isArray(it.mesh.material) ? it.mesh.material : [it.mesh.material];
+        for (const m of mats) m.side = THREE.DoubleSide;
+      }
       spin.attach(it.mesh);
     }
 
@@ -604,7 +616,16 @@ function setupGlbWheels(root, spec, cfg) {
 function loadGlb(id, cfg, priority = false) {
   const spec = GLB_SPECS[id];
   if (!spec) return Promise.resolve(null);
-  if (glbCache.has(id)) return Promise.resolve(instantiateGlb(glbCache.get(id), spec, cfg));
+  const safeInstantiate = (cached) => {
+    if (!cached) return null;
+    try {
+      return instantiateGlb(cached, spec, cfg);
+    } catch (err) {
+      console.warn(`[GLB] instantiateGlb xatosi (${id}):`, err);
+      return null;
+    }
+  };
+  if (glbCache.has(id)) return Promise.resolve(safeInstantiate(glbCache.get(id)));
   if (glbLoading.has(id)) {
     if (priority) {
       const i = loadQueue.findIndex((q) => q.id === id && !q.pri);
@@ -615,7 +636,7 @@ function loadGlb(id, cfg, priority = false) {
         pumpQueue();
       }
     }
-    return glbLoading.get(id).then((cached) => (cached ? instantiateGlb(cached, spec, cfg) : null));
+    return glbLoading.get(id).then(safeInstantiate);
   }
 
   const p = new Promise((resolve) => {
@@ -652,7 +673,7 @@ function loadGlb(id, cfg, priority = false) {
   });
 
   glbLoading.set(id, p);
-  return p.then((cached) => (cached ? instantiateGlb(cached, spec, cfg) : null));
+  return p.then(safeInstantiate);
 }
 
 export function preloadCar(cfg, onProgress) {
@@ -951,7 +972,11 @@ export function buildCar(cfg, look = {}, opts = {}) {
   const spec = GLB_SPECS[cfg.id];
   if (spec) {
     if (glbCache.has(cfg.id)) {
-      api._applyGlb(instantiateGlb(glbCache.get(cfg.id), spec, cfg));
+      try {
+        api._applyGlb(instantiateGlb(glbCache.get(cfg.id), spec, cfg));
+      } catch (err) {
+        console.warn(`[GLB] apply cached xatosi (${cfg.id}):`, err);
+      }
     } else {
       loadGlb(cfg.id, cfg, isPriority).then((inst) => {
         if (inst) api._applyGlb(inst);

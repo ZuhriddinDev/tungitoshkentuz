@@ -182,8 +182,8 @@ export function readDrive() {
   const down = k('KeyS', 'ArrowDown', 's', 'ы') || touch.down;
   const left = k('KeyA', 'ArrowLeft', 'a', 'ф') || touch.left;
   const right = k('KeyD', 'ArrowRight', 'd', 'в') || touch.right;
-  // O'ngga burilish: steer > 0 (+X), Chapga burilish: steer < 0 (-X)
-  const steer = (right ? 1 : 0) - (left ? 1 : 0);
+  // Three.js koordinata tizimida: steer > 0 Chapga (+X), steer < 0 O'ngga (-X)
+  const steer = (left ? 1 : 0) - (right ? 1 : 0);
   return {
     throttle: up ? 1 : 0,
     reverse: down ? 1 : 0,
@@ -201,7 +201,7 @@ export const isTouch = () =>
 
 // Boshqaruv turi va telefon uchun avtomatik gorizontal (landscape) rejimni qo'llash
 export function applyControl(mode = 'auto', _steerType = 'buttons', touchScale = 'normal') {
-  const phone = mode === 'phone' || (mode === 'auto' && isTouch()) || isTouch();
+  const phone = mode === 'phone' ? true : mode === 'pc' ? false : isTouch();
   const vv = window.visualViewport;
   const rawW = vv && vv.width > 0 ? vv.width : (document.documentElement.clientWidth || window.innerWidth);
   const rawH = vv && vv.height > 0 ? vv.height : (document.documentElement.clientHeight || window.innerHeight);
