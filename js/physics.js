@@ -105,48 +105,71 @@ export class Vehicle {
     }
     this.v = clamp(this.v + a * dt, -vrev, vmax);
 
-    // Rul va Burilish Tizimi (boshqaruv sezgirligi bilan)
+    // Rul va Burilish Tizimi (V14 — Yuqori sezgirlik, tabiiy Akerman fizikasi va tezkor kontr-rul)
     const speed = Math.abs(this.v);
-    const steerSens = clamp(window.__steerSens || 1.0, 0.5, 1.8);
-    const maxSteer = clamp((0.62 * steerSens) / (1 + speed * 0.040), 0.16, 0.68);
+    const speedKmh = speed * 3.6;
+    const steerSens = clamp((typeof window !== 'undefined' && window.__steerSens) || 1.0, 0.6, 2.0);
+
+    // Tezlikka bog'liq burilish burchagi (Speed-sensitive steering limit):
+    // Past tezlikda (0 - 25 km/h) shahar burilishlari va U-turn uchun keng 38° (0.66 rad) burchak
+    // O'rta tezlikda (40 - 80 km/h) shahar ko'chalarida tezkor burilish uchun 24° - 28° burchak
+    // Yuqori tezlikda (100 - 250 km/h) barqaror magistral boshqaruvi uchun 13° - 16° burchak
+    const speedSteerFalloff = 1 / (1 + Math.max(0, speedKmh - 16) * 0.015);
+    const maxSteer = clamp(0.66 * speedSteerFalloff * steerSens, 0.22, 0.72);
     const steerInput = clamp(input.steer || 0, -1, 1);
     const steerTarget = steerInput * maxSteer;
 
     const isCentering = Math.abs(steerInput) < 0.02;
     const isCounterSteer = !isCentering && (steerInput * this.steer < -0.001);
-    const steerRate = (isCentering ? 22.0 : isCounterSteer ? 26.0 : 18.5) * Math.sqrt(steerSens);
+    // Tezkor rul reaktsiyasi (kechikishsiz darhol burilish):
+    // Burilishga kirish: 34 rad/s (~0.07 soniyada to'liq burchak)
+    // Kontr-rul (slaydni ushlash): 48 rad/s (bir zumda qarama-qarshi tomonga qaytish)
+    // Markazga qaytish: 38 rad/s
+    const steerRate = (isCentering ? 38.0 : isCounterSteer ? 48.0 : 34.0) * Math.sqrt(steerSens);
     this.steer += (steerTarget - this.steer) * Math.min(1, dt * steerRate);
     if (isCentering && Math.abs(this.steer) < 0.002) this.steer = 0;
 
     // Drift va Qo'l tormozi holati
-    const wantDrift = Boolean((input.drift || input.handbrake) && speed > 4.0);
+    const wantDrift = Boolean((input.drift || input.handbrake) && speed > 3.5);
     const targetDrift = wantDrift ? 1.0 : 0.0;
-    this.driftFactor += (targetDrift - this.driftFactor) * Math.min(1, dt * (wantDrift ? 8.5 : 6.0));
+    this.driftFactor += (targetDrift - this.driftFactor) * Math.min(1, dt * (wantDrift ? 9.5 : 7.0));
     if (!wantDrift && this.driftFactor < 0.01) this.driftFactor = 0;
 
     const wheelBase = Math.max(2.1, c.len * 0.56);
 
-    if (speed < 0.15) {
+    if (speed < 0.10 && !input.throttle && !input.reverse) {
       this.yawRate = 0;
       this.lat = 0;
     } else {
-      const lowSpeedTurnBoost = speed < 8 ? 1.18 : 1.05;
-      const driftYawMul = 1.0 + this.driftFactor * 0.52;
-      const desiredYaw = (this.v / wheelBase) * Math.tan(this.steer) * lowSpeedTurnBoost * driftYawMul;
-      const maxLatAccel = traction * (1.28 - this.driftFactor * 0.22);
-      const maxYaw = maxLatAccel / Math.max(speed, 1.8);
-      const targetYaw = clamp(desiredYaw, -maxYaw, maxYaw);
+      // Akerman kinematiyasi: w = (v / L) * tan(steer)
+      // Tormozlanganda old aksga og'irlik ko'chishi (weight transfer) burilishni o'tkirroq qiladi
+      const brakeTurnIn = this.braking && speed > 4 ? 1.14 : 1.0;
+      const lowSpeedTurnBoost = speed < 14 ? 1.25 - (speed / 14) * 0.15 : 1.0;
+      const kinYaw = (this.v / wheelBase) * Math.tan(this.steer) * lowSpeedTurnBoost * brakeTurnIn;
 
-      const yawResponse = 24.0 - this.driftFactor * 8.5;
+      // Dinamik lateral shina tutashuvi (Tire lateral grip limit):
+      // Past va shahar tezliklarida (0 - 60 km/h) minimal 3.4 rad/s (195°/s) burchak tezligi beriladi,
+      // bu orqali mashina har qanday Toshkent chorrahasida bir zumda, kechikishsiz buriladi.
+      const aeroDownforce = Math.min(1.0, speed / 36) * 0.45;
+      const maxLatAccel = traction * (1.65 + aeroDownforce + (this.driftFactor ? 0.65 : 0));
+      const lowSpeedFloor = Math.max(0, 3.4 * (1 - speed / 24));
+      const maxYaw = Math.max(lowSpeedFloor, maxLatAccel / Math.max(speed, 1.4));
+      const targetYaw = clamp(kinYaw * (1 + this.driftFactor * 0.55), -maxYaw, maxYaw);
+
+      // Korpus aylanma tezligi (yaw rate): kontr-rulda 46 rad/s, burilishda 34 rad/s
+      const isCounteringYaw = (this.yawRate * targetYaw < -0.01);
+      const yawResponse = isCounteringYaw ? 46.0 : (34.0 - this.driftFactor * 6.0);
       this.yawRate += (targetYaw - this.yawRate) * Math.min(1, dt * yawResponse);
       this.heading += this.yawRate * dt;
     }
 
-    const latKick = this.driftFactor * 0.48;
+    // Yon sirpanish (lateral velocity) va kontr-rul barqarorlashuvi
+    const isCounter = Math.sign(this.steer) !== Math.sign(this.yawRate) && Math.abs(this.steer) > 0.03;
+    const latKick = this.driftFactor * 0.52;
     this.lat += -this.yawRate * this.v * dt * latKick;
-    const latDamp = (22.0 * (1 - this.driftFactor * 0.86) + 1.8) * grip;
+    const latDamp = (25.0 * (1 - this.driftFactor * 0.82) + 2.0) * grip * (isCounter ? 1.85 : 1.0);
     this.lat *= Math.exp(-dt * latDamp);
-    this.lat = clamp(this.lat, -speed * 0.50, speed * 0.50);
+    this.lat = clamp(this.lat, -speed * 0.55, speed * 0.55);
     if (Math.abs(this.lat) < 0.005) this.lat = 0;
 
     this.slip = speed > 1.0 ? Math.atan2(Math.abs(this.lat), Math.max(1.2, speed)) : 0;

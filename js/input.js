@@ -84,10 +84,12 @@ export function initInput(canvas) {
   canvas.addEventListener('pointercancel', end);
   canvas.addEventListener('wheel', (e) => { cam.dist = Math.max(5, Math.min(22, cam.dist + e.deltaY * 0.01)); }, { passive: true });
 
-  // Sensorli tugmalar (multi-touch qo'llab-quvvatlanadi: Gaz + Chap/O'ng + Drift/Nitro bir vaqtda ishlaydi)
+  // Sensorli pedallar va tugmalar (Gaz, Tormoz, Drift) — multi-touch qo'llab-quvvatlanadi
   const activePointers = new Map(); // pointerId -> { k, el }
   document.querySelectorAll('[data-touch]').forEach((b) => {
     const k = b.dataset.touch;
+    if (k === 'left' || k === 'right') return; // Rul tugmalari steerPad orqali mustaqil boshqariladi
+
     const on = (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -98,15 +100,9 @@ export function initInput(canvas) {
     };
     const off = (e) => {
       e.preventDefault();
-      const prev = activePointers.get(e.pointerId);
-      if (prev) {
-        activePointers.delete(e.pointerId);
-        const stillHeld = [...activePointers.values()].some((x) => x.k === prev.k);
-        if (!stillHeld) {
-          touch[prev.k] = 0;
-          prev.el.classList.remove('on');
-        }
-      } else {
+      activePointers.delete(e.pointerId);
+      const stillHeld = [...activePointers.values()].some((x) => x.k === k);
+      if (!stillHeld) {
         touch[k] = 0;
         b.classList.remove('on');
       }
@@ -115,33 +111,84 @@ export function initInput(canvas) {
     b.addEventListener('pointerup', off);
     b.addEventListener('pointercancel', off);
     b.addEventListener('lostpointercapture', off);
-    b.addEventListener('pointerleave', (e) => {
-      if (!b.hasPointerCapture?.(e.pointerId)) off(e);
-    });
   });
 
-  // Chap/O'ng tugmalarda barmoqni uzmasdan surish (Slide-to-steer — har qanday orientatsiyada aniq ishlaydi)
+  // Chap/O'ng Rul Boshqaruvi (V14 — Bir zumda sezuvchi, barmoqni uzmasdan surish va qotib qolmaydigan sensor)
   const steerPad = document.getElementById('steerPad');
   if (steerPad) {
     const leftBtn = steerPad.querySelector('[data-touch="left"]');
     const rightBtn = steerPad.querySelector('[data-touch="right"]');
-    steerPad.addEventListener('pointermove', (e) => {
-      const entry = activePointers.get(e.pointerId);
-      if (!entry || (entry.k !== 'left' && entry.k !== 'right') || !leftBtn || !rightBtn) return;
+
+    const updateSteerFromCoord = (clientX, clientY) => {
+      if (!leftBtn || !rightBtn) return;
       const lr = leftBtn.getBoundingClientRect();
       const rr = rightBtn.getBoundingClientRect();
-      const dLeft = Math.hypot(e.clientX - (lr.left + lr.width / 2), e.clientY - (lr.top + lr.height / 2));
-      const dRight = Math.hypot(e.clientX - (rr.left + rr.width / 2), e.clientY - (rr.top + rr.height / 2));
-      const wantKey = dLeft <= dRight ? 'left' : 'right';
-      if (wantKey !== entry.k) {
-        touch[entry.k] = 0;
-        entry.el.classList.remove('on');
-        entry.k = wantKey;
-        entry.el = wantKey === 'left' ? leftBtn : rightBtn;
-        touch[wantKey] = 1;
-        entry.el.classList.add('on');
+      const dL = Math.hypot(clientX - (lr.left + lr.width / 2), clientY - (lr.top + lr.height / 2));
+      const dR = Math.hypot(clientX - (rr.left + rr.width / 2), clientY - (rr.top + rr.height / 2));
+      const wantLeft = dL <= dR;
+
+      touch.left = wantLeft ? 1 : 0;
+      touch.right = wantLeft ? 0 : 1;
+      leftBtn.classList.toggle('on', wantLeft);
+      rightBtn.classList.toggle('on', !wantLeft);
+    };
+
+    let steerPointerId = null;
+
+    const onSteerDown = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      steerPointerId = e.pointerId;
+      try { steerPad.setPointerCapture(e.pointerId); } catch { /* */ }
+      updateSteerFromCoord(e.clientX, e.clientY);
+    };
+
+    const onSteerMove = (e) => {
+      if (steerPointerId === null || steerPointerId !== e.pointerId) return;
+      e.preventDefault();
+      updateSteerFromCoord(e.clientX, e.clientY);
+    };
+
+    const onSteerUp = (e) => {
+      if (steerPointerId === e.pointerId || steerPointerId === null) {
+        steerPointerId = null;
+        touch.left = 0;
+        touch.right = 0;
+        leftBtn?.classList.remove('on');
+        rightBtn?.classList.remove('on');
       }
-    });
+    };
+
+    steerPad.addEventListener('pointerdown', onSteerDown);
+    steerPad.addEventListener('pointermove', onSteerMove);
+    steerPad.addEventListener('pointerup', onSteerUp);
+    steerPad.addEventListener('pointercancel', onSteerUp);
+    steerPad.addEventListener('lostpointercapture', onSteerUp);
+
+    // iOS Safari va eski WebKit uchun to'g'ridan-to'g'ri Touch Eventlar
+    steerPad.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const t = e.targetTouches[0];
+      if (t) updateSteerFromCoord(t.clientX, t.clientY);
+    }, { passive: false });
+
+    steerPad.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const t = e.targetTouches[0];
+      if (t) updateSteerFromCoord(t.clientX, t.clientY);
+    }, { passive: false });
+
+    const endTouch = (e) => {
+      e.preventDefault();
+      touch.left = 0;
+      touch.right = 0;
+      leftBtn?.classList.remove('on');
+      rightBtn?.classList.remove('on');
+    };
+    steerPad.addEventListener('touchend', endTouch, { passive: false });
+    steerPad.addEventListener('touchcancel', endTouch, { passive: false });
   }
 
   document.querySelectorAll('[data-hotkey]').forEach((b) =>
