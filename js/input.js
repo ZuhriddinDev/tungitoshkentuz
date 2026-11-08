@@ -38,18 +38,32 @@ export function initInput(canvas) {
     }
     if (hot.has(e.code) && !e.repeat) { e.preventDefault(); hot.get(e.code)(); return; }
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
-    if (enabled) keys.add(e.code);
+    if (enabled) {
+      keys.add(e.code);
+      if (e.key) keys.add(e.key.toLowerCase());
+    }
   });
-  addEventListener('keyup', (e) => keys.delete(e.code));
-  addEventListener('blur', () => {
+  addEventListener('keyup', (e) => {
+    keys.delete(e.code);
+    if (e.key) keys.delete(e.key.toLowerCase());
+  });
+  const clearAllInputs = () => {
     keys.clear();
     for (const k of Object.keys(touch)) touch[k] = 0;
+    activePointers.clear();
     document.querySelectorAll('[data-touch].on').forEach((b) => b.classList.remove('on'));
+  };
+  addEventListener('blur', clearAllInputs);
+  addEventListener('visibilitychange', () => {
+    if (document.hidden) clearAllInputs();
   });
 
   // Sichqoncha / barmoq: bo'sh joyni bosib sudrash — kamerani 360° aylantirish (avtomatik gorizontal rejimga mos)
   let drag = null;
   canvas.addEventListener('pointerdown', (e) => {
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      document.activeElement.blur?.();
+    }
     if (drag) return;
     const pt = getLandscapePointerXY(e);
     drag = { x: pt.x, y: pt.y, id: e.pointerId };
@@ -101,6 +115,9 @@ export function initInput(canvas) {
     b.addEventListener('pointerup', off);
     b.addEventListener('pointercancel', off);
     b.addEventListener('lostpointercapture', off);
+    b.addEventListener('pointerleave', (e) => {
+      if (!b.hasPointerCapture?.(e.pointerId)) off(e);
+    });
   });
 
   // Chap/O'ng tugmalarda barmoqni uzmasdan surish (Slide-to-steer — har qanday orientatsiyada aniq ishlaydi)
@@ -160,19 +177,20 @@ export function initInput(canvas) {
 
 export function readDrive() {
   if (!enabled) return { throttle: 0, reverse: 0, steer: 0, boost: false, handbrake: false, drift: false };
-  const k = (c) => keys.has(c);
-  const up = k('KeyW') || k('ArrowUp') || touch.up;
-  const down = k('KeyS') || k('ArrowDown') || touch.down;
-  const left = k('KeyA') || k('ArrowLeft') || touch.left;
-  const right = k('KeyD') || k('ArrowRight') || touch.right;
-  const steer = (left ? 1 : 0) - (right ? 1 : 0);
+  const k = (...codes) => codes.some((c) => keys.has(c));
+  const up = k('KeyW', 'ArrowUp', 'w', 'ц') || touch.up;
+  const down = k('KeyS', 'ArrowDown', 's', 'ы') || touch.down;
+  const left = k('KeyA', 'ArrowLeft', 'a', 'ф') || touch.left;
+  const right = k('KeyD', 'ArrowRight', 'd', 'в') || touch.right;
+  // O'ngga burilish: steer > 0 (+X), Chapga burilish: steer < 0 (-X)
+  const steer = (right ? 1 : 0) - (left ? 1 : 0);
   return {
     throttle: up ? 1 : 0,
     reverse: down ? 1 : 0,
     steer,
-    boost: !!(k('ShiftLeft') || k('ShiftRight') || touch.boost),
+    boost: !!(k('ShiftLeft', 'ShiftRight') || touch.boost),
     handbrake: !!(k('Space') || touch.brake),
-    drift: !!(k('KeyQ') || k('ControlLeft') || touch.drift),
+    drift: !!(k('KeyQ', 'ControlLeft', 'ControlRight', 'q', 'й') || touch.drift),
   };
 }
 

@@ -715,6 +715,10 @@ async function play(openFriendsModal = false) {
   name = claimRes.name || name;
   $('nameInput').value = name;
   try {
+    document.activeElement?.blur?.();
+    window.focus?.();
+  } catch { /* */ }
+  try {
     screen.orientation?.lock?.('landscape').catch(() => {});
   } catch { /* */ }
   R.resize();
