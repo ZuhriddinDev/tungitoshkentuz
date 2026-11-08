@@ -26,7 +26,7 @@ import { Vehicle } from './physics.js';
 import { Traffic, Pedestrians } from './traffic.js';
 import { initInput, readDrive, onKey, setEnabled, applyControl } from './input.js';
 import { TireSmoke } from './smoke.js';
-import { initAudio, updateEngine, engineOff, thump, horn, beep, suspend } from './audio.js';
+import { initAudio, updateEngine, engineStart, engineOff, remoteAudio, thump, horn, beep, suspend } from './audio.js';
 import { initMissions, updateMission, mission, rivals } from './missions.js';
 import { drawMinimap } from './map.js';
 import { initUI, toggle, open, closeModal, isOpen, toast } from './ui.js';
@@ -237,6 +237,9 @@ function syncOnlineNow(dt) {
     km: state.totalKm || 0,
   });
   remotes?.update(dt, onlineList(), player, night);
+  if (remotes?.cars && vehicle) {
+    remoteAudio.update(remotes.cars, vehicle, dt);
+  }
 }
 
 const othersList = [];
@@ -282,6 +285,7 @@ function step(dt, t) {
     sound: vehicle.cfg.sound,
     braking: vehicle.braking,
     gear: vehicle.gear,
+    isInterior: camState.mode === 2,
     dt,
   });
   updateCamera(camera, vehicle, input.boost, dt);
@@ -497,10 +501,12 @@ function onModal(openState) {
   paused = openState;
   setEnabled(!openState);
   if (openState) engineOff();
+  else if (playing) engineStart();
 }
 
 function returnToLobby() {
   engineOff();
+  remoteAudio.disposeAll();
   playing = false;
   paused = false;
   if (model) model.group.visible = false;
@@ -743,6 +749,7 @@ async function play(openFriendsModal = false) {
     } catch (e) { console.warn('[play] model yuklash:', e); }
   }
   initAudio(state.settings.volume);
+  engineStart();
   if (malibuHeroModel) malibuHeroModel.group.visible = false;
   if (model) model.group.visible = true;
   $('menu').classList.remove('show');
