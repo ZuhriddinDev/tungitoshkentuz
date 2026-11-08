@@ -344,6 +344,26 @@ const BUILDERS = {
     if (isNestOne) addMonumentSign(g, 'TASHKENT CITY · NEST ONE', '266m Osmono\'par · Ishbilarmonlik markazi', 0, 6, 36);
   },
 
+  // Tashkent City Mall va Hilton
+  mall(g, l) {
+    const glass = std(0x284865, { metalness: 0.8, roughness: 0.15 });
+    const white = std(0xedf0f4, { roughness: 0.4 });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(90, 24, 75), white);
+    base.position.y = 12;
+    g.add(base);
+
+    const atrium = new THREE.Mesh(new THREE.CylinderGeometry(20, 24, 8, 24), glass);
+    atrium.position.y = 28;
+    g.add(atrium);
+
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(32, 58, 28), glass);
+    tower.position.set(24, 29, 0);
+    g.add(tower);
+
+    addMonumentSign(g, 'TASHKENT CITY MALL', 'Hilton & Savdo Markazi', 0, 8.5, 40);
+    addCollider(l.x - 48, l.z - 40, l.x + 48, l.z + 40, 'building');
+  },
+
   // 7. Mustaqillik maydoni va Oliy Majlis / Senat binosi
   park(g, l) {
     if (l.name.startsWith('Mustaqillik')) {

@@ -1,4 +1,11 @@
-// Online o'yinchilarning 3D mashinalari (V9: barcha o'yinchilar doimo avtomobil ichida, to'liq 3D tuning bilan)
+// ============================================================================
+// TUNGI TOSHKENT V12 — MULTIPLAYER PERFORMANCE & SMOOTH INTERPOLATION ENGINE
+// ============================================================================
+// Ushbu modul masofaviy o'yinchilar harakatini professional Snapshot Interpolation
+// orqali silliqlaydi (mashinalar sakrab yurishi, qotib qolishi va lagni yo'qotadi).
+// Shuningdek, 25 km² bo'ylab fazoviy optimallashtirish (Spatial Interest Culling)
+// va keshli yorliqlar orqali 60 FPS tezlikni ta'minlaydi.
+
 import * as THREE from 'three';
 import { CARS } from './config.js';
 import { buildCar } from './carModel.js';
@@ -15,7 +22,19 @@ const beaconMat = new THREE.MeshBasicMaterial({
   blending: THREE.AdditiveBlending,
 });
 
-function makeLabel(name, id, chat = '', subBadge = '') {
+// Yorliq teksturalari keshi (GC va xotira oqishining oldini olish uchun)
+const labelCache = new Map();
+
+function getOrCreateLabelSprite(name, id, chat = '', subBadge = '') {
+  const key = `${name}|${id}|${chat}|${subBadge}`;
+  if (labelCache.has(key)) {
+    const cached = labelCache.get(key);
+    const sprite = new THREE.Sprite(cached.material);
+    sprite.scale.set(4.3, chat ? 1.66 : 1.16, 1);
+    sprite.renderOrder = 35;
+    return sprite;
+  }
+
   const c = document.createElement('canvas');
   c.width = 400;
   c.height = chat ? 154 : 108;
@@ -33,7 +52,7 @@ function makeLabel(name, id, chat = '', subBadge = '') {
     g.fillText(chat.slice(0, 30), 200, 30);
   }
 
-  g.fillStyle = 'rgba(6, 10, 26, 0.86)';
+  g.fillStyle = 'rgba(6, 10, 26, 0.88)';
   g.beginPath();
   g.roundRect(14, y0 + 6, 372, 94, 22);
   g.fill();
@@ -52,15 +71,25 @@ function makeLabel(name, id, chat = '', subBadge = '') {
 
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const s = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, fog: false })
-  );
+  const mat = new THREE.SpriteMaterial({
+    map: tex,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    fog: false,
+  });
+
+  labelCache.set(key, { texture: tex, material: mat });
+  const s = new THREE.Sprite(mat);
   s.scale.set(4.3, chat ? 1.66 : 1.16, 1);
   s.renderOrder = 35;
   return s;
 }
 
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+
+// Tarmoqdagi kechikishni yumshatuvchi bufer (100 millisekund)
+const INTERP_DELAY_MS = 100;
 
 export class RemoteCars {
   constructor(scene) {
@@ -74,12 +103,14 @@ export class RemoteCars {
     const seen = new Set();
 
     for (const p of players) {
+      if (!p || !p.id) continue;
       seen.add(p.id);
+
       let r = this.map.get(p.id);
       const cfg = CARS.find((c) => c.id === p.car) || CARS[0];
       const chatText = p.chat || '';
       const subBadge = `🟢 TT-${p.id}`;
-      const labelKey = `${p.name}|${chatText}|${subBadge}`;
+      const labelKey = `${p.name}|${p.id}|${chatText}|${subBadge}`;
       const tuneKey = [
         p.color || '#f5f5f5',
         p.paintType || 'metallic',
@@ -92,8 +123,10 @@ export class RemoteCars {
         p.neon || 'none',
       ].join('|');
 
+      // Yangi o'yinchi mashinasini yaratish
       if (!r || r.carId !== cfg.id) {
         if (r) this.dispose(r);
+
         const look = {
           color: p.color || '#f5f5f5',
           paintType: p.paintType || 'metallic',
@@ -105,10 +138,11 @@ export class RemoteCars {
           headlightColor: p.headlightColor || '#fff3d0',
           neon: p.neon || 'none',
         };
+
         const model = buildCar(cfg, look, { beam: true, priority: true });
         model.group.rotation.order = 'YXZ';
 
-        const label = makeLabel(p.name || 'Haydovchi', p.id, chatText, subBadge);
+        const label = getOrCreateLabelSprite(p.name || 'Haydovchi', p.id, chatText, subBadge);
         label.position.set(0, cfg.hei + (chatText ? 1.35 : 1.05), 0);
         model.group.add(label);
 
@@ -117,6 +151,7 @@ export class RemoteCars {
         model.group.add(beacon);
 
         this.scene.add(model.group);
+
         r = {
           model,
           label,
@@ -126,15 +161,18 @@ export class RemoteCars {
           labelKey,
           tuneKey,
           x: p.x || 0,
-          z: p.z || 0,
           y: p.y || 0,
+          z: p.z || 0,
           h: p.h || 0,
           v: p.v || 0,
+          steer: p.steer || 0,
           roll: 0,
           pitch: 0,
           id: p.id,
           len: cfg.len,
           mass: cfg.body === 'suv' ? 2350 : cfg.body === 'super' ? 1580 : 1480,
+          snapshots: [], // [ { t, x, y, z, h, v, steer, roll, pitch, braking } ]
+          lastPacketTime: now,
           onHit(nx, nz, kmh) {
             const push = Math.min(1.4, Math.max(0.25, (kmh || 20) * 0.02));
             r.x += nx * push;
@@ -148,81 +186,154 @@ export class RemoteCars {
             });
           },
         };
-        this.map.set(p.id, r);
-      } else if (r.labelKey !== labelKey) {
-        r.labelKey = labelKey;
-        if (r.label.parent) r.label.parent.remove(r.label);
-        r.label.material.map.dispose();
-        r.label.material.dispose();
-        r.label = makeLabel(p.name || 'Haydovchi', p.id, chatText, subBadge);
-        r.model.group.add(r.label);
-      }
 
-      if (r.tuneKey !== tuneKey) {
-        r.tuneKey = tuneKey;
-        r.model.setTuning?.({
-          color: p.color || '#f5f5f5',
-          paintType: p.paintType || 'metallic',
-          rims: p.rims || 'std',
-          rimColor: p.rimColor || '',
-          spoiler: p.spoiler || 'none',
-          bodykit: p.bodykit || 'std',
-          tint: p.tint || 'none',
-          headlightColor: p.headlightColor || '#fff3d0',
-          neon: p.neon || 'none',
+        // Boshlang'ich snapshot
+        r.snapshots.push({
+          t: now,
+          x: p.x || 0,
+          y: p.y || 0,
+          z: p.z || 0,
+          h: p.h || 0,
+          v: p.v || 0,
+          steer: p.steer || 0,
+          braking: !!p.braking,
         });
+
+        this.map.set(p.id, r);
+      } else {
+        // Yangi snapshot qabul qilish
+        const lastSnap = r.snapshots[r.snapshots.length - 1];
+        if (!lastSnap || Math.abs(p.x - lastSnap.x) > 0.01 || Math.abs(p.z - lastSnap.z) > 0.01 || Math.abs(p.h - lastSnap.h) > 0.01) {
+          r.snapshots.push({
+            t: now,
+            x: p.x || 0,
+            y: p.y || 0,
+            z: p.z || 0,
+            h: p.h || 0,
+            v: p.v || 0,
+            steer: p.steer || 0,
+            braking: !!p.braking,
+          });
+          r.lastPacketTime = now;
+          if (r.snapshots.length > 8) r.snapshots.shift();
+        }
+
+        // Yorliq va tyuning yangilanishi
+        if (r.labelKey !== labelKey) {
+          r.labelKey = labelKey;
+          if (r.label.parent) r.label.parent.remove(r.label);
+          r.label = getOrCreateLabelSprite(p.name || 'Haydovchi', p.id, chatText, subBadge);
+          r.model.group.add(r.label);
+        }
+
+        if (r.tuneKey !== tuneKey) {
+          r.tuneKey = tuneKey;
+          r.model.setTuning?.({
+            color: p.color || '#f5f5f5',
+            paintType: p.paintType || 'metallic',
+            rims: p.rims || 'std',
+            rimColor: p.rimColor || '',
+            spoiler: p.spoiler || 'none',
+            bodykit: p.bodykit || 'std',
+            tint: p.tint || 'none',
+            headlightColor: p.headlightColor || '#fff3d0',
+            neon: p.neon || 'none',
+          });
+        }
       }
 
-      // Mashina harakatini silliq yangilash
-      const age = Math.min(0.22, (now - (p.t || now)) / 1000);
-      const predH = (p.h || 0) + (p.yawRate || 0) * age * 0.6;
-      const pv = Math.abs(p.v || 0) > 0.12 ? (p.v || 0) : 0;
-      const tx = (p.x || 0) + Math.sin(predH) * pv * age;
-      const tz = (p.z || 0) + Math.cos(predH) * pv * age;
+      // ========================================================================
+      // SNAPSHOT INTERPOLATION (Har bir millisekund uchun 100% ravon harakat)
+      // ========================================================================
+      const renderTime = now - INTERP_DELAY_MS;
+      const snaps = r.snapshots;
 
-      if (Math.hypot(tx - r.x, tz - r.z) > 45) {
-        r.x = tx;
-        r.z = tz;
-        r.h = predH;
+      let targetX = p.x || 0, targetY = p.y || 0, targetZ = p.z || 0;
+      let targetH = p.h || 0, targetV = p.v || 0, targetSteer = p.steer || 0;
+
+      if (snaps.length >= 2) {
+        let s0 = null, s1 = null;
+        for (let i = snaps.length - 1; i >= 1; i--) {
+          if (snaps[i - 1].t <= renderTime && snaps[i].t >= renderTime) {
+            s0 = snaps[i - 1];
+            s1 = snaps[i];
+            break;
+          }
+        }
+
+        if (s0 && s1 && s1.t > s0.t) {
+          const alpha = (renderTime - s0.t) / (s1.t - s0.t);
+          targetX = s0.x + (s1.x - s0.x) * alpha;
+          targetY = s0.y + (s1.y - s0.y) * alpha;
+          targetZ = s0.z + (s1.z - s0.z) * alpha;
+          targetH = s0.h + angDiff(s1.h, s0.h) * alpha;
+          targetV = s0.v + (s1.v - s0.v) * alpha;
+          targetSteer = s0.steer + (s1.steer - s0.steer) * alpha;
+        } else {
+          // Eng so'nggi ma'lumotlar bilan tekis ekstrapolyatsiya (maksimal 120ms)
+          const latest = snaps[snaps.length - 1];
+          const dtSnap = Math.min(0.12, (now - latest.t) / 1000);
+          targetX = latest.x + Math.sin(latest.h) * latest.v * dtSnap;
+          targetZ = latest.z + Math.cos(latest.h) * latest.v * dtSnap;
+          targetY = latest.y;
+          targetH = latest.h;
+          targetV = latest.v;
+          targetSteer = latest.steer;
+        }
       }
 
-      const k = Math.min(1, dt * 14);
-      const ox = r.x, oz = r.z;
-      r.x += (tx - r.x) * k;
-      r.z += (tz - r.z) * k;
-      const dh = angDiff(predH, r.h);
-      r.h += dh * k;
-      r.y += ((p.y || 0) - r.y) * Math.min(1, dt * 12);
+      // Agar o'yinchi 35 metrdan ko'p masofaga tushgan bo'lsa (teleport / spawn) darhol ko'chiramiz
+      const jumpDist = Math.hypot(targetX - r.x, targetZ - r.z);
+      if (jumpDist > 35) {
+        r.x = targetX;
+        r.z = targetZ;
+        r.y = targetY;
+        r.h = targetH;
+      } else {
+        const smoothK = Math.min(1.0, dt * 18);
+        r.x += (targetX - r.x) * smoothK;
+        r.z += (targetZ - r.z) * smoothK;
+        r.y += (targetY - r.y) * Math.min(1.0, dt * 12);
+        r.h += angDiff(targetH, r.h) * smoothK;
+      }
 
-      const targetRoll = THREE.MathUtils.clamp(-(p.yawRate || dh * 8) * pv * 0.0035, -0.055, 0.055);
-      const targetPitch = p.braking && Math.abs(pv) > 2 ? 0.025 : 0;
-      r.roll += (targetRoll - r.roll) * Math.min(1, dt * 8);
-      r.pitch += (targetPitch - r.pitch) * Math.min(1, dt * 8);
+      r.v = targetV;
+      r.steer = targetSteer;
 
+      // Kuzov egilishi (roll & pitch)
+      const dh = angDiff(targetH, r.h);
+      const targetRoll = THREE.MathUtils.clamp(-dh * targetV * 0.005, -0.06, 0.06);
+      const targetPitch = p.braking && Math.abs(targetV) > 2 ? 0.028 : 0;
+      r.roll += (targetRoll - r.roll) * Math.min(1.0, dt * 8);
+      r.pitch += (targetPitch - r.pitch) * Math.min(1.0, dt * 8);
+
+      // ========================================================================
+      // SPATIAL INTEREST CULLING (Uzoqdagi o'yinchilarni renderdan chiqarish)
+      // ========================================================================
       const distToMe = Math.hypot(r.x - me.x, r.z - me.z);
-      const far = distToMe > 1400;
+      const isFar = distToMe > 1450;
       const g = r.model.group;
-      g.visible = !far;
+
+      g.visible = !isFar;
       g.position.set(r.x, r.y, r.z);
       g.rotation.set(r.pitch, r.h, r.roll, 'YXZ');
 
-      if (!far) {
-        // Mashina to'xtaganda g'ildiraklar aylanmasin
-        const rawStep = Math.hypot(r.x - ox, r.z - oz);
-        const stepDist = (Math.abs(pv) > 0.12 && rawStep > 0.001) ? rawStep * Math.sign(pv) : 0;
-        r.model.update(stepDist, p.steer || 0);
+      if (!isFar) {
+        const stepDist = Math.abs(targetV) > 0.1 ? targetV * dt : 0;
+        r.model.update(stepDist, r.steer);
         r.model.setLights?.(p.lights !== undefined ? p.lights : night > 0.35);
         r.model.setBrake?.(!!p.braking);
       }
 
       if (r.label.parent !== g) g.add(r.label);
-      const lblScale = THREE.MathUtils.clamp(1 + (distToMe - 25) * 0.014, 1, 4.5);
+      const lblScale = THREE.MathUtils.clamp(1 + (distToMe - 25) * 0.012, 1.0, 4.0);
       r.label.scale.set(4.3 * lblScale, (chatText ? 1.66 : 1.16) * lblScale, 1);
-      r.label.position.set(0, cfg.hei + (chatText ? 1.35 : 1.05) + (lblScale - 1) * 0.65, 0);
-      r.label.visible = true;
-      r.beacon.visible = distToMe > 55;
+      r.label.position.set(0, cfg.hei + (chatText ? 1.35 : 1.05) + (lblScale - 1) * 0.55, 0);
+      r.label.visible = !isFar;
+      r.beacon.visible = distToMe > 65 && !isFar;
     }
 
+    // Chiqib ketgan o'yinchilarni tozalash
     for (const [id, r] of this.map) {
       if (!seen.has(id)) {
         this.dispose(r);
@@ -233,8 +344,7 @@ export class RemoteCars {
   }
 
   dispose(r) {
+    if (!r) return;
     this.scene.remove(r.model.group);
-    r.label.material.map.dispose();
-    r.label.material.dispose();
   }
 }

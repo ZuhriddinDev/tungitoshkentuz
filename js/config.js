@@ -180,11 +180,11 @@ export const DAILY_REWARDS_7 = [
   { day: 7, type: 'car',   carId: 'sf90', fallbackAmount: 500_000_000, title: '7-Kun SUPER SOVG\'A', label: 'Ferrari SF90 Spider', icon: '🏎️' },
 ];
 
-// Toshkent Open-World xaritasi: 14 x 14 yirik kvartal (jami ~1.7 km x 1.7 km)
-export const CITY = { N: 14, BLOCK: 96, ROAD: 22 };
-CITY.CELL = CITY.BLOCK + CITY.ROAD;
-CITY.SIZE = CITY.N * CITY.CELL + CITY.ROAD;
-CITY.HALF = CITY.SIZE / 2;
+// Toshkent V11 Open-World xaritasi: 5000 x 5000 metr (25 km²) Real Toshkent
+export const CITY = { N: 20, BLOCK: 220, ROAD: 30 };
+CITY.CELL = 250;
+CITY.SIZE = 5000;
+CITY.HALF = 2500;
 
 export const DAY_LENGTH_SEC = 24 * 60; // 24 daqiqa real vaqt = 24 soat o'yin vaqti
 export const KM_BONUS = 500_000;        // har 10 km uchun

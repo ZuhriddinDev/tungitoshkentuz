@@ -1,35 +1,42 @@
-// Toshkentning haqiqiy geografiyasiga (OpenStreetMap) asoslangan shahar rejasi:
-// Shimol = -Z (Yunusobod / Teleminora), Janub = +Z (Chilonzor / Yakkasaroy),
+// Toshkentning haqiqiy geografiyasiga (OpenStreetMap) asoslangan 5x5 km shahar rejasi:
+// Shimol = -Z (Yunusobod / Teleminora), Janub = +Z (Chilonzor / Yakkasaroy / Sergeli),
 // G'arb = -X (Eski shahar / Chorsu / Shayxontohur), Sharq = +X (Amir Temur xiyoboni / Yashnobod)
 import { CITY } from '../config.js';
+import { REAL_LANDMARKS, DISTRICTS_V11, ROAD_SEGMENTS, WORLD_HALF } from './openWorld5k.js';
 
-const { N, BLOCK, ROAD, CELL, HALF } = CITY;
+// V11: 5000 x 5000 metr (25 km²) to'liq shahar o'lchami
+export const HALF = 2500;
+export const N = 20;
+export const BLOCK = 220;
+export const ROAD = 30;
+export const CELL = 250;
 
-export const roadC = (i) => -HALF + ROAD / 2 + i * CELL;            // i = 0..N
-export const blockC = (j) => -HALF + ROAD + BLOCK / 2 + j * CELL;     // j = 0..N-1
+export const roadC = (i) => -HALF + ROAD / 2 + i * CELL;
+export const blockC = (j) => -HALF + ROAD + BLOCK / 2 + j * CELL;
 export const nearestRoad = (v) => Math.max(0, Math.min(N, Math.round((v + HALF - ROAD / 2) / CELL)));
 
-// Haqiqiy Toshkent ko'chalari: G'arbdan-Sharqqa (Z o'zgarmas, X bo'ylab) — Shimoldan Janubga tartibda
+// Haqiqiy Toshkent ko'chalari: G'arbdan-Sharqqa (Z o'zgarmas, X bo'ylab)
 export const STREETS_X = [
   "Katta halqa yo'li (Shimol)",
-  "Bog'ishamol ko'chasi",
   "Kichik halqa yo'li (Shimol)",
-  "Osiyo ko'chasi",
+  "Osiyo ko'chasi (Yunusobod)",
   "Abdulla Qodiriy ko'chasi",
   "Zulfiyaxonim ko'chasi",
   "Alisher Navoiy shoh ko'chasi",
-  "Islom Karimov shoh ko'chasi",
   "Mustaqillik shoh ko'chasi",
+  "Islom Karimov shoh ko'chasi",
   "O'zbekiston ovozi ko'chasi",
   "Afrosiyob ko'chasi",
   "Oybek ko'chasi",
   "Bobur shoh ko'chasi",
   "Muqimiy ko'chasi",
   "Kichik halqa yo'li (Janub)",
+  "Katta halqa yo'li (Janub)",
 ];
 
-// Shimoldan-Janubga (X o'zgarmas, Z bo'ylab) — G'arbdan Sharqqa tartibda
+// Shimoldan-Janubga (X o'zgarmas, Z bo'ylab)
 export const STREETS_Z = [
+  "Katta halqa yo'li (G'arb)",
   "Kichik halqa yo'li (G'arb)",
   "Beruniy shoh ko'chasi",
   "Qoratosh ko'chasi",
@@ -41,119 +48,175 @@ export const STREETS_Z = [
   "Shahrisabz ko'chasi",
   "Shota Rustaveli ko'chasi",
   "Nukus ko'chasi",
-  "Movarounnahr ko'chasi",
   "Farg'ona yo'li",
-  "Parkent ko'chasi",
   "Ohangaron shoh ko'chasi",
+  "Katta halqa yo'li (Sharq)",
 ];
 
-// Magistral shoh ko'chalar indekslari (kengroq chiziqlar va ko'proq yoritish uchun)
-export const MAIN_ROADS_X = new Set([2, 4, 6, 7, 8, 11, 12]);
-export const MAIN_ROADS_Z = new Set([1, 3, 4, 6, 7, 8, 9, 10]);
+export const MAIN_ROADS_X = new Set([1, 3, 5, 6, 7, 11, 12, 13]);
+export const MAIN_ROADS_Z = new Set([1, 2, 4, 7, 8, 10, 11]);
 
-// Haqiqiy Toshkent tumanlari geografik joylashuvi bilan
-export const DISTRICTS = [
-  { name: 'Olmazor',       j: 2,  k: 2 },
-  { name: 'Yunusobod',     j: 8,  k: 2 },
-  { name: 'Shayxontohur',  j: 3,  k: 6 },
-  { name: 'Tashkent City', j: 5,  k: 7 },
-  { name: 'Markaz',        j: 8,  k: 7 },
-  { name: 'Mirzo Ulug\'bek', j: 12, k: 4 },
-  { name: 'Chilonzor',     j: 2,  k: 11 },
-  { name: 'Yakkasaroy',    j: 7,  k: 11 },
-  { name: 'Mirobod',       j: 11, k: 10 },
+export const DISTRICTS = DISTRICTS_V11.map((d, idx) => ({
+  ...d,
+  j: idx,
+  k: idx,
+}));
+
+export const CANAL_COL = 8;
+
+// OpenStreetMap asosidagi diqqatga sazovor joylar (Real Coordinates)
+export const LANDMARKS = REAL_LANDMARKS.map((lm) => ({
+  ...lm,
+  j: Math.round((lm.x + HALF) / CELL),
+  k: Math.round((lm.z + HALF) / CELL),
+}));
+
+// Zapravkalar va Markaziy Garajlar
+export const POIS = [
+  {
+    type: 'garage',
+    name: 'Markaziy Toshkent Avtosalon va Tuning',
+    x: 480,
+    z: 140,
+    r: 22,
+  },
+  {
+    type: 'gas',
+    name: 'Zapravka — Amir Temur / Skver',
+    x: 520,
+    z: -320,
+    r: 20,
+  },
+  {
+    type: 'gas',
+    name: 'Zapravka — Yunusobod / Teleminora',
+    x: 420,
+    z: -1750,
+    r: 20,
+  },
+  {
+    type: 'gas',
+    name: 'Zapravka — Tashkent City',
+    x: -950,
+    z: 320,
+    r: 20,
+  },
+  {
+    type: 'gas',
+    name: 'Zapravka — Chorsu / Eski shahar',
+    x: -1520,
+    z: -380,
+    r: 20,
+  },
+  {
+    type: 'gas',
+    name: 'Zapravka — Chilonzor / Bunyodkor',
+    x: -1150,
+    z: 1550,
+    r: 20,
+  },
+  {
+    type: 'gas',
+    name: 'Zapravka — Mirobod / Nukus',
+    x: 750,
+    z: 850,
+    r: 20,
+  },
+  {
+    type: 'gas',
+    name: 'Zapravka — Kichik Halqa (Shimol)',
+    x: -350,
+    z: -1350,
+    r: 20,
+  },
+  {
+    type: 'gas',
+    name: 'Zapravka — Kichik Halqa (Janub)',
+    x: 350,
+    z: 2150,
+    r: 20,
+  },
 ];
-
-export const CANAL_COL = 6; // Anhor kanali: Minor masjidi, Mustaqillik maydoni va Tashkent City orasidan oqib o'tadi
-
-// Toshkentning diqqatga sazovor joylari — haqiqiy nisbiy geografik joylashuvda:
-// - Teleminora va Yapon bog'i shimolda (Yunusobod, k=1..2)
-// - Minor masjidi Anhor kanali bo'yida shimolroqda (j=7, k=4)
-// - Chorsu bozori va Ko'kaldosh g'arbda — Eski shaharda (j=2, k=5)
-// - Tashkent City (Nest One, Hilton, Congress Hall, Park) markazdan g'arbda (j=4..5, k=7..8)
-// - Mustaqillik maydoni (Ezgulik arkasi, Senat) markazda, Anhor sharqida (j=7, k=7)
-// - Amir Temur xiyoboni (Skver, Kurantlar, Uzbekistan mehmonxonasi) markazdan sharqda (j=9, k=7)
-// - Magic City va Milliy bog' janubiy-g'arbda (j=4, k=10..11)
-const SPECIAL = {
-  '8,1':  { type: 'tvtower',   name: 'Toshkent Teleminorasi (375m)' },
-  '9,2':  { type: 'park',      name: "Yapon bog'i (Yunusobod)" },
-  '7,4':  { type: 'minor',     name: 'Minor masjidi (Oq masjid)' },
-  '2,5':  { type: 'chorsu',    name: 'Chorsu bozori (Eski shahar)' },
-  '4,7':  { type: 'citytower', name: 'Tashkent City · Nest One' },
-  '5,7':  { type: 'citytower', name: 'Tashkent City · Hilton & Park' },
-  '5,8':  { type: 'park',      name: 'Tashkent City Bog\'i' },
-  '7,7':  { type: 'park',      name: 'Mustaqillik maydoni' },
-  '9,7':  { type: 'square',    name: 'Amir Temur xiyoboni (Skver)' },
-  '10,7': { type: 'uzhotel',   name: '"O\'zbekiston" mehmonxonasi' },
-  '4,10': { type: 'magiccity', name: 'Magic City & Milliy bog\'' },
-  '3,10': { type: 'park',      name: 'Alisher Navoiy Milliy bog\'i' },
-  // Zapravkalar va Markaziy Avtosalon/Garaj
-  '8,6':  { type: 'garage',    name: 'Markaziy Avtosalon va Tuning' },
-  '11,3': { type: 'gas',       name: 'Zapravka — Yunusobod' },
-  '1,4':  { type: 'gas',       name: 'Zapravka — Olmazor / Chorsu' },
-  '3,12': { type: 'gas',       name: 'Zapravka — Chilonzor' },
-  '10,11':{ type: 'gas',       name: 'Zapravka — Mirobod' },
-  '7,9':  { type: 'gas',       name: 'Zapravka — Markaz' },
-};
 
 export function blockInfo(j, k) {
-  if (j === CANAL_COL) return { type: 'canal', name: 'Anhor kanali' };
-  return SPECIAL[`${j},${k}`] || { type: 'city' };
+  const wx = blockC(j), wz = blockC(k);
+  const nearLm = LANDMARKS.find((lm) => Math.hypot(lm.x - wx, lm.z - wz) < 180);
+  if (nearLm) return { type: nearLm.type, name: nearLm.name };
+  if (Math.abs(wx + 100) < 60) return { type: 'canal', name: 'Anhor kanali' };
+  return { type: 'city' };
 }
 
-// Interaktiv nuqtalar (zapravka, garaj)
-export const POIS = [];
-for (const [key, v] of Object.entries(SPECIAL)) {
-  if (v.type !== 'gas' && v.type !== 'garage') continue;
-  const [j, k] = key.split(',').map(Number);
-  POIS.push({ ...v, j, k, x: blockC(j), z: blockC(k) + BLOCK / 2 - 12, r: 17 });
-}
-
-export const LANDMARKS = Object.entries(SPECIAL)
-  .filter(([, v]) => !['gas', 'garage', 'city'].includes(v.type))
-  .map(([key, v]) => {
-    const [j, k] = key.split(',').map(Number);
-    return { ...v, j, k, x: blockC(j), z: blockC(k) };
-  });
-
+// 5x5 KM Real Poygalar
 export const RACES = [
-  { name: 'Amir Temur Sprinti', prize: 15_000_000, wps: [[8, 7], [8, 2]] },
-  { name: 'Tashkent City Halqasi', prize: 25_000_000, wps: [[4, 7], [6, 9]] },
-  { name: 'Kichik Halqa Tungi Drift', prize: 35_000_000, wps: [[2, 2], [12, 12]] },
-  { name: 'Chorsu — Magic City Ekspress', prize: 20_000_000, wps: [[3, 5], [4, 10]] },
+  { name: 'Tashkent City — Amir Temur Sprinti', prize: 35_000_000, wps: [[-610, 220], [440, -85]] },
+  { name: 'Yunusobod — Teleminora Poygasi', prize: 45_000_000, wps: [[-80, -1080], [280, -1820]] },
+  { name: 'Chorsu — Magic City Tungi Ekspress', prize: 50_000_000, wps: [[-1620, -480], [-730, 1240]] },
+  { name: 'Kichik Halqa 5KM Katta Drift', prize: 75_000_000, wps: [[-1400, -1400], [1400, 2200]] },
 ];
 
-// O'yinchi Amir Temur shoh ko'chasi va Islom Karimov ko'chasi chorrahasi yaqinida, Markaziy Avtosalon oldida boshlaydi
-export const SPAWN = { x: blockC(8) - 18, z: roadC(7), heading: Math.PI / 2 };
+// O'yinchi Amir Temur shoh ko'chasida, Markaziy Avtosalon oldida boshlaydi
+export const SPAWN = { x: 440, z: 120, heading: -Math.PI / 2 };
 
-// ---- Kolliziyalar: AABB lar uchun fazoviy to'r ----
-const GRID = 40;
+// ---- Kolliziyalar: Fazoviy xeshlash (Spatial Hash Grid) ----
+const GRID = 50;
 const grid = new Map();
 export const colliders = [];
+
 export function addCollider(minX, minZ, maxX, maxZ, tag = 'wall') {
   const c = { minX, minZ, maxX, maxZ, tag };
   colliders.push(c);
-  for (let gx = Math.floor(minX / GRID); gx <= Math.floor(maxX / GRID); gx++)
-    for (let gz = Math.floor(minZ / GRID); gz <= Math.floor(maxZ / GRID); gz++) {
-      const k = gx * 10007 + gz;
-      if (!grid.has(k)) grid.set(k, []);
-      grid.get(k).push(c);
+  const gMinX = Math.floor(minX / GRID);
+  const gMaxX = Math.floor(maxX / GRID);
+  const gMinZ = Math.floor(minZ / GRID);
+  const gMaxZ = Math.floor(maxZ / GRID);
+
+  for (let gx = gMinX; gx <= gMaxX; gx++) {
+    for (let gz = gMinZ; gz <= gMaxZ; gz++) {
+      const key = `${gx},${gz}`;
+      let arr = grid.get(key);
+      if (!arr) {
+        arr = [];
+        grid.set(key, arr);
+      }
+      arr.push(c);
     }
+  }
 }
+
 export function queryColliders(x, z, r) {
   const out = new Set();
-  for (let gx = Math.floor((x - r) / GRID); gx <= Math.floor((x + r) / GRID); gx++)
-    for (let gz = Math.floor((z - r) / GRID); gz <= Math.floor((z + r) / GRID); gz++) {
-      const arr = grid.get(gx * 10007 + gz);
-      if (arr) for (const c of arr) out.add(c);
+  const gMinX = Math.floor((x - r) / GRID);
+  const gMaxX = Math.floor((x + r) / GRID);
+  const gMinZ = Math.floor((z - r) / GRID);
+  const gMaxZ = Math.floor((z + r) / GRID);
+
+  for (let gx = gMinX; gx <= gMaxX; gx++) {
+    for (let gz = gMinZ; gz <= gMaxZ; gz++) {
+      const key = `${gx},${gz}`;
+      const arr = grid.get(key);
+      if (arr) {
+        for (let i = 0; i < arr.length; i++) out.add(arr[i]);
+      }
     }
+  }
   return out;
 }
 
-// Yo'l ustidami?
+// Yo'l ustidami? (OpenStreetMap magistrallari yoki mahalliy ko'chalar)
 export function onRoad(x, z) {
-  const fx = ((x + HALF) % CELL + CELL) % CELL, fz = ((z + HALF) % CELL + CELL) % CELL;
-  return fx < ROAD || fz < ROAD;
+  for (let i = 0; i < ROAD_SEGMENTS.length; i++) {
+    const s = ROAD_SEGMENTS[i];
+    const hw = s.width / 2 + 1.5;
+    const minX = Math.min(s.x1, s.x2) - hw;
+    const maxX = Math.max(s.x1, s.x2) + hw;
+    const minZ = Math.min(s.z1, s.z2) - hw;
+    const maxZ = Math.max(s.z1, s.z2) + hw;
+    if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) return true;
+  }
+  const modX = ((x % 125) + 125) % 125;
+  const modZ = ((z % 125) + 125) % 125;
+  return modX < 20 || modZ < 20;
 }
+
 export const inCity = (x, z) => Math.abs(x) < HALF && Math.abs(z) < HALF;
-export { N, BLOCK, ROAD, CELL, HALF };
+

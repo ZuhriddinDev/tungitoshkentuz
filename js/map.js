@@ -1,6 +1,7 @@
 // TUNGI TOSHKENT — OpenStreetMap & GTA Online uslubidagi Professional GPS Xarita Tizimi
 // HUD Minimap va Katta Interaktiv Xarita (Zoom, Pan, Kategoriya filtri, GPS marshrut va POI tanlash)
 import { N, BLOCK, ROAD, HALF, roadC, blockC, blockInfo, nearestRoad, POIS, LANDMARKS, DISTRICTS, STREETS_X, STREETS_Z, RACES } from './world/layout.js';
+import { ANHOR_PATH } from './world/openWorld5k.js';
 
 const BASE_SIZE = 2048;
 let baseCanvas = null;
@@ -270,30 +271,30 @@ function drawBase() {
     }
   }
 
-  // 2. Anhor va Bo'zsuv kanali — tabiiy egri oqim
+  // 2. Anhor kanali — haqiqiy OpenStreetMap egri oqimi
   g.save();
   g.lineCap = 'round';
   g.lineJoin = 'round';
-  const canalX = (blockC(6) + HALF) * k;
-  g.strokeStyle = 'rgba(56, 189, 248, 0.22)';
-  g.lineWidth = 28;
+  g.strokeStyle = 'rgba(56, 189, 248, 0.28)';
+  g.lineWidth = 26;
   g.beginPath();
-  g.moveTo(canalX - 18, 0);
-  g.bezierCurveTo(canalX + 26, S * 0.3, canalX - 28, S * 0.65, canalX + 12, S);
+  ANHOR_PATH.forEach((pt, idx) => {
+    const mx = (pt.x + HALF) * k;
+    const my = (pt.z + HALF) * k;
+    if (idx === 0) g.moveTo(mx, my);
+    else g.lineTo(mx, my);
+  });
   g.stroke();
 
   g.strokeStyle = '#09527a';
   g.lineWidth = 18;
   g.beginPath();
-  g.moveTo(canalX - 18, 0);
-  g.bezierCurveTo(canalX + 26, S * 0.3, canalX - 28, S * 0.65, canalX + 12, S);
-  g.stroke();
-
-  // Bo'zsuv (shimoliy-g'arbiy tarmoq)
-  g.lineWidth = 12;
-  g.beginPath();
-  g.moveTo(canalX + 4, S * 0.22);
-  g.quadraticCurveTo(S * 0.24, S * 0.34, 0, S * 0.48);
+  ANHOR_PATH.forEach((pt, idx) => {
+    const mx = (pt.x + HALF) * k;
+    const my = (pt.z + HALF) * k;
+    if (idx === 0) g.moveTo(mx, my);
+    else g.lineTo(mx, my);
+  });
   g.stroke();
   g.restore();
 
@@ -355,13 +356,14 @@ function drawBase() {
     g.restore();
   }
 
-  // Amir Temur xiyoboni doiraviy halqasi
-  const skverX = (blockC(8) + HALF) * k;
-  const skverY = (blockC(7) + HALF) * k;
+  // Amir Temur xiyoboni doiraviy halqasi (Skver)
+  const skver = LANDMARKS.find((l) => l.type === 'square') || { x: 440, z: -85 };
+  const skverX = (skver.x + HALF) * k;
+  const skverY = (skver.z + HALF) * k;
   g.strokeStyle = '#38bdf8';
-  g.lineWidth = 2.5;
+  g.lineWidth = 3.0;
   g.beginPath();
-  g.arc(skverX, skverY, BLOCK * k * 0.36, 0, Math.PI * 2);
+  g.arc(skverX, skverY, 42 * k, 0, Math.PI * 2);
   g.stroke();
 
   baseCanvas = c;

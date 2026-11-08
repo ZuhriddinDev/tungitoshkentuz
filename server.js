@@ -1001,11 +1001,37 @@ function syncPlayerInRoom(pid, targetRoom, rawState = {}, rawEvent = null) {
     broadcastToRoom(targetRoom, { type: 'event', event: ev }, pid);
   }
 
+  const myX = nextState.x || 0;
+  const myZ = nextState.z || 0;
   const players = [];
   for (const [otherId, p] of targetRoom.players.entries()) {
     if (otherId !== pid) {
+      const dist = Math.hypot((p.x || 0) - myX, (p.z || 0) - myZ);
+      // 5x5 KM Spatial Interest Management: 3500m dan uzoq o'yinchilar tarmoq yuklamasini tejash uchun o'tkazib yuboriladi
+      if (dist > 3500) continue;
+
       players.push({
-        ...p,
+        id: p.id,
+        name: p.name,
+        car: p.car,
+        color: p.color,
+        paintType: p.paintType,
+        rims: p.rims,
+        rimColor: p.rimColor,
+        spoiler: p.spoiler,
+        bodykit: p.bodykit,
+        tint: p.tint,
+        headlightColor: p.headlightColor,
+        neon: p.neon,
+        x: Math.round((p.x || 0) * 10) / 10,
+        y: Math.round((p.y || 0) * 10) / 10,
+        z: Math.round((p.z || 0) * 10) / 10,
+        h: Math.round((p.h || 0) * 1000) / 1000,
+        v: Math.round((p.v || 0) * 10) / 10,
+        steer: Math.round((p.steer || 0) * 100) / 100,
+        braking: !!p.braking,
+        lights: p.lights !== undefined ? !!p.lights : true,
+        drifting: !!p.drifting,
         chat: Date.now() - (p.chatTs || 0) < 8000 ? p.chat : '',
       });
     }
