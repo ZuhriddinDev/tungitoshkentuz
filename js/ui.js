@@ -34,9 +34,7 @@ import {
   displayId,
   playerId,
   onOnline,
-  sendChat,
   sendOnlineEvent,
-  chatHistory,
   serverStats,
   MAX_PLAYERS,
   PRIVATE_MAX_PLAYERS,
@@ -1437,17 +1435,6 @@ const PANELS = {
   leaderboard,
 };
 
-function renderModalChatLog() {
-  const logEl = document.getElementById('onlineChatLog');
-  if (!logEl) return;
-  if (chatHistory.length === 0) {
-    logEl.innerHTML = '<div style="color:var(--muted);justify-content:center">Suhbat tarixi shu yerda ko\'rinadi</div>';
-    return;
-  }
-  logEl.innerHTML = chatHistory.slice(-8).map((m) => `<div><span>💬 <b>${m.fromName}:</b> ${m.text}</span><small style="color:var(--muted)">${new Date(m.ts).toLocaleTimeString('uz').slice(0, 5)}</small></div>`).join('');
-  logEl.scrollTop = logEl.scrollHeight;
-}
-
 function updateOnlineModalDynamic() {
   if (current !== 'online') return;
   const inf = onlineInfo();
@@ -1541,17 +1528,6 @@ onOnline((ev) => {
     beep('go');
     toast(ev.raceEvent.text || '🏁 Online Poyga boshlandi!', 'cash');
     if (ev.raceEvent.target) game?.setWaypoint?.({ x: ev.raceEvent.target.x, z: ev.raceEvent.target.z });
-  }
-  if (ev.chat) {
-    beep('ok');
-    toast(`💬 ${ev.chat.name}: ${ev.chat.text}`, 'ok');
-    renderModalChatLog();
-    updateOnlineModalDynamic();
-    return;
-  }
-  if (ev.chatUpdated) {
-    renderModalChatLog();
-    return;
   }
   if (current === 'online') {
     if (ev.roomChanged || ev.depositRace) {

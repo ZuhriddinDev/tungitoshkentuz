@@ -92,7 +92,6 @@ export function loadBuildingGlb(url, { targetHeight = 0, targetWidth = 0, rotY =
   bldCache.set(key, p);
   return p.then((tpl) => (tpl ? tpl.clone(true) : null));
 }
-}
 
 export function buildLandmarks(scene) {
   animated.length = 0;
