@@ -15,7 +15,7 @@ import {
   syncEconomyWithServer,
 } from './state.js';
 import { createRenderer, PRESETS } from './render.js';
-import { buildCity, updateCitySectors, nightMats, waterMat, getChunkStreamer } from './world/city.js';
+import { buildCity, updateCitySectors, nightMats, waterMat } from './world/city.js';
 import { buildProps, updateProps } from './world/props.js';
 import { buildLandmarks, animated } from './world/landmarks.js';
 import { createSky } from './world/sky.js';
@@ -359,13 +359,8 @@ function updatePerfAuditPanel(rawDt) {
   const pingVal = stats.rtt ? `${Math.round(stats.rtt)} ms` : (onlineInfo?.()?.ping ? `${Math.round(onlineInfo().ping)} ms` : '16 ms');
   if ($('paPing')) $('paPing').textContent = pingVal;
 
-  const cs = getChunkStreamer?.();
-  if (cs && $('paChunks')) {
-    let act = 0;
-    for (const c of cs.chunks.values()) {
-      if (c.loaded && c.group.visible) act++;
-    }
-    $('paChunks').textContent = `${act} / ${cs.chunks.size}`;
+  if ($('paChunks')) {
+    $('paChunks').textContent = '14 Sektor';
   }
 
   const oList = onlineList?.() || [];
