@@ -393,13 +393,6 @@ function updateOnlinePeersHud() {
   }));
 }
 
-function updateHudChatLog() {
-  const el = $('hudChatLog');
-  if (!el) return;
-  el.innerHTML = chatHistory.slice(-6).map((m) => `<div class="hud-chat-msg"><b>${m.fromName}:</b> ${m.text}</div>`).join('');
-  el.scrollTop = el.scrollHeight;
-}
-
 function loop() {
   requestAnimationFrame(loop);
   const raw = clock.getDelta(), t = clock.elapsedTime;
@@ -588,53 +581,6 @@ async function boot() {
   };
   if ($('perfAuditClose')) $('perfAuditClose').onclick = () => window.__togglePerfAudit?.(false);
 
-  // Yig'iluvchi HUD Chat
-  let unreadChatCount = 0;
-  let hudChatOpen = false;
-  const setHudChatOpen = (openState) => {
-    hudChatOpen = openState;
-    const w = $('hudChatWidget');
-    const p = $('hudChatPanel');
-    const b = $('hudChatBadge');
-    if (w) w.classList.toggle('collapsed', !openState);
-    if (p) p.classList.toggle('hidden', !openState);
-    if (openState) {
-      unreadChatCount = 0;
-      if (b) { b.textContent = '0'; b.classList.add('hidden'); }
-      updateHudChatLog();
-    }
-  };
-  if ($('hudChatToggleBtn')) $('hudChatToggleBtn').onclick = (e) => {
-    e.stopPropagation();
-    setHudChatOpen(!hudChatOpen);
-  };
-  if ($('hudChatCloseBtn')) $('hudChatCloseBtn').onclick = (e) => {
-    e.stopPropagation();
-    setHudChatOpen(false);
-  };
-
-  const sendFromHud = (txt) => {
-    const v = String(txt || '').trim();
-    if (!v) return;
-    sendChat(v, state.name || 'Haydovchi');
-    beep('ok');
-    toast(`💬 Siz: ${v}`, 'ok');
-    updateHudChatLog();
-  };
-  document.querySelectorAll('[data-hud-chat]').forEach((b) => (b.onclick = (e) => {
-    e.stopPropagation();
-    sendFromHud(b.dataset.hudChat);
-  }));
-  if ($('hudChatSend')) $('hudChatSend').onclick = (e) => {
-    e.stopPropagation();
-    const inp = $('hudChatInput');
-    if (inp) { sendFromHud(inp.value); inp.value = ''; inp.blur(); }
-  };
-  if ($('hudChatInput')) $('hudChatInput').addEventListener('keydown', (e) => {
-    e.stopPropagation();
-    if (e.key === 'Enter') $('hudChatSend')?.click();
-  });
-
   const hudMobDrawer = $('hudMobileDrawer');
   if ($('hudMobileMenuBtn')) $('hudMobileMenuBtn').onclick = (e) => {
     e.stopPropagation();
@@ -708,34 +654,16 @@ async function boot() {
       } else if (dr.action === 'cancelled') {
         if (pendingDepositInvite?.raceId === dr.raceId) pendingDepositInvite = null;
         if (activeDepositRace?.raceId === dr.raceId) activeDepositRace = null;
-        if (hostIdVal === myId && hostDepVal > 0) {
-          addMoney(hostDepVal, 'Depozit poyga bekor qilindi (qaytarildi)');
-        }
-        if (guestIdVal === myId && guestDepVal > 0) {
-          addMoney(guestDepVal, 'Depozit poyga bekor qilindi (qaytarildi)');
-        }
         toast(dr.text || dr.reason || 'Depozit poyga bekor qilindi, garov qaytarildi', 'err');
       } else if (dr.action === 'finished') {
         pendingDepositInvite = null;
         activeDepositRace = null;
         if (dr.winnerId === myId) {
-          addMoney(dr.totalPrize, `Depozit Poyga g'alabasi (+100% bonus)`);
           bumpStat('raceWins', 1);
           beep('cash');
           toast(`🏆 G'ALABA! +${fmt(dr.totalPrize)} yutib oldingiz!`, 'cash');
         } else {
           toast(dr.text || `🏁 ${dr.winnerName} poygada g'olib bo'ldi!`, 'ok');
-        }
-      }
-    }
-    if (ev.chat || ev.chatUpdated) {
-      updateHudChatLog();
-      if (ev.chat && !hudChatOpen) {
-        unreadChatCount++;
-        const b = $('hudChatBadge');
-        if (b) {
-          b.textContent = String(unreadChatCount);
-          b.classList.remove('hidden');
         }
       }
     }

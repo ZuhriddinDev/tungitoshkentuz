@@ -3106,6 +3106,23 @@ body.phone .g-canvas-box {
   height: clamp(120px, calc(var(--app-h, 380px) * 0.38), 175px) !important;
 }
 
+/* =========================================================
+   GOOGLE SEO & CRAWLERS SEMANTIC TEXT
+   ========================================================= */
+.seo-semantic-section {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: normal;
+  border: 0;
+  pointer-events: none;
+}
+
+
 
 
 

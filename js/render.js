@@ -23,7 +23,15 @@ function detectGpuCapability(renderer) {
     const gpuStr = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
     const cores = navigator.hardwareConcurrency || 4;
     const mem = navigator.deviceMemory || 4;
-    if (/Apple GPU|A1[4-9]|M[1-5]|Adreno \(TM\) [678]\d\d|Mali-G[789]\d/i.test(gpuStr) || (cores >= 6 && mem >= 6)) {
+    const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const dpr = window.devicePixelRatio || 1;
+    const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
+
+    if (
+      /Apple GPU|Apple M|A1[3-9]|Adreno \(TM\) [678]\d\d|Mali-G[789]\d|Immortalis/i.test(gpuStr) ||
+      (cores >= 6 && mem >= 6) ||
+      (isIos && cores >= 6 && dpr >= 2.5 && maxTex >= 16384)
+    ) {
       isHighEndMobile = true;
     }
   } catch { /* */ }
@@ -97,8 +105,8 @@ export function createRenderer(canvas, quality) {
       R.apply(quality);
     },
     apply(q) {
-      activeQuality = q || (IS_MOBILE ? 'medium' : 'high');
-      preset = { ...(PRESETS[activeQuality] || (IS_MOBILE ? PRESETS.medium : PRESETS.high)) };
+      activeQuality = q || (IS_MOBILE ? (gpuCap.isHighEndMobile ? 'high' : 'medium') : 'high');
+      preset = { ...(PRESETS[activeQuality] || (IS_MOBILE ? (gpuCap.isHighEndMobile ? PRESETS.high : PRESETS.medium) : PRESETS.high)) };
       // Mobil qurilmalarda tanlangan sifat darajasini (Low / Medium / High / Ultra) haqiqatan qo'llab-quvvatlaymiz:
       // High va Ultra rejimlarida mobil ekranda ham sifatli soyalar, reflekslar va yuqori aniqlik yoqiladi!
       if (IS_MOBILE) {

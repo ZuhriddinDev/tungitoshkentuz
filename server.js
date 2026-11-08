@@ -3,6 +3,13 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  initDatabase,
+  loadInitialAccounts,
+  persistAccount,
+  persistTransaction,
+  isDbPostgres,
+} from './serverDb.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const ROOT = path.dirname(__filename);
@@ -14,6 +21,8 @@ const MIME_TYPES = {
   '.mjs':  'text/javascript; charset=utf-8',
   '.css':  'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.xml':  'application/xml; charset=utf-8',
+  '.txt':  'text/plain; charset=utf-8',
   '.glb':  'model/gltf-binary',
   '.gltf': 'model/gltf+json',
   '.png':  'image/png',
@@ -175,42 +184,38 @@ function checkAndClaimUsername(pid, rawName) {
   return { ok: true, name: clean };
 }
 
-function loadEconomyStore() {
+async function loadEconomyStore() {
   try {
-    if (fs.existsSync(ECON_FILE)) {
-      const raw = JSON.parse(fs.readFileSync(ECON_FILE, 'utf8'));
-      if (Array.isArray(raw.accounts)) {
-        for (const a of raw.accounts) {
-          if (a && a.id) {
-            // Eski ommaviy promokodlarni tozalab, faqat V9 maxfiy promokod tizimini qoldiramiz
-            if (Array.isArray(a.usedPromos)) {
-              a.usedPromos = a.usedPromos.filter((x) => String(x).startsWith('P') || String(x).includes('****'));
-            }
-            accounts.set(a.id, a);
-            if (a.name && !isGenericUsername(a.name)) {
-              const lower = a.name.toLowerCase();
-              if (!usernameToId.has(lower)) {
-                usernameToId.set(lower, a.id);
-              } else if (usernameToId.get(lower) !== a.id) {
-                a.name = 'Haydovchi';
-              }
-            }
-          }
-        }
-      }
-      if (Array.isArray(raw.processedTxIds)) {
-        for (const tx of raw.processedTxIds) processedTxIds.add(tx);
+    const loaded = await loadInitialAccounts();
+    for (const [id, acc] of loaded) {
+      accounts.set(id, acc);
+      if (acc.name && !isGenericUsername(acc.name)) {
+        usernameToId.set(acc.name.toLowerCase(), id);
       }
     }
-  } catch { /* ignore corrupt file */ }
+    console.log(`[ECONOMY] Jami ${accounts.size} ta foydalanuvchi hisobi tizimda faol.`);
+  } catch (err) {
+    console.error('[ECONOMY INIT XATOSI]', err);
+  }
 }
-loadEconomyStore();
 
 let saveTimer = null;
-function scheduleSaveEconomy() {
+const dirtyAccountIds = new Set();
+function scheduleSaveEconomy(accId = null) {
+  if (accId) dirtyAccountIds.add(accId);
   if (saveTimer) return;
   saveTimer = setTimeout(() => {
     saveTimer = null;
+    const toSave = Array.from(dirtyAccountIds);
+    dirtyAccountIds.clear();
+
+    // 1. PostgreSQL ga yozish (agar ulangan bo'lsa)
+    for (const id of toSave) {
+      const a = accounts.get(id);
+      if (a) persistAccount(a).catch(() => {});
+    }
+
+    // 2. data/economy.json ga yozish (lokal snapshot)
     try {
       if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
       const payload = {
@@ -219,7 +224,7 @@ function scheduleSaveEconomy() {
       };
       fs.writeFileSync(ECON_FILE, JSON.stringify(payload), 'utf8');
     } catch { /* ignore */ }
-  }, 1500);
+  }, 1000);
   saveTimer.unref?.();
 }
 
@@ -241,12 +246,13 @@ function getOrCreateAccount(id, name = 'Haydovchi', secret = '') {
 
   if (!acc) {
     const finalName = canUseReqName ? reqCleanName : 'Haydovchi';
+    const genSecret = String(secret || crypto.randomBytes(24).toString('hex')).slice(0, 64);
     acc = {
       id,
       name: finalName,
-      secret: String(secret || '').slice(0, 64),
+      secret: genSecret,
       money: START_MONEY,
-      econVer: 9,
+      econVer: 10,
       cars: ['matiz', 'spark', 'nexia', 'cobalt', 'gentra', 'malibu'],
       daily: { streak: 0, lastClaimDay: '', lastClaimTs: 0 },
       usedPromos: [],
@@ -258,16 +264,18 @@ function getOrCreateAccount(id, name = 'Haydovchi', secret = '') {
     if (!isGenericUsername(finalName)) {
       usernameToId.set(finalName.toLowerCase(), id);
     }
-    scheduleSaveEconomy();
+    scheduleSaveEconomy(id);
   } else {
     if (canUseReqName && acc.name !== reqCleanName) {
       checkAndClaimUsername(id, reqCleanName);
     }
-    if (!acc.secret && secret) acc.secret = String(secret).slice(0, 64);
-    if ((acc.econVer || 0) < 9) {
+    if (!acc.secret) {
+      acc.secret = String(secret || crypto.randomBytes(24).toString('hex')).slice(0, 64);
+    }
+    if ((acc.econVer || 0) < 10) {
       acc.money = Math.max(Number(acc.money) || 0, START_MONEY);
-      acc.econVer = 9;
-      scheduleSaveEconomy();
+      acc.econVer = 10;
+      scheduleSaveEconomy(id);
     }
     if (!acc.daily) acc.daily = { streak: 0, lastClaimDay: '', lastClaimTs: 0 };
     if (!Array.isArray(acc.usedPromos)) acc.usedPromos = [];
@@ -463,6 +471,35 @@ function cancelPlayerDepositRaces(room, pid, reasonText = "O'yinchi uzildi") {
   for (const [raceId, r] of room.races.entries()) {
     if ((r.p1Id === pid || r.p2Id === pid) && (r.status === 'pending' || r.status === 'racing')) {
       r.status = 'cancelled';
+      // Server-authoritative escrow refund
+      if (r.escrowP1 > 0 && r.p1Id) {
+        const acc1 = getOrCreateAccount(r.p1Id, r.p1Name);
+        acc1.money = Math.max(0, (acc1.money || 0) + r.escrowP1);
+        markEconomyDirty(r.p1Id);
+        scheduleSaveEconomy(r.p1Id);
+        pushToPlayerWs(r.p1Id, {
+          t: 'economy_update',
+          kind: 'deposit_race_refund',
+          money: acc1.money,
+          refund: r.escrowP1,
+          reason: reasonText,
+        });
+        r.escrowP1 = 0;
+      }
+      if (r.escrowP2 > 0 && r.p2Id) {
+        const acc2 = getOrCreateAccount(r.p2Id, r.p2Name);
+        acc2.money = Math.max(0, (acc2.money || 0) + r.escrowP2);
+        markEconomyDirty(r.p2Id);
+        scheduleSaveEconomy(r.p2Id);
+        pushToPlayerWs(r.p2Id, {
+          t: 'economy_update',
+          kind: 'deposit_race_refund',
+          money: acc2.money,
+          refund: r.escrowP2,
+          reason: reasonText,
+        });
+        r.escrowP2 = 0;
+      }
       const ev = {
         eid: `dr_cancel_${raceId}_${Date.now()}`,
         type: 'deposit_race',
@@ -669,6 +706,28 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
   if (action === 'invite') {
     const toId = sanitizeId(rawEvent.toId || '');
     const deposit = clampNum(rawEvent.deposit, 100_000, 10_000_000_000, 5_000_000);
+    const acc1 = getOrCreateAccount(pid, pName);
+    if ((acc1.money || 0) < deposit) {
+      pushToPlayerWs(pid, {
+        t: 'economy_update',
+        kind: 'error',
+        text: `Mablag' yetarli emas! Sizda: ${(acc1.money || 0).toLocaleString('ru-RU')} so'm, talab: ${deposit.toLocaleString('ru-RU')} so'm`,
+      });
+      return null;
+    }
+
+    // Server-authoritative escrow deduction
+    acc1.money -= deposit;
+    markEconomyDirty(pid);
+    scheduleSaveEconomy(pid);
+    pushToPlayerWs(pid, {
+      t: 'economy_update',
+      kind: 'deposit_race_escrow',
+      money: acc1.money,
+      delta: -deposit,
+      text: `Poyga depoziti bloklandi: -${deposit.toLocaleString('ru-RU')} so'm`,
+    });
+
     const target = rawEvent.target && typeof rawEvent.target === 'object'
       ? {
           x: clampNum(rawEvent.target.x, -2500, 2500, 0),
@@ -684,9 +743,11 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
       p1Id: pid,
       p1Name: pName,
       p1Deposit: deposit,
+      escrowP1: deposit,
       p2Id: toId || '',
       p2Name: toPlayer ? toPlayer.name : '',
       p2Deposit: 0,
+      escrowP2: 0,
       hostId: pid,
       hostName: pName,
       hostDeposit: deposit,
@@ -720,9 +781,32 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
   if (action === 'accept' && race.status === 'pending' && pid !== race.p1Id) {
     if (race.p2Id && race.p2Id !== pid) return null;
     const p2Deposit = clampNum(rawEvent.deposit, 100_000, 10_000_000_000, race.p1Deposit);
+    const acc2 = getOrCreateAccount(pid, pName);
+    if ((acc2.money || 0) < p2Deposit) {
+      pushToPlayerWs(pid, {
+        t: 'economy_update',
+        kind: 'error',
+        text: `Mablag' yetarli emas! Sizda: ${(acc2.money || 0).toLocaleString('ru-RU')} so'm, talab: ${p2Deposit.toLocaleString('ru-RU')} so'm`,
+      });
+      return null;
+    }
+
+    // Server-authoritative escrow deduction for player 2
+    acc2.money -= p2Deposit;
+    markEconomyDirty(pid);
+    scheduleSaveEconomy(pid);
+    pushToPlayerWs(pid, {
+      t: 'economy_update',
+      kind: 'deposit_race_escrow',
+      money: acc2.money,
+      delta: -p2Deposit,
+      text: `Poyga depoziti bloklandi: -${p2Deposit.toLocaleString('ru-RU')} so'm`,
+    });
+
     race.p2Id = pid;
     race.p2Name = pName;
     race.p2Deposit = p2Deposit;
+    race.escrowP2 = p2Deposit;
     race.guestId = pid;
     race.guestName = pName;
     race.guestDeposit = p2Deposit;
@@ -742,8 +826,37 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
 
   if (action === 'cancel' && (race.status === 'pending' || race.status === 'racing') && (pid === race.p1Id || pid === race.p2Id)) {
     race.status = 'cancelled';
+    // Escrow refund
+    if (race.escrowP1 > 0 && race.p1Id) {
+      const acc1 = getOrCreateAccount(race.p1Id, race.p1Name);
+      acc1.money = Math.max(0, (acc1.money || 0) + race.escrowP1);
+      markEconomyDirty(race.p1Id);
+      scheduleSaveEconomy(race.p1Id);
+      pushToPlayerWs(race.p1Id, {
+        t: 'economy_update',
+        kind: 'deposit_race_refund',
+        money: acc1.money,
+        refund: race.escrowP1,
+        reason: `${pName} poygani bekor qildi`,
+      });
+      race.escrowP1 = 0;
+    }
+    if (race.escrowP2 > 0 && race.p2Id) {
+      const acc2 = getOrCreateAccount(race.p2Id, race.p2Name);
+      acc2.money = Math.max(0, (acc2.money || 0) + race.escrowP2);
+      markEconomyDirty(race.p2Id);
+      scheduleSaveEconomy(race.p2Id);
+      pushToPlayerWs(race.p2Id, {
+        t: 'economy_update',
+        kind: 'deposit_race_refund',
+        money: acc2.money,
+        refund: race.escrowP2,
+        reason: `${pName} poygani bekor qildi`,
+      });
+      race.escrowP2 = 0;
+    }
     room.races.delete(raceId);
-    const reasonText = `${pName} poygani bekor qildi — depozit qaytarildi`;
+    const reasonText = `${pName} poygani bekor qildi — garovlar qaytarildi`;
     return {
       eid: `dr_canc_${raceId}_${now}`,
       type: 'deposit_race',
@@ -757,23 +870,52 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
   }
 
   if (action === 'finish' && race.status === 'racing' && (pid === race.p1Id || pid === race.p2Id)) {
-    // Anti-cheat: kamida 4 soniya o'tgan bo'lishi va o'yinchi marra yaqinida bo'lishi kerak
+    // Anti-cheat: kamida 1.5 soniya o'tgan bo'lishi va o'yinchi marra yaqinida bo'lishi kerak
     if (now < race.startedAt + 1500) return null;
     const pState = room.players.get(pid);
     if (pState && race.target) {
       const distToTarget = Math.hypot((pState.x || 0) - race.target.x, (pState.z || 0) - race.target.z);
-      if (distToTarget > 180) return null;
+      if (distToTarget > 220) return null;
     }
     race.status = 'finished';
     race.winnerId = pid;
     race.winnerName = pName;
+
+    // Server-authoritative prize award
+    const winnerAcc = getOrCreateAccount(pid, pName);
+    const prize = race.totalPrize;
+    winnerAcc.money = (winnerAcc.money || 0) + prize;
+    markEconomyDirty(pid);
+    scheduleSaveEconomy(pid);
+
+    if (typeof persistTransaction === 'function') {
+      persistTransaction({
+        txId: `tx_dr_${raceId}_${now}`,
+        fromId: pid === race.p1Id ? (race.p2Id || 'bank') : (race.p1Id || 'bank'),
+        toId: pid,
+        amount: prize,
+        note: `Deposit Race V10 yutug'i (${race.target ? race.target.name : 'Finish'})`,
+        status: 'success',
+      }).catch(() => {});
+    }
+
+    pushToPlayerWs(pid, {
+      t: 'economy_update',
+      kind: 'race_won',
+      money: winnerAcc.money,
+      amount: prize,
+      text: `🏁 Poygada g'olib bo'ldingiz! +${prize.toLocaleString('ru-RU')} so'm`,
+    });
+
+    race.escrowP1 = 0;
+    race.escrowP2 = 0;
     room.races.delete(raceId);
     return {
       eid: `dr_fin_${raceId}_${now}`,
       type: 'deposit_race',
       action: 'finished',
       ...race,
-      text: `🏆 ${pName} Depozit Poygada g'olib bo'ldi!`,
+      text: `🏆 ${pName} Depozit Poygada g'olib bo'ldi! Mukofot: ${prize.toLocaleString('ru-RU')} so'm`,
       ts: now,
     };
   }
@@ -1138,6 +1280,28 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  // ==========================================================================
+  // V10 SERVER HEALTHZ & DIAGNOSTICS ENDPOINT
+  // ==========================================================================
+  if (urlPath === '/healthz' || urlPath === '/health') {
+    const mem = process.memoryUsage();
+    sendJson(res, 200, {
+      status: 'ok',
+      service: 'tungi-toshkent-3d',
+      version: 'v10.0.0',
+      uptime: Math.round(process.uptime()),
+      database: isDbPostgres() ? 'postgresql' : 'file',
+      memory: {
+        rssMB: Math.round(mem.rss / (1024 * 1024)),
+        heapUsedMB: Math.round(mem.heapUsed / (1024 * 1024)),
+        heapTotalMB: Math.round(mem.heapTotal / (1024 * 1024)),
+      },
+      online: getServerStats(),
+      ts: Date.now(),
+    });
+    return;
+  }
+
   if (urlPath === '/api/online/ping' || urlPath === '/api/online/stats') {
     cleanRoomsAndPlayers();
     sendJson(res, 200, { ...getServerStats(), max: PUBLIC_MAX_PLAYERS, privateMax: PRIVATE_MAX_PLAYERS });
@@ -1226,6 +1390,12 @@ async function handleApi(req, res, urlPath) {
     const id = sanitizeId(body.id);
     if (!id) return sendJson(res, 400, { ok: false, error: 'Player ID topilmadi' });
 
+    // Authentication: check secret token if account already has secret
+    const existingAcc = economyStore.accounts.get(id);
+    if (existingAcc && existingAcc.secret && body.secret && body.secret !== existingAcc.secret) {
+      return sendJson(res, 403, { ok: false, error: 'Xavfsizlik: Noto‘g‘ri autentifikatsiya tokeni!' });
+    }
+
     const reqCleanName = normalizeUsername(body.name);
     const nameTakenByOther = !isGenericUsername(reqCleanName) && !!findUsernameOwnerId(reqCleanName, id);
     const acc = getOrCreateAccount(id, nameTakenByOther ? 'Haydovchi' : body.name, body.secret);
@@ -1269,6 +1439,7 @@ async function handleApi(req, res, urlPath) {
     sendJson(res, 200, {
       ok: true,
       id: acc.id,
+      secret: acc.secret,
       name: acc.name,
       nameTaken: nameTakenByOther,
       money: acc.money,
@@ -1335,6 +1506,9 @@ async function handleApi(req, res, urlPath) {
     }
 
     const sender = getOrCreateAccount(fromId, body.fromName, body.secret);
+    if (sender.secret && body.secret && body.secret !== sender.secret) {
+      return sendJson(res, 403, { ok: false, error: 'Xavfsizlik: Ruxsatsiz operatsiya!' });
+    }
     const target = findPlayerAccountByQuery(body.toQuery || body.toId);
     if (!target) {
       return sendJson(res, 404, { ok: false, error: 'Qabul qiluvchi o\'yinchi topilmadi! ID yoki ismni tekshiring.' });
@@ -1385,6 +1559,9 @@ async function handleApi(req, res, urlPath) {
     if (target.transfers.length > 40) target.transfers.pop();
 
     scheduleSaveEconomy();
+    if (typeof persistTransaction === 'function') {
+      persistTransaction(txRecord).catch(() => {});
+    }
 
     // Qabul qiluvchiga WebSocket orqali darhol xabar va yangi balans yuborish
     pushToPlayerWs(target.id, {
@@ -1524,7 +1701,7 @@ async function handleApi(req, res, urlPath) {
 const server = http.createServer((req, res) => {
   try {
     const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-    if (urlPath.startsWith('/api/online/') || urlPath.startsWith('/api/economy/')) {
+    if (urlPath === '/healthz' || urlPath === '/health' || urlPath.startsWith('/api/online/') || urlPath.startsWith('/api/economy/')) {
       handleApi(req, res, urlPath);
       return;
     }
@@ -1589,6 +1766,27 @@ server.on('upgrade', (req, socket) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Tungi Toshkent 3D server (HTTP + WebSocket) running at http://localhost:${PORT}`);
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Server uncaughtException:', err);
 });
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Server unhandledRejection at:', promise, 'reason:', reason);
+});
+
+async function startServer() {
+  try {
+    console.log('[STARTUP] Initializing V10 database and economy...');
+    await initDatabase();
+    await loadEconomyStore();
+    console.log(`[STARTUP] Economy store initialized. Database mode: ${isDbPostgres() ? 'PostgreSQL (Render)' : 'Local JSON file'}`);
+  } catch (err) {
+    console.error('[STARTUP] Database/Economy initialization failed:', err);
+  }
+
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Tungi Toshkent 3D V10 server (HTTP + WebSocket) running at http://0.0.0.0:${PORT}`);
+  });
+}
+
+startServer();

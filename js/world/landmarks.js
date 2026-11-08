@@ -30,13 +30,13 @@ const bldCache = new Map();
 const IS_MOBILE = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900));
 
 export function loadBuildingGlb(url, { targetHeight = 0, targetWidth = 0, rotY = 0 } = {}) {
-  // Telefonlarda og'ir (3–17 MB) bino modellari xotirani to'ldirib, brauzerni yopib qo'yadi — procedural binolar qoladi
-  if (IS_MOBILE) return Promise.resolve(null);
   const key = `${url}|${targetHeight}|${targetWidth}|${rotY}`;
   if (bldCache.has(key)) {
     return bldCache.get(key).then((tpl) => (tpl ? tpl.clone(true) : null));
   }
   const p = new Promise((resolve) => {
+    // Mobil qurilmalarda yuklanish silliq bo'lishi uchun ozgina kechiktirib asinxron yuklaymiz
+    const delay = IS_MOBILE ? 1400 : 350;
     setTimeout(() => {
       bldLoader.load(
         url,
@@ -60,12 +60,20 @@ export function loadBuildingGlb(url, { targetHeight = 0, targetWidth = 0, rotY =
             root.position.set(-center.x * sc, -box.min.y * sc, -center.z * sc);
             root.updateMatrixWorld(true);
 
-            // Mobil va kompyuterda yuqori FPS saqlash uchun frustum culling va yengil soya
+            // Mobil va kompyuterda yuqori FPS saqlash uchun frustum culling va yengil materiallar
             root.traverse((o) => {
               if (!o.isMesh) return;
               o.castShadow = false;
               o.receiveShadow = false;
               o.frustumCulled = true;
+              if (IS_MOBILE && o.material) {
+                // Mobil GPU xotirasini tejash
+                if (Array.isArray(o.material)) {
+                  o.material.forEach((m) => { if (m.map) m.map.generateMipmaps = false; });
+                } else if (o.material.map) {
+                  o.material.map.generateMipmaps = false;
+                }
+              }
             });
 
             const wrap = new THREE.Group();
@@ -79,10 +87,11 @@ export function loadBuildingGlb(url, { targetHeight = 0, targetWidth = 0, rotY =
         undefined,
         () => resolve(null)
       );
-    }, 900);
+    }, delay);
   });
   bldCache.set(key, p);
   return p.then((tpl) => (tpl ? tpl.clone(true) : null));
+}
 }
 
 export function buildLandmarks(scene) {

@@ -976,17 +976,6 @@ function online() {
 
     ${renderInvitePromoBanner()}
 
-    <div class="section-title">Suhbat (Chat)</div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="row" style="margin-top:4px">
-        <input id="chatInput" maxlength="64" placeholder="Xabar yozing (3D mashina ustida ko'rinadi)..." style="margin:0" autocomplete="off" />
-        <button class="btn primary" id="sendChatBtn" style="flex:0 0 auto">Yuborish</button>
-      </div>
-      <div id="onlineChatLog" class="list" style="margin-top:8px;max-height:110px;overflow-y:auto">
-        ${chatHistory.length === 0 ? '<div style="color:var(--muted);justify-content:center">Suhbat tarixi shu yerda ko\'rinadi</div>' : chatHistory.slice(-8).map((m) => `<div><span><b>${m.fromName}:</b> ${m.text}</span><small style="color:var(--muted)">${new Date(m.ts).toLocaleTimeString('uz').slice(0, 5)}</small></div>`).join('')}
-      </div>
-    </div>
-
     <div class="section-title">💰 Do'stlar bilan Depozit Poyga (Garov + 100% O'yin Bonusi)</div>
     <div class="card" style="margin-bottom:12px;border-color:rgba(255,215,64,0.45)">
       <p style="font-size:12px;color:var(--muted)">
@@ -1254,24 +1243,6 @@ function online() {
       setTimeout(() => { if (current === 'online') online(); }, 180);
     };
   }
-
-  const doChat = (txt) => {
-    const t = String(txt || '').trim();
-    if (!t) return;
-    sendChat(t, state.name || 'Haydovchi');
-    beep('ok');
-    toast(`💬 Siz: ${t}`, 'ok');
-    renderModalChatLog();
-  };
-  body.querySelectorAll('[data-qchat]').forEach((b) => (b.onclick = () => doChat(b.dataset.qchat)));
-  body.querySelector('#sendChatBtn').onclick = () => {
-    const inp = body.querySelector('#chatInput');
-    doChat(inp.value);
-    inp.value = '';
-  };
-  body.querySelector('#chatInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') body.querySelector('#sendChatBtn').click();
-  });
 
   if (inf.status === 'off') {
     goOnline().then(() => { if (current === 'online') online(); }).catch(() => {});
@@ -1546,10 +1517,19 @@ function updateOnlineModalDynamic() {
 onOnline((ev) => {
   if (ev.economyUpdate) {
     applyServerTransferPush(ev.economyUpdate);
-    const tx = ev.economyUpdate.tx;
-    if (tx) {
+    const upd = ev.economyUpdate;
+    if (upd.tx) {
       beep('cash');
-      toast(`💸 ${tx.fromName} (TT-${tx.fromId}) sizga +${fmt(tx.amount)} o'tkazdi!`, 'cash');
+      toast(`💸 ${upd.tx.fromName} (TT-${upd.tx.fromId}) sizga +${fmt(upd.tx.amount)} o'tkazdi!`, 'cash');
+    } else if (upd.kind === 'race_won') {
+      beep('cash');
+      toast(upd.text || `🏁 Poygada g'olib bo'ldingiz! +${fmt(upd.amount)}`, 'cash');
+    } else if (upd.kind === 'deposit_race_refund') {
+      toast(upd.reason || `Garov qaytarildi: +${fmt(upd.refund)}`, 'ok');
+    } else if (upd.kind === 'deposit_race_escrow') {
+      toast(upd.text || `Poyga depoziti bloklandi: ${fmt(upd.delta)}`, 'ok');
+    } else if (upd.kind === 'error') {
+      toast(upd.text || 'Xatolik yuz berdi', 'err');
     }
     if (current === 'transfer') transferModal();
     return;

@@ -586,6 +586,24 @@ export function applyServerTransferPush(msg) {
       amount: msg.tx.amount,
       reason: `O'tkazma qabul qilindi ← ${msg.tx.fromName} (TT-${msg.tx.fromId})`,
     });
+  } else if (msg.kind === 'race_won' && msg.amount) {
+    state.tx.unshift({
+      t: Date.now(),
+      amount: msg.amount,
+      reason: `Deposit Race g'alabasi (+${fmt(msg.amount)})`,
+    });
+  } else if (msg.kind === 'deposit_race_escrow' && msg.delta) {
+    state.tx.unshift({
+      t: Date.now(),
+      amount: msg.delta,
+      reason: msg.text || 'Depozit poyga garovi band qilindi',
+    });
+  } else if (msg.kind === 'deposit_race_refund' && msg.refund) {
+    state.tx.unshift({
+      t: Date.now(),
+      amount: msg.refund,
+      reason: msg.reason || `Depozit poyga garovi qaytarildi (+${fmt(msg.refund)})`,
+    });
   }
   emit();
 }
