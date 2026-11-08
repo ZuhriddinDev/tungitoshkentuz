@@ -800,7 +800,7 @@ export function buildCar(cfg, look = {}, opts = {}) {
   const isPriority = opts.beam !== false || opts.priority === true;
 
   const api = {
-    group, cfg, wheels, paint,
+    group, chassisTilt, cfg, wheels, paint,
     radius: proc.radius,
     rearTop: proc.rearTop,
     headMat, tailMat,

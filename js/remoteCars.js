@@ -308,10 +308,10 @@ export class RemoteCars {
       r.pitch += (targetPitch - r.pitch) * Math.min(1.0, dt * 8);
 
       // ========================================================================
-      // SPATIAL INTEREST CULLING (Uzoqdagi o'yinchilarni renderdan chiqarish)
+      // SPATIAL INTEREST CULLING & LOD (Uzoqdagi o'yinchilarni optimallashtirish)
       // ========================================================================
       const distToMe = Math.hypot(r.x - me.x, r.z - me.z);
-      const isFar = distToMe > 1450;
+      const isFar = distToMe > 1200;
       const g = r.model.group;
 
       g.visible = !isFar;
@@ -319,10 +319,19 @@ export class RemoteCars {
       g.rotation.set(r.pitch, r.h, r.roll, 'YXZ');
 
       if (!isFar) {
-        const stepDist = Math.abs(targetV) > 0.1 ? targetV * dt : 0;
-        r.model.update(stepDist, r.steer);
-        r.model.setLights?.(p.lights !== undefined ? p.lights : night > 0.35);
-        r.model.setBrake?.(!!p.braking);
+        // Masofaviy LOD: 420m dan uzoqda og'ir GLB kuzovni yashirib, yengil beacon va label ko'rsatamiz
+        const showFullCar = distToMe < 420;
+        if (r.model.chassisTilt) {
+          r.model.chassisTilt.visible = showFullCar;
+        }
+
+        if (showFullCar) {
+          const isNearby = distToMe < 120;
+          const stepDist = isNearby && Math.abs(targetV) > 0.1 ? targetV * dt : 0;
+          r.model.update(stepDist, isNearby ? r.steer : 0);
+          r.model.setLights?.(isNearby ? (p.lights !== undefined ? p.lights : night > 0.35) : false);
+          r.model.setBrake?.(!!p.braking);
+        }
       }
 
       if (r.label.parent !== g) g.add(r.label);
@@ -330,7 +339,7 @@ export class RemoteCars {
       r.label.scale.set(4.3 * lblScale, (chatText ? 1.66 : 1.16) * lblScale, 1);
       r.label.position.set(0, cfg.hei + (chatText ? 1.35 : 1.05) + (lblScale - 1) * 0.55, 0);
       r.label.visible = !isFar;
-      r.beacon.visible = distToMe > 65 && !isFar;
+      r.beacon.visible = distToMe > 45 && !isFar;
     }
 
     // Chiqib ketgan o'yinchilarni tozalash

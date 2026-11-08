@@ -7,10 +7,10 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 export const PRESETS = {
-  low:    { pr: 1.0,  shadows: false, map: 512,  bloom: false, traffic: 4,  peds: 16 },
-  medium: { pr: 1.15, shadows: false, map: 1024, bloom: false, traffic: 6,  peds: 24 },
-  high:   { pr: 1.75, shadows: true,  map: 2048, bloom: true,  traffic: 10, peds: 50 },
-  ultra:  { pr: 2.1,  shadows: true,  map: 4096, bloom: true,  traffic: 16, peds: 90 },
+  low:    { pr: 1.0,  shadows: false, map: 512,  bloom: false, traffic: 4,  peds: 12 },
+  medium: { pr: 1.25, shadows: true,  map: 1024, bloom: false, traffic: 7,  peds: 20 },
+  high:   { pr: 1.45, shadows: true,  map: 2048, bloom: true,  traffic: 10, peds: 36 },
+  ultra:  { pr: 1.75, shadows: true,  map: 2048, bloom: true,  traffic: 14, peds: 50 },
 };
 
 export const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
@@ -93,13 +93,10 @@ export function createRenderer(canvas, quality) {
       scene.environment = envMap;
       composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
-      // Yarim o'lchamli bloom: telefon va kompyuterda yuqori FPS bilan chiroyli neon nuri beradi
-      bloom = new UnrealBloomPass(
-        new THREE.Vector2(Math.max(256, innerWidth >> 1), Math.max(256, innerHeight >> 1)),
-        0.48,
-        0.52,
-        0.84
-      );
+      // Yarim o'lchamli bloom: keshlanib GPU yuklamasini keskin kamaytiradi (maksimal 640x480)
+      const bw = Math.min(640, Math.max(256, innerWidth >> 1));
+      const bh = Math.min(480, Math.max(256, innerHeight >> 1));
+      bloom = new UnrealBloomPass(new THREE.Vector2(bw, bh), 0.44, 0.50, 0.85);
       composer.addPass(bloom);
       composer.addPass(new OutputPass());
       R.apply(quality);
@@ -107,32 +104,31 @@ export function createRenderer(canvas, quality) {
     apply(q) {
       activeQuality = q || (IS_MOBILE ? (gpuCap.isHighEndMobile ? 'high' : 'medium') : 'high');
       preset = { ...(PRESETS[activeQuality] || (IS_MOBILE ? (gpuCap.isHighEndMobile ? PRESETS.high : PRESETS.medium) : PRESETS.high)) };
-      // Mobil qurilmalarda tanlangan sifat darajasini (Low / Medium / High / Ultra) haqiqatan qo'llab-quvvatlaymiz:
-      // High va Ultra rejimlarida mobil ekranda ham sifatli soyalar, reflekslar va yuqori aniqlik yoqiladi!
+      // Mobil qurilmalarda xavfsiz va silliq 60 FPS rejimlar (DPR cheklangan, qotishlar oldi olingan):
       if (IS_MOBILE) {
         if (activeQuality === 'low') {
-          preset = { ...preset, pr: 1.0, shadows: false, map: 512, bloom: false, traffic: 4, peds: 14 };
+          preset = { ...preset, pr: 1.0, shadows: false, map: 512, bloom: false, traffic: 4, peds: 10 };
         } else if (activeQuality === 'medium') {
-          preset = { ...preset, pr: 1.25, shadows: false, map: 1024, bloom: false, traffic: 6, peds: 22 };
+          preset = { ...preset, pr: 1.15, shadows: false, map: 1024, bloom: false, traffic: 6, peds: 16 };
         } else if (activeQuality === 'high') {
           preset = {
             ...preset,
-            pr: gpuCap.isHighEndMobile ? 1.65 : 1.4,
+            pr: gpuCap.isHighEndMobile ? 1.3 : 1.2,
             shadows: true,
             map: 1024,
-            bloom: gpuCap.isHighEndMobile,
+            bloom: false,
             traffic: 8,
-            peds: 32,
+            peds: 24,
           };
         } else if (activeQuality === 'ultra') {
           preset = {
             ...preset,
-            pr: gpuCap.isHighEndMobile ? 2.0 : 1.65,
+            pr: gpuCap.isHighEndMobile ? 1.4 : 1.25,
             shadows: true,
-            map: gpuCap.isHighEndMobile ? 2048 : 1024,
-            bloom: true,
+            map: 1024,
+            bloom: gpuCap.isHighEndMobile,
             traffic: 10,
-            peds: 42,
+            peds: 30,
           };
         }
       }
@@ -182,7 +178,7 @@ export function createRenderer(canvas, quality) {
       canvas.style.height = `${h}px`;
       renderer.setSize(w, h, false);
       composer?.setSize(w, h);
-      bloom?.resolution?.set(Math.max(256, w >> 1), Math.max(256, h >> 1));
+      bloom?.resolution?.set(Math.min(640, Math.max(256, w >> 1)), Math.min(480, Math.max(256, h >> 1)));
       if (camera) {
         camera.aspect = w / h;
         camera.updateProjectionMatrix();

@@ -736,14 +736,27 @@ export function sendOnlineEvent(ev) {
   }
 }
 
-// Har kadrda chaqiriladi; holat sekundiga ~16 marta (har 60 ms da) real vaqtda yuboriladi
+// Har kadrda chaqiriladi; harakat paytida ~12 Hz (80ms), to'xtab turganda ~3 Hz (350ms) da yuboriladi
 export function tick(dt, local) {
   const activeChat = myChat && Date.now() - myChatTs < 8000 ? myChat : '';
-  const payload = { ...local, chat: activeChat, chatTs: activeChat ? myChatTs : 0 };
+  const payload = {
+    ...local,
+    x: Math.round((local.x || 0) * 10) / 10,
+    y: Math.round((local.y || 0) * 10) / 10,
+    z: Math.round((local.z || 0) * 10) / 10,
+    h: Math.round((local.h || 0) * 1000) / 1000,
+    v: Math.round((local.v || 0) * 10) / 10,
+    steer: Math.round((local.steer || 0) * 100) / 100,
+    chat: activeChat,
+    chatTs: activeChat ? myChatTs : 0,
+  };
   lastLocalState = payload;
   if (status === 'off' || status === 'connecting') return;
+
+  const isStationary = Math.abs(local.v || 0) < 0.25 && !pendingEvent && !activeChat;
+  const syncInterval = isStationary ? 0.35 : 0.08;
   acc += dt;
-  if (acc < 0.06) return;
+  if (acc < syncInterval) return;
   acc = 0;
 
   // 1. WebSocket rejimi (Eng tezkor va past kechikishli real-vaqt sinxronizatsiya)

@@ -1007,8 +1007,8 @@ function syncPlayerInRoom(pid, targetRoom, rawState = {}, rawEvent = null) {
   for (const [otherId, p] of targetRoom.players.entries()) {
     if (otherId !== pid) {
       const dist = Math.hypot((p.x || 0) - myX, (p.z || 0) - myZ);
-      // 5x5 KM Spatial Interest Management: 3500m dan uzoq o'yinchilar tarmoq yuklamasini tejash uchun o'tkazib yuboriladi
-      if (dist > 3500) continue;
+      // 5x5 KM Spatial Interest Management: 1800m dan uzoq o'yinchilar tarmoq yuklamasini tejash uchun o'tkazib yuboriladi
+      if (dist > 1800) continue;
 
       players.push({
         id: p.id,

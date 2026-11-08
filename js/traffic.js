@@ -55,8 +55,34 @@ export class Traffic {
 
   update(dt, t, player) {
     const night = this.night || 0;
-    for (const car of this.cars) {
-      if (Math.hypot(car.x - player.x, car.z - player.z) > 480) { this.respawn(car, player.x, player.z); }
+    this.tickCount = (this.tickCount || 0) + 1;
+    const px = player.x, pz = player.z;
+
+    for (let idx = 0; idx < this.cars.length; idx++) {
+      const car = this.cars[idx];
+      const distSq = (car.x - px) * (car.x - px) + (car.z - pz) * (car.z - pz);
+      if (distSq > 480 * 480) {
+        this.respawn(car, px, pz);
+        continue;
+      }
+
+      const isFar = distSq > CULL_DIST * CULL_DIST;
+      const g = car.model.group;
+
+      // Uzoqdagi AI transport: soddalashtirilgan harakat (CPU va drawcall tejami)
+      if (isFar) {
+        g.visible = false;
+        // Uzoq mashinalarni faqat har 2-kadrda hisoblash (time-slicing)
+        if ((this.tickCount + idx) % 2 === 0) {
+          const step = car.v * dt * 2;
+          car.x += Math.sin(car.heading) * step;
+          car.z += Math.cos(car.heading) * step;
+          g.position.set(car.x, 0, car.z);
+        }
+        continue;
+      }
+
+      g.visible = true;
       const tx = roadC(car.ni) - car.dz * LANE, tz = roadC(car.nk) + car.dx * LANE;
       const toT = Math.hypot(tx - car.x, tz - car.z);
       if (toT < 4) this.nextNode(car);
@@ -64,15 +90,32 @@ export class Traffic {
       let want = car.cruise;
       const interior = car.ni > 0 && car.nk > 0 && car.ni < N && car.nk < N;
       const stopD = toT - ROAD / 2 - 2;
-      if (interior && signalFor(car.dx ? 'x' : 'z', t) !== 'g' && stopD > -1 && stopD < 14) want = stopD < 1 ? 0 : Math.min(want, stopD * 0.7);
-      const fx = Math.sin(car.heading), fz = Math.cos(car.heading);
-      for (const o of [...this.cars, player]) {
-        if (o === car) continue;
-        const ox = o.x - car.x, oz = o.z - car.z, ahead = ox * fx + oz * fz, side = Math.abs(ox * fz - oz * fx);
-        if (ahead > 0 && ahead < 14 && side < 2.6) want = Math.min(want, Math.max(0, (ahead - 6) * 0.8));
+      if (interior && signalFor(car.dx ? 'x' : 'z', t) !== 'g' && stopD > -1 && stopD < 14) {
+        want = stopD < 1 ? 0 : Math.min(want, stopD * 0.7);
       }
+
+      // To'siqlar va mashinalar bilan to'qnashuvni tekshirish (GC xotira ajratishsiz)
+      const fx = Math.sin(car.heading), fz = Math.cos(car.heading);
+      for (let j = 0; j < this.cars.length; j++) {
+        if (j === idx) continue;
+        const o = this.cars[j];
+        const ox = o.x - car.x, oz = o.z - car.z;
+        const ahead = ox * fx + oz * fz;
+        if (ahead > 0 && ahead < 14) {
+          const side = Math.abs(ox * fz - oz * fx);
+          if (side < 2.6) want = Math.min(want, Math.max(0, (ahead - 6) * 0.8));
+        }
+      }
+      // O'yinchi mashinasini tekshirish
+      const pox = px - car.x, poz = pz - car.z;
+      const pAhead = pox * fx + poz * fz;
+      if (pAhead > 0 && pAhead < 14) {
+        const pSide = Math.abs(pox * fz - poz * fx);
+        if (pSide < 2.6) want = Math.min(want, Math.max(0, (pAhead - 6) * 0.8));
+      }
+
       if (car.stun > 0) { car.stun -= dt; want = 0; }
-      { // burchakda sekinlash
+      { // Burchakda sekinlash
         const dh0 = Math.atan2(Math.sin(Math.atan2(tx - car.x, tz - car.z) - car.heading), Math.cos(Math.atan2(tx - car.x, tz - car.z) - car.heading));
         if (Math.abs(dh0) > 0.35) want = Math.min(want, 5.5);
         else if (toT < 22 && car.turning) want = Math.min(want, 7);
@@ -85,14 +128,15 @@ export class Traffic {
       const step = car.v * dt;
       car.x += Math.sin(car.heading) * step; car.z += Math.cos(car.heading) * step;
 
-      const g = car.model.group;
-      const far = Math.hypot(car.x - player.x, car.z - player.z) > CULL_DIST;
-      g.visible = !far;
-      if (far) { g.position.set(car.x, 0, car.z); continue; }
       car.roll = (car.roll || 0) + ((-dh * car.v * 0.012) - (car.roll || 0)) * Math.min(1, dt * 5);
       car.pitch = (car.pitch || 0) + ((want < car.v - 0.5 ? 0.02 : 0) - (car.pitch || 0)) * Math.min(1, dt * 6);
-      g.position.set(car.x, 0, car.z); g.rotation.set(car.pitch, car.heading, THREE.MathUtils.clamp(car.roll, -0.05, 0.05), 'YXZ');
-      car.model.update(step, THREE.MathUtils.clamp(dh * 2, -0.5, 0.5));
+      g.position.set(car.x, 0, car.z);
+      g.rotation.set(car.pitch, car.heading, THREE.MathUtils.clamp(car.roll, -0.05, 0.05), 'YXZ');
+
+      const isNearby = distSq < 90 * 90;
+      if (isNearby) {
+        car.model.update(step, THREE.MathUtils.clamp(dh * 2, -0.5, 0.5));
+      }
       car.model.setLights(night > 0.4);
       car.model.setBrake(want < car.v - 0.5 || car.stun > 0);
       if (car.stun > 0) car.model.setBlinker?.('hazard', t);
@@ -259,22 +303,29 @@ export class Pedestrians {
 
   update(dt, t, player) {
     const { m, qRoot, qSwing, qLimb, s, v, up, rightAxis } = this;
+    const px = player.x, pz = player.z;
+    const cullDist = 160;
+
     this.list.forEach((p, n) => {
-      const distToBlock = Math.hypot(blockC(p.j) - player.x, blockC(p.k) - player.z);
-      if (distToBlock > 380) this.place(p, player.x, player.z);
-      if (distToBlock > 210) {
-        this.torso.setMatrixAt(n, this.zero);
-        this.head.setMatrixAt(n, this.zero);
-        this.hair.setMatrixAt(n, this.zero);
-        this.cap.setMatrixAt(n, this.zero);
-        this.armL.setMatrixAt(n, this.zero);
-        this.armR.setMatrixAt(n, this.zero);
-        this.legL.setMatrixAt(n, this.zero);
-        this.legR.setMatrixAt(n, this.zero);
-        this.shoeL.setMatrixAt(n, this.zero);
-        this.shoeR.setMatrixAt(n, this.zero);
+      const distToBlock = Math.hypot(blockC(p.j) - px, blockC(p.k) - pz);
+      if (distToBlock > 360) this.place(p, px, pz);
+      if (distToBlock > cullDist) {
+        if (!p.culled) {
+          p.culled = true;
+          this.torso.setMatrixAt(n, this.zero);
+          this.head.setMatrixAt(n, this.zero);
+          this.hair.setMatrixAt(n, this.zero);
+          this.cap.setMatrixAt(n, this.zero);
+          this.armL.setMatrixAt(n, this.zero);
+          this.armR.setMatrixAt(n, this.zero);
+          this.legL.setMatrixAt(n, this.zero);
+          this.legR.setMatrixAt(n, this.zero);
+          this.shoeL.setMatrixAt(n, this.zero);
+          this.shoeR.setMatrixAt(n, this.zero);
+        }
         return;
       }
+      p.culled = false;
       const [x0, z0] = this.pos(p);
       // Burchakka (chorrahaga) yaqinlashganda qizil chiroqda kutish yoki telefon ko'rish
       const frac = ((p.t % 1) + 1) % 1;

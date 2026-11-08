@@ -289,7 +289,8 @@ function step(dt, t) {
   for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * night;
   waterMat.emissiveIntensity = 0.3 + night;
   updateProps(t, night);
-  updateCitySectors(player.x, player.z, R.preset.shadows ? 1050 : 620);
+  const cullDist = R.activeQuality === 'low' ? 550 : R.activeQuality === 'medium' ? 720 : R.activeQuality === 'ultra' ? 1100 : 950;
+  updateCitySectors(player.x, player.z, cullDist);
   traffic.setNight(night);
   traffic.update(dt, t, player);
   peds.update(dt, t, player);
@@ -514,7 +515,7 @@ async function boot() {
   sky = createSky(scene);
   const s = sky.sun.shadow;
   s.mapSize.set(preset.map, preset.map);
-  Object.assign(s.camera, { left: -90, right: 90, top: 90, bottom: -90, near: 10, far: 700 });
+  Object.assign(s.camera, { left: -75, right: 75, top: 75, bottom: -75, near: 80, far: 520 });
   s.bias = -0.0004;
   s.normalBias = 0.6;
   await progress(30, "Toshkent binolari va ko'chalari qurilmoqda...");
