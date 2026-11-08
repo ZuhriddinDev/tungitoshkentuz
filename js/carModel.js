@@ -115,7 +115,7 @@ export const GLB_SPECS = {
   },
   bmwm8wb: {
     file: 'opt/bmw_m8_competition_widebody.glb',
-    rotY: 0,
+    rotY: Math.PI,
     paintMats: ['BMW_M8RewardRecycled_2020Paint_Material', 'BMW_M8RewardRecycled_2020Coloured_Material', 'col2'],
     rimMats: ['rim.001'],
     headMats: ['BMW_M8RewardRecycled_2020LightA_Material', 'whitelight'],
