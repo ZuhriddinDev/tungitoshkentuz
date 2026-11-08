@@ -2,7 +2,8 @@
 // HUD Minimap va Katta Interaktiv Xarita (Zoom, Pan, Kategoriya filtri, GPS marshrut va POI tanlash)
 import { N, BLOCK, ROAD, HALF, roadC, blockC, blockInfo, nearestRoad, POIS, LANDMARKS, DISTRICTS, STREETS_X, STREETS_Z, RACES } from './world/layout.js';
 
-const BASE_SIZE = 2048;
+const IS_MOB = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900));
+const BASE_SIZE = IS_MOB ? 1024 : 1536;
 let baseCanvas = null;
 
 // Katta xarita holati (Zoom, Pan, Filter, Tanlangan obyekt)

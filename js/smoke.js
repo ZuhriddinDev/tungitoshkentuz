@@ -14,7 +14,7 @@ function puffTexture() {
 }
 
 export class TireSmoke {
-  constructor(scene, max = 90) {
+  constructor(scene, max = typeof navigator !== 'undefined' && /iPhone|Android|Mobile/i.test(navigator.userAgent) ? 30 : 55) {
     const tex = puffTexture();
     this.pool = [];
     this.cursor = 0;

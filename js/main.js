@@ -17,7 +17,7 @@ import {
 import { createRenderer, PRESETS } from './render.js';
 import { buildCity, updateCitySectors, nightMats, waterMat } from './world/city.js';
 import { buildProps, updateProps } from './world/props.js';
-import { buildLandmarks, animated } from './world/landmarks.js';
+import { buildLandmarks, updateLandmarks, animated } from './world/landmarks.js';
 import { createSky } from './world/sky.js';
 import { SPAWN, POIS, N, onRoad, blockC, blockInfo } from './world/layout.js';
 import { buildCar, preloadCar, isCarReady } from './carModel.js';
@@ -239,10 +239,18 @@ function syncOnlineNow(dt) {
   remotes?.update(dt, onlineList(), player, night);
 }
 
+const othersList = [];
+
 function step(dt, t) {
   hour = (hour + (dt / DAY_LENGTH_SEC) * 24) % 24;
   const input = player.locked ? { throttle: 0, reverse: 0, steer: 0, boost: false, handbrake: true, drift: false } : readDrive();
-  const others = [...traffic.cars, ...rivals(), ...(remotes ? remotes.cars : [])];
+  othersList.length = 0;
+  for (let i = 0; i < traffic.cars.length; i++) othersList.push(traffic.cars[i]);
+  const rivs = rivals();
+  for (let i = 0; i < rivs.length; i++) othersList.push(rivs[i]);
+  if (remotes?.cars) {
+    for (let i = 0; i < remotes.cars.length; i++) othersList.push(remotes.cars[i]);
+  }
 
   const g = model.group;
   let dist = 0;
@@ -251,7 +259,7 @@ function step(dt, t) {
   let impact = 0;
   let steps = 0;
   while (physAcc >= FIXED_DT && steps < 4) {
-    dist += vehicle.step(FIXED_DT, input, others);
+    dist += vehicle.step(FIXED_DT, input, othersList);
     impact = Math.max(impact, vehicle.impact);
     physAcc -= FIXED_DT;
     steps++;
@@ -291,6 +299,7 @@ function step(dt, t) {
   updateProps(t, night);
   const cullDist = R.activeQuality === 'low' ? 550 : R.activeQuality === 'medium' ? 720 : R.activeQuality === 'ultra' ? 1100 : 950;
   updateCitySectors(player.x, player.z, cullDist);
+  updateLandmarks(player.x, player.z);
   traffic.setNight(night);
   traffic.update(dt, t, player);
   peds.update(dt, t, player);
@@ -343,7 +352,7 @@ function step(dt, t) {
 }
 
 const clock = new THREE.Clock();
-let fps = 60, frames = 0, fpsT = 0, hudT = 0, mapT = 0, peerHudT = 0, perfT = 0;
+let fps = 60, frames = 0, fpsT = 0, hudT = 0, mapT = 0, peerHudT = 0, perfT = 0, posSaveTimer = 0;
 
 function updatePerfAuditPanel(rawDt) {
   if (!perfAuditVisible) return;
@@ -452,6 +461,7 @@ function loop() {
     for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * sky.night;
     updateProps(t, sky.night);
     updateCitySectors(heroX, heroZ, 950);
+    updateLandmarks(heroX, heroZ);
     traffic.setNight(sky.night);
     traffic.update(dt, t, { x: heroX, z: heroZ });
     peds.update(dt, t, { x: heroX, z: heroZ });
@@ -462,9 +472,13 @@ function loop() {
   if (playing) {
     drawSpeedo(player.kmh, vehicle.cfg.maxSpeed, vehicle.rpm);
     if ((hudT += dt) > 0.1) { hudT = 0; updateHud(vehicle, hour, waypoint, fps); }
-    if ((mapT += dt) > 0.05) { mapT = 0; drawMinimap($('minimap'), player, mapExtra()); }
+    if ((mapT += dt) > 0.1) { mapT = 0; drawMinimap($('minimap'), player, mapExtra()); }
     if ((peerHudT += dt) > 0.35) { peerHudT = 0; updateOnlinePeersHud(); }
-    if (!paused) { state.pos = { x: vehicle.x, z: vehicle.z, h: vehicle.heading }; save(); }
+    if (!paused && (posSaveTimer += dt) > 2.0) {
+      posSaveTimer = 0;
+      state.pos = { x: Math.round(vehicle.x), z: Math.round(vehicle.z), h: vehicle.heading };
+      save();
+    }
   }
   R.render(sky.night);
 }

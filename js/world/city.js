@@ -102,14 +102,14 @@ export function buildCity(scene, quality) {
   }
   const markMesh = new THREE.InstancedMesh(
     new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
-    new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.55 }),
+    new THREE.MeshBasicMaterial({ color: 0xeaeaea }),
     marks.length
   );
   const m4 = new THREE.Matrix4();
   marks.forEach(([x, z, sx, sz], idx) =>
     markMesh.setMatrixAt(idx, m4.makeScale(sx, 1, sz).setPosition(x, 0.035, z))
   );
-  markMesh.frustumCulled = false;
+  markMesh.geometry.computeBoundingSphere();
   group.add(markMesh);
 
   // Trotuarlar, bordyurlar va yashil maydonlar

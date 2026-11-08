@@ -93,14 +93,26 @@ export function loadBuildingGlb(url, { targetHeight = 0, targetWidth = 0, rotY =
   return p.then((tpl) => (tpl ? tpl.clone(true) : null));
 }
 
+export const landmarkEntries = [];
+
 export function buildLandmarks(scene) {
   animated.length = 0;
+  landmarkEntries.length = 0;
   for (const l of LANDMARKS) {
     const g = new THREE.Group();
     g.position.set(l.x, 0, l.z);
     scene.add(g);
     const f = BUILDERS[l.type];
     if (f) f(g, l);
+    landmarkEntries.push({ group: g, x: l.x, z: l.z, isTall: l.type === 'tvtower' || l.type === 'citytower' });
+  }
+}
+
+export function updateLandmarks(px, pz) {
+  for (let i = 0; i < landmarkEntries.length; i++) {
+    const item = landmarkEntries[i];
+    const d = Math.hypot(item.x - px, item.z - pz);
+    item.group.visible = item.isTall ? d < 2800 : d < 950;
   }
 }
 

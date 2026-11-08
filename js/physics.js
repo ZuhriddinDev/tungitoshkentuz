@@ -221,7 +221,9 @@ export class Vehicle {
   // Barqaror va qotib qolmaydigan kolliziya (mashina boshqaruvdan chiqib ketmaydi va shikastlanmaydi)
   collide(others) {
     const c = this.cfg, r = c.wid * 0.48;
-    for (const off of [c.len * 0.34, 0, -c.len * 0.34]) {
+    const offFwd = c.len * 0.34;
+    for (let i = 0; i < 3; i++) {
+      const off = i === 0 ? offFwd : i === 1 ? 0 : -offFwd;
       let px = this.x + this.fwdX * off, pz = this.z + this.fwdZ * off;
       for (const b of queryColliders(px, pz, r + 1.0)) {
         const cx = clamp(px, b.minX, b.maxX), cz = clamp(pz, b.minZ, b.maxZ);
@@ -237,9 +239,16 @@ export class Vehicle {
         this.hit(nx, nz);
       }
     }
-    for (const o of others) {
+    const maxRadius = (c.len + 5.5) * 0.38;
+    for (let j = 0; j < others.length; j++) {
+      const o = others[j];
       if (!o || typeof o.x !== 'number' || typeof o.z !== 'number') continue;
-      const dx = this.x - o.x, dz = this.z - o.z, d = Math.hypot(dx, dz);
+      const dx = this.x - o.x;
+      if (dx > maxRadius || dx < -maxRadius) continue;
+      const dz = this.z - o.z;
+      if (dz > maxRadius || dz < -maxRadius) continue;
+
+      const d = Math.hypot(dx, dz);
       const min = (c.len + (o.len || 4.4)) * 0.38;
       if (d >= min || d < 1e-4) continue;
       const nx = dx / d, nz = dz / d;

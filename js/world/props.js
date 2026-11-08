@@ -79,18 +79,11 @@ export function buildProps(scene, quality) {
       add(bx - 24, bz + t, 1.08); add(bx + 24, bz + t, 1.05); // Anhor bo'yidagi chinor va tollar
     }
   }
-  const trunkMain = new THREE.CylinderGeometry(0.32, 0.56, 1, 7);
-  const branchL = new THREE.CylinderGeometry(0.14, 0.24, 0.55, 5).rotateZ(0.55).translate(-0.22, 0.42, 0);
-  const branchR = new THREE.CylinderGeometry(0.14, 0.24, 0.52, 5).rotateZ(-0.52).translate(0.22, 0.38, 0.08);
-  const richTrunkGeo = mergeGeometries([trunkMain, branchL, branchR]);
+  const richTrunkGeo = new THREE.CylinderGeometry(0.32, 0.52, 1, 5);
   inst(richTrunkGeo, new THREE.MeshStandardMaterial({ color: 0x4e3928, roughness: 0.92 }), trunks, scene);
 
-  const cCenter = new THREE.DodecahedronGeometry(0.76, 1).translate(0, 0.12, 0);
-  const cLeft = new THREE.DodecahedronGeometry(0.58, 1).translate(-0.46, -0.10, 0.18);
-  const cRight = new THREE.DodecahedronGeometry(0.56, 1).translate(0.45, -0.08, -0.16);
-  const cFront = new THREE.DodecahedronGeometry(0.52, 1).translate(0.08, -0.14, 0.44);
-  const cTop = new THREE.DodecahedronGeometry(0.50, 1).translate(-0.06, 0.52, -0.08);
-  const richCrownGeo = mergeGeometries([cCenter, cLeft, cRight, cFront, cTop]);
+  // Daraxt shoxlari: 36 poligonli toza past-poligonli daraxt toji (2 mln ortiqcha vertikal poligonlarni yo'qotadi)
+  const richCrownGeo = new THREE.DodecahedronGeometry(1.55, 0);
   const crownIm = inst(richCrownGeo, new THREE.MeshStandardMaterial({ color: 0x2d6e2e, roughness: 0.86 }), crowns, scene);
   const leafPalette = ['#2b6e2c', '#357a32', '#265d28', '#3e8438', '#2f7336'];
   const cTmp = new THREE.Color();

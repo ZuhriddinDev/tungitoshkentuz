@@ -391,11 +391,19 @@ function prepareGlbTemplate(origScene, cfg, spec) {
   origScene.updateMatrixWorld(true);
 
   const isPaint = new Set(spec.paintMats || []);
+  const isWheelMesh = (name) => /wheel|tire|rim|tyre|disk|disc/i.test(name || '');
   origScene.traverse((o) => {
     if (!o.isMesh || !o.material) return;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
+    const isWheel = isWheelMesh(o.name) || (o.parent && isWheelMesh(o.parent.name));
     for (const m of mats) {
-      if (!m.transparent) m.side = THREE.DoubleSide;
+      // Faqat g'ildiraklar DoubleSide bo'ladi; qolgan kuzov va detallar FrontSide
+      // bo'lib, mobil va PC videokartasida Backface Culling orqali 50% fragment yuklamasini tejaydi
+      if (isWheel && !m.transparent) {
+        m.side = THREE.DoubleSide;
+      } else {
+        m.side = THREE.FrontSide;
+      }
     }
     o.castShadow = isPaint.has(o.material.name || '');
     o.receiveShadow = false;
