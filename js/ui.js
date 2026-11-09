@@ -1293,6 +1293,21 @@ function settings() {
           <button type="button" class="btn danger" id="reset" style="width:100%">Progressni o'chirish va qayta boshlash</button>
         </div>
       </section>
+
+      <section class="set-card set-card-founder" style="grid-column: 1 / -1;">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px">
+          <div>
+            <h4 style="margin:0 0 4px 0;color:#00e5ff">👑 Zuhriddin Sulaymonov — Loyiha Asoschisi</h4>
+            <blockquote style="margin:0;font-size:12.5px;color:rgba(255,255,255,0.8);font-style:italic">
+              “Great dreams begin quietly. TUNGI TOSHKENT — a great history is still ahead of us. 🌃”
+            </blockquote>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a href="https://zuhriddin-uz.netlify.app/" target="_blank" rel="noopener noreferrer" class="btn" style="text-decoration:none;font-size:12px;padding:6px 12px;background:rgba(0,229,255,0.15);border:1px solid #00e5ff">🌐 Asoschi Sayti ↗</a>
+            <a href="https://t.me/Tungitoshkent3d" target="_blank" rel="noopener noreferrer" class="btn primary" style="text-decoration:none;font-size:12px;padding:6px 14px;background:#0088cc;border-color:#0088cc">✈️ Rasmiy Telegram ↗</a>
+          </div>
+        </div>
+      </section>
     </div>`);
 
   body.querySelectorAll('[data-seg]').forEach((g) => g.querySelectorAll('button').forEach((b) => (b.onclick = () => {

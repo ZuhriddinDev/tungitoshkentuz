@@ -8,9 +8,8 @@ import { signalFor } from './world/props.js';
 
 const LANE = 4.6;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-// Faqat /car/ papkasidagi haqiqiy 3D GLB modellar
-// Trafikda faqat yengil (kam poligonli) modellar ishlatiladi — o'yin qotmasligi uchun
-const TRAFFIC_POOL = ['m4gts', 'mercedes', 'm4comp', 'mercedes', 'm4gts', 'm4comp', 'lambo', 'mercedes'];
+// Toshkent ko'chalaridagi realistik transportlar (Gentra, Spark, Malibu, K5, E55, G-Class, BMW, M4 GTS)
+const TRAFFIC_POOL = ['gentra', 'spark', 'malibu', 'kia_k5', 'e55', 'mercedes', 'bmw', 'm4gts', 'challenger', 'spark', 'gentra', 'malibu'];
 const CULL_DIST = 170; // shundan uzoqdagi mashinalar chizilmaydi
 const TAXI_COLOR = '#f9d71c';
 const PALETTE = ['#f5f5f5', '#f5f5f5', '#111111', '#9e9e9e', '#c0c0c0', '#1565c0', '#c62828', TAXI_COLOR, '#2e3b4e'];
@@ -53,7 +52,7 @@ export class Traffic {
     }
   }
 
-  update(dt, t, player) {
+  update(dt, t, player, peds = null) {
     const night = this.night || 0;
     this.tickCount = (this.tickCount || 0) + 1;
     const px = player.x, pz = player.z;
@@ -112,6 +111,24 @@ export class Traffic {
       if (pAhead > 0 && pAhead < 14) {
         const pSide = Math.abs(pox * fz - poz * fx);
         if (pSide < 2.6) want = Math.min(want, Math.max(0, (pAhead - 6) * 0.8));
+      }
+
+      // Piyodalar o'tish joyi va piyodalarni urib ketmaslik tekshiruvi
+      if (peds && peds.list) {
+        for (let pj = 0; pj < peds.list.length; pj++) {
+          const ped = peds.list[pj];
+          if (ped.x === undefined || ped.z === undefined) continue;
+          const pedOx = ped.x - car.x, pedOz = ped.z - car.z;
+          if (Math.abs(pedOx) > 14 || Math.abs(pedOz) > 14) continue;
+          const pedAhead = pedOx * fx + pedOz * fz;
+          if (pedAhead > 0 && pedAhead < 11) {
+            const pedSide = Math.abs(pedOx * fz - pedOz * fx);
+            if (pedSide < 2.2) {
+              want = Math.min(want, Math.max(0, (pedAhead - 3.8) * 0.7));
+              break;
+            }
+          }
+        }
       }
 
       if (car.stun > 0) { car.stun -= dt; want = 0; }

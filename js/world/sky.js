@@ -55,7 +55,7 @@ export function createSky(scene) {
 
   const hemi = new THREE.HemisphereLight(0xbfd8ff, 0x2a2a20, 0.6); scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffffff, 1.5); scene.add(sun, sun.target);
-  scene.fog = new THREE.Fog(0x000000, 200, 1500);
+  scene.fog = new THREE.Fog(0x000000, 750, 2600);
 
   const dir = new THREE.Vector3();
   return {

@@ -36,16 +36,22 @@ export class TireSmoke {
     p.str = strength;
     p.s.position.set(x + (Math.random() - 0.5) * 0.3, y, z + (Math.random() - 0.5) * 0.3);
     p.s.material.rotation = Math.random() * 6.28;
+    p.s.scale.set(0.1, 0.1, 1);
+    p.s.material.opacity = 0;
     p.s.visible = true;
   }
 
   // vehicle: Vehicle obyekti, enabled: sozlamadan, dt: kadr vaqti
   update(dt, vehicle, enabled = true, groundY = 0) {
     const speed = Math.abs(vehicle.v);
-    const active = enabled && speed > 4 && (vehicle.drifting || (vehicle.slip > 0.1 && speed > 8) || (vehicle.braking && vehicle.kmh > 70 && vehicle.slip > 0.05));
+    // Faqat haqiqiy drift yoki qattiq tormoz bloklanishida tutun chiqadi
+    // Oddiy shahar burilishlarida tutun chiqib xaritani tuman qilib qo'ymaydi
+    const isHardDrift = vehicle.drifting && vehicle.slip > 0.18 && speed > 5.5;
+    const isHardBrakeLock = vehicle.braking && vehicle.kmh > 75 && vehicle.slip > 0.20;
+    const active = enabled && (isHardDrift || isHardBrakeLock);
     if (active) {
-      const intensity = Math.min(1, 0.35 + vehicle.slip * 2.5);
-      this.acc += dt * (22 + 60 * intensity);
+      const intensity = Math.min(1, 0.35 + (vehicle.slip - 0.15) * 2.8);
+      this.acc += dt * (18 + 45 * intensity);
       const c = vehicle.cfg, fx = vehicle.fwdX, fz = vehicle.fwdZ, rx = Math.cos(vehicle.heading), rz = -Math.sin(vehicle.heading);
       while (this.acc >= 1) {
         this.acc -= 1;
@@ -61,7 +67,11 @@ export class TireSmoke {
     for (const p of this.pool) {
       if (p.life <= 0) continue;
       p.life -= dt;
-      if (p.life <= 0) { p.s.visible = false; continue; }
+      if (p.life <= 0) {
+        p.s.visible = false;
+        p.s.material.opacity = 0;
+        continue;
+      }
       const k = 1 - p.life / p.max;
       p.s.position.x += p.vx * dt; p.s.position.y += p.vy * dt * (1 - k); p.s.position.z += p.vz * dt;
       p.vx *= 1 - dt * 0.8; p.vz *= 1 - dt * 0.8;

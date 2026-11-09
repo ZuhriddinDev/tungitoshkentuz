@@ -305,7 +305,7 @@ function step(dt, t) {
   updateCitySectors(player.x, player.z, cullDist);
   updateLandmarks(player.x, player.z);
   traffic.setNight(night);
-  traffic.update(dt, t, player);
+  traffic.update(dt, t, player, peds);
   peds.update(dt, t, player);
   updateMission(dt);
   for (const f of animated) f(t);
@@ -390,6 +390,8 @@ window.__togglePerfAudit = (forceState) => {
 };
 window.__isPerfAuditVisible = () => perfAuditVisible;
 
+let peersHudCollapsed = false;
+
 function updateOnlinePeersHud() {
   const el = $('onlinePeersHud');
   if (!el) return;
@@ -400,15 +402,50 @@ function updateOnlinePeersHud() {
     return;
   }
   el.classList.remove('hidden');
-  el.innerHTML = peers.slice(0, 5).map((p) => {
+
+  const countStr = `${peers.length}/30`;
+  const arrow = peersHudCollapsed ? '▶' : '▼';
+
+  const rowsHtml = peers.map((p) => {
     const d = Math.round(Math.hypot((p.x || 0) - player.x, (p.z || 0) - player.z));
+    const distStr = d > 1000 ? `${(d / 1000).toFixed(1)}km` : `${d}m`;
+    const carObj = p.car ? CARS.find(c => c.id === p.car) : null;
+    const carName = carObj ? carObj.name.split(' ')[0] : '';
+    const carBadge = carName ? `<span class="peer-car-tag">${carName}</span>` : '';
     return `<div class="peer-pill">
-      <span>🟢 <b>${p.name || 'Haydovchi'}</b> <small>${d}m</small></span>
-      <span style="display:flex;gap:4px">
-        <button type="button" data-tp-hud="${p.id}" title="Yoniga o'tish">📍</button>
-      </span>
+      <div class="peer-pill-meta">
+        <span class="peer-status-dot"></span>
+        <b class="peer-name" title="${p.name || 'Haydovchi'}">${p.name || 'Haydovchi'}</b>
+        ${carBadge}
+      </div>
+      <div class="peer-pill-actions">
+        <small class="peer-dist">${distStr}</small>
+        <button type="button" class="peer-tp-btn" data-tp-hud="${p.id}" title="Do'st yoniga teleport">📍</button>
+      </div>
     </div>`;
   }).join('');
+
+  el.innerHTML = `
+    <div class="peers-hud-box">
+      <button type="button" class="peers-hud-toggle-btn" id="peersHudToggle">
+        <span class="peers-hud-label">👥 <b>O'yinchilar:</b> <span class="cyan-txt">${countStr}</span></span>
+        <span class="peers-hud-arrow">${arrow}</span>
+      </button>
+      <div class="peers-hud-scroll ${peersHudCollapsed ? 'collapsed' : ''}">
+        ${rowsHtml}
+      </div>
+    </div>
+  `;
+
+  const toggleBtn = $('peersHudToggle');
+  if (toggleBtn) {
+    toggleBtn.onclick = (e) => {
+      e.stopPropagation();
+      peersHudCollapsed = !peersHudCollapsed;
+      updateOnlinePeersHud();
+    };
+  }
+
   el.querySelectorAll('[data-tp-hud]').forEach((b) => (b.onclick = (e) => {
     e.stopPropagation();
     const p = peers.find((x) => x.id === b.dataset.tpHud);
@@ -467,7 +504,7 @@ function loop() {
     updateCitySectors(heroX, heroZ, 950);
     updateLandmarks(heroX, heroZ);
     traffic.setNight(sky.night);
-    traffic.update(dt, t, { x: heroX, z: heroZ });
+    traffic.update(dt, t, { x: heroX, z: heroZ }, peds);
     peds.update(dt, t, { x: heroX, z: heroZ });
     for (const f of animated) f(t);
     menuCamera(camera, { x: heroX, z: heroZ, heading: heroH }, t, dt);
@@ -698,6 +735,11 @@ async function boot() {
           toast(dr.text || `🏁 ${dr.winnerName} poygada g'olib bo'ldi!`, 'ok');
         }
       }
+    }
+    if (ev.join) {
+      toast(`🟢 ${ev.join} serverga qo'shildi`, 'ok');
+    } else if (ev.leave) {
+      toast(`⚪ ${ev.leave} serverdan chiqdi`, 'warn');
     }
     if (playing) updateOnlinePeersHud();
   });

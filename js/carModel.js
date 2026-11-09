@@ -487,11 +487,16 @@ function instantiateGlb(cached, spec, cfg) {
 
   // ============================================================
   // REAL 3D GLB G'ILDIRAKLAR VA BALLONLARNING HAQIQIY AYLANISHI (WHEEL RIG)
+  // G'ildiraklar chassisTilt'dan ajratilgan: tormozda yerga botmaydi,
+  // gaz berganda havoda suzmaydi va burilishda yer bilan 100% kontaktda turadi
   // ============================================================
-  const { wheels: glbWheels, radius: glbRadius } = setupGlbWheels(root, spec, cfg);
+  const wheelRig = new THREE.Group();
+  wheelRig.name = 'GLB_WheelRig';
+  const { wheels: glbWheels, radius: glbRadius } = setupGlbWheels(root, spec, cfg, wheelRig);
 
   return {
     root,
+    wheelRig,
     paintMats,
     rimMats,
     headMats,
@@ -510,7 +515,7 @@ function instantiateGlb(cached, spec, cfg) {
  * - G'ildiraklar faqat haqiqiy o'q koordinatalarida (chap/o'ng chetda, old/orqa o'qda, pastki qismda) bo'lsa olinadi.
  * - Kaliperlar (caliper/brake) aylanmaydi (pivot'ga ulanadi), lekin rul burilganda old g'ildirak bilan birga buriladi.
  */
-function setupGlbWheels(root, spec, cfg) {
+function setupGlbWheels(root, spec, cfg, wheelRig = null) {
   root.updateMatrixWorld(true);
   const wheelMeshes = [];
   const caliperMeshes = [];
@@ -529,9 +534,11 @@ function setupGlbWheels(root, spec, cfg) {
     // Salon ruli (SteeringWheel), pedal, qo'l tormozi, eshik paneli va kuzov qismlarini o'tkazib yuborish
     if (NON_WHEEL_PART_RE.test(full)) return;
 
-    const isCaliper = CALIPER_RE.test(full) && !/disk|disc/i.test(o.name || '');
-    const isSpin = (SPIN_WHEEL_RE.test(full) || rimMats.has(matName)) && !isCaliper;
-    const isGentraCap = carId === 'gentra' && /chrome/i.test(matName);
+    // G63 Gelik, Challenger, Supra va boshqalardagi ota-ona tugunlari tekshiruvi
+    const hasWheelParent = /3DWheel (Front|Rear)|WHEEL_(FL|FR|RL|RR)|wheel(FL|FR|BL|BR)/i.test(full);
+    const isCaliper = (CALIPER_RE.test(full) || /bremse/i.test(matName)) && !/disk|disc|rotor/i.test(o.name || '');
+    const isSpin = (SPIN_WHEEL_RE.test(full) || rimMats.has(matName) || hasWheelParent || /felge|reifen/i.test(matName) || (carId === 'kia_k5' && /wheels/i.test(matName))) && !isCaliper;
+    const isGentraCap = carId === 'gentra' && /chrome|brakedisk/i.test(matName);
 
     if (!isCaliper && !isSpin && !isGentraCap) return;
 
@@ -567,6 +574,7 @@ function setupGlbWheels(root, spec, cfg) {
 
   const glbWheels = [];
   let detectedRadius = null;
+  const wheelParent = wheelRig || root;
 
   for (const [key, rawItems] of Object.entries(clusters)) {
     if (rawItems.length === 0) continue;
@@ -593,8 +601,8 @@ function setupGlbWheels(root, spec, cfg) {
     const spin = new THREE.Group();
     pivot.add(spin);
 
-    root.add(pivot);
-    root.updateMatrixWorld(true);
+    wheelParent.add(pivot);
+    wheelParent.updateMatrixWorld(true);
 
     for (const it of items) {
       if (it.mesh && it.mesh.material) {
@@ -752,6 +760,10 @@ function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
     const tl = new THREE.Mesh(box, tailMat); tl.scale.set(0.42, 0.12, 0.08); tl.position.set(sx * (W / 2 - 0.3), rearY, -L / 2 - 0.07); procGroup.add(tl);
   }
 
+  const wheelRig = new THREE.Group();
+  wheelRig.name = 'WheelRig';
+  group.add(wheelRig);
+
   const rimMat = new THREE.MeshStandardMaterial({ color: RIM_COLORS[look.rims] ?? RIM_COLORS.std, metalness: 0.9, roughness: 0.25 });
   const wheels = [];
   for (const [sx, sz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
@@ -759,7 +771,8 @@ function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
     pivot.position.set(sx * (W / 2 - 0.06), G.r, sz * L * 0.32);
     const spin = new THREE.Group();
     spin.add(new THREE.Mesh(G.tire, tireMat), new THREE.Mesh(G.rim, rimMat));
-    pivot.add(spin); procGroup.add(pivot);
+    pivot.add(spin);
+    wheelRig.add(pivot);
     wheels.push({ pivot, spin, front: sz > 0 });
   }
   const chassisTilt = new THREE.Group();
@@ -780,7 +793,7 @@ function buildProceduralCar(cfg, look = {}, { beam = true } = {}) {
   chassisTilt.add(extras);
 
   return {
-    group, chassisTilt, procGroup, wheels, paint, procGlassMat, headMat, tailMat, rimMat, extras, headBeam,
+    group, chassisTilt, wheelRig, procGroup, wheels, paint, procGlassMat, headMat, tailMat, rimMat, extras, headBeam,
     radius: G.r, rearTop: G.p.low.at(-1)[1],
   };
 }
@@ -808,7 +821,7 @@ export function buildCar(cfg, look = {}, opts = {}) {
   const isPriority = opts.beam !== false || opts.priority === true;
 
   const api = {
-    group, chassisTilt, cfg, wheels, paint,
+    group, chassisTilt, wheelRig: proc.wheelRig, cfg, wheels, paint,
     radius: proc.radius,
     rearTop: proc.rearTop,
     headMat, tailMat,
@@ -937,17 +950,12 @@ export function buildCar(cfg, look = {}, opts = {}) {
 
     update(dist, steer, pitch = 0, roll = 0) {
       const r = Math.max(api.radius, 0.2);
-      // Mashina to'xtaganda g'ildiraklar 100% to'xtaydi (harakat paytida esa aniq aylanadi)
+      // Mashina to'xtaganda g'ildiraklar 100% to'xtaydi (harakat paytida esa tezlikka mos aylanadi)
       const spinAngle = Math.abs(dist) > 1e-4 ? dist / r : 0;
-      for (const w of wheels) {
+      const targetWheels = api._glbWheels || wheels;
+      for (const w of targetWheels) {
         if (spinAngle !== 0) w.spin.rotation.x += spinAngle;
         if (w.front) w.pivot.rotation.y = steer;
-      }
-      if (api._glbWheels) {
-        for (const w of api._glbWheels) {
-          if (spinAngle !== 0) w.spin.rotation.x += spinAngle;
-          if (w.front) w.pivot.rotation.y = steer;
-        }
       }
       if (pitch || roll || steer) {
         api.setTilt(pitch, roll, steer);
@@ -960,13 +968,18 @@ export function buildCar(cfg, look = {}, opts = {}) {
       if (!inst) return;
       chassisTilt.remove(procGroup);
       chassisTilt.add(inst.root);
+      if (inst.wheelRig && inst.wheels && inst.wheels.length > 0) {
+        api.wheelRig.clear();
+        api.wheelRig.add(inst.wheelRig);
+        api._glbWheels = inst.wheels;
+        api.wheels = inst.wheels;
+      }
       api._glbLoaded = true;
       api._glbPaintMats = inst.paintMats;
       api._glbRimMats = inst.rimMats;
       api._glbHeadMats = inst.headMats;
       api._glbTailMats = inst.tailMats;
       api._glbGlassMats = inst.glassMats || [];
-      api._glbWheels = inst.wheels;
       api.radius = inst.radius;
       api.rearTop = inst.rearTop;
       api.setTuning(currentLook);
