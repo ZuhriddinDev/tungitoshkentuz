@@ -1017,7 +1017,7 @@ export function buildKokobangoClub(scene) {
     eqBars.push({ mesh: bar, phase: i * 0.9 });
   }
 
-  // Kokobango/18.glb — faqat klub ichida aylanib yuruvchi 3D model
+  // Kokobango/18.glb — faqat klub ichida aylanib yuruvchi va raqsga tushuvchi asosiy 3D model
   const glbAgent = {
     root: new THREE.Group(),
     inner: null,
@@ -1025,17 +1025,30 @@ export function buildKokobangoClub(scene) {
     loaded: false,
     loading: false,
     wpIdx: 0,
-    speed: 1.75,
+    pauseTimer: 1.5,
+    speed: 1.65,
   };
-  glbAgent.root.position.set(cx - 4.0, iy, cz + 5.5);
+  glbAgent.root.position.set(cx, iy, cz + 2.2);
   interiorGroup.add(glbAgent.root);
 
+  // Model ostidagi neon halqa va yorug'lik (aniq ko'rinib turishi uchun)
+  const glbAuraRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.55, 0.78, 32),
+    new THREE.MeshBasicMaterial({ color: 0xe879f9, side: THREE.DoubleSide, transparent: true, opacity: 0.78 })
+  );
+  glbAuraRing.rotation.x = -Math.PI / 2;
+  glbAuraRing.position.y = 0.03;
+  const glbSpot = new THREE.PointLight(0xf5d0fe, 20, 9, 1.4);
+  glbSpot.position.set(0, 2.5, 0.6);
+  glbAgent.root.add(glbAuraRing, glbSpot);
+
   const glbWaypoints = [
-    [cx - 4.2, cz + 5.8],
-    [cx + 5.2, cz + 4.8],
-    [cx + 6.2, cz - 3.6],
-    [cx - 5.2, cz - 3.8],
-    [cx - 1.5, cz + 11.2],
+    [cx, cz + 2.2],
+    [cx + 4.8, cz + 3.2],
+    [cx + 5.2, cz - 3.0],
+    [cx - 4.8, cz - 3.2],
+    [cx - 4.2, cz + 4.8],
+    [cx, cz + 8.5],
   ];
 
   function ensureGlbModelLoaded() {
@@ -1045,13 +1058,14 @@ export function buildKokobangoClub(scene) {
       './Kokobango/18.glb',
       (gltf) => {
         const model = gltf.scene;
+        model.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(model);
         const size = new THREE.Vector3();
         const center = new THREE.Vector3();
         box.getSize(size);
         box.getCenter(center);
 
-        const targetH = 1.78;
+        const targetH = 1.82;
         const sc = targetH / Math.max(0.01, size.y);
         model.scale.setScalar(sc);
         model.position.set(-center.x * sc, -box.min.y * sc, -center.z * sc);
@@ -1065,6 +1079,9 @@ export function buildKokobangoClub(scene) {
               const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
               for (const m of mats) {
                 m.side = THREE.DoubleSide;
+                if (typeof m.metalness === 'number' && m.metalness > 0.45) m.metalness = 0.25;
+                if (typeof m.roughness === 'number' && m.roughness < 0.35) m.roughness = 0.5;
+                m.needsUpdate = true;
               }
             }
           }
@@ -1089,6 +1106,9 @@ export function buildKokobangoClub(scene) {
       }
     );
   }
+
+  // O'yin yuklangandan so'ng fon rejimida oldindan yuklab qo'yish (klubga kirganda darhol ko'rinishi uchun)
+  setTimeout(ensureGlbModelLoaded, 2800);
 
   // ========================================================================
   // 3. INTERYER NPC LAR — 6 RAQQOSA, 1 DJ, 2 BARMEN, 2 QO'RIQCHI, 7 MEHMON
@@ -1348,28 +1368,42 @@ export function buildKokobangoClub(scene) {
         eq.mesh.position.y = iy + 0.9 + h * 0.5;
       }
 
-      // Kokobango/18.glb faqat klub ichida aylanib yuradi
+      // Kokobango/18.glb faqat klub ichida aylanib yuradi va ritmga mos harakatlanadi
+      glbAuraRing.scale.setScalar(1 + beat * 0.22);
+      glbSpot.intensity = 16 + beat * 12;
       if (glbAgent.loaded) {
         if (glbAgent.mixer) glbAgent.mixer.update(dt);
-        const wp = glbWaypoints[glbAgent.wpIdx];
-        const dx = wp[0] - glbAgent.root.position.x;
-        const dz = wp[1] - glbAgent.root.position.z;
-        const dist = Math.hypot(dx, dz);
-        if (dist < 0.65) {
-          glbAgent.wpIdx = (glbAgent.wpIdx + 1) % glbWaypoints.length;
+        if (glbAgent.pauseTimer > 0) {
+          glbAgent.pauseTimer -= dt;
+          // Nuqtada to'xtab musiqa ritmida tebranish
+          if (!glbAgent.mixer && glbAgent.inner) {
+            glbAgent.root.position.y = iy + beat * 0.06;
+            glbAgent.inner.rotation.z = Math.sin(t * 5.2) * 0.045;
+            glbAgent.inner.rotation.x = Math.cos(t * 2.6) * 0.03;
+          }
         } else {
-          const nx = glbAgent.root.position.x + (dx / dist) * glbAgent.speed * dt;
-          const nz = glbAgent.root.position.z + (dz / dist) * glbAgent.speed * dt;
-          glbAgent.root.position.x = Math.max(cx - 21, Math.min(cx + 21, nx));
-          glbAgent.root.position.z = Math.max(cz - 17, Math.min(cz + 17, nz));
-          const targetYaw = Math.atan2(dx, dz);
-          let dy = targetYaw - glbAgent.root.rotation.y;
-          dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-          glbAgent.root.rotation.y += dy * Math.min(1, dt * 6);
-        }
-        if (!glbAgent.mixer && glbAgent.inner) {
-          glbAgent.root.position.y = iy + Math.abs(Math.sin(t * 7.0)) * 0.045;
-          glbAgent.inner.rotation.z = Math.sin(t * 3.5) * 0.035;
+          const wp = glbWaypoints[glbAgent.wpIdx];
+          const dx = wp[0] - glbAgent.root.position.x;
+          const dz = wp[1] - glbAgent.root.position.z;
+          const dist = Math.hypot(dx, dz);
+          if (dist < 0.65) {
+            glbAgent.wpIdx = (glbAgent.wpIdx + 1) % glbWaypoints.length;
+            glbAgent.pauseTimer = 2.4;
+          } else {
+            const nx = glbAgent.root.position.x + (dx / dist) * glbAgent.speed * dt;
+            const nz = glbAgent.root.position.z + (dz / dist) * glbAgent.speed * dt;
+            glbAgent.root.position.x = Math.max(cx - 21, Math.min(cx + 21, nx));
+            glbAgent.root.position.z = Math.max(cz - 17, Math.min(cz + 17, nz));
+            const targetYaw = Math.atan2(dx, dz);
+            let dy = targetYaw - glbAgent.root.rotation.y;
+            dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+            glbAgent.root.rotation.y += dy * Math.min(1, dt * 6);
+            if (!glbAgent.mixer && glbAgent.inner) {
+              glbAgent.root.position.y = iy + Math.abs(Math.sin(t * 7.2)) * 0.048;
+              glbAgent.inner.rotation.z = Math.sin(t * 3.6) * 0.04;
+              glbAgent.inner.rotation.x = 0.02;
+            }
+          }
         }
       }
 
