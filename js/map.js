@@ -120,11 +120,12 @@ export function getAllMapPOIs() {
       category: isPark ? 'park' : 'landmark',
       icon: isClub ? '🎧' : isPark ? '🌳' : '⭐',
       color: isClub ? '#e879f9' : isPark ? '#4ade80' : '#a78bfa',
-      title: l.name,
-      sub: isClub ? 'Hashamatli tungi klub · [X] bilan kirish (PC)' : isPark ? 'Dam olish maskani va yashil bog\' hududi' : 'Toshkentning diqqatga sazovor markaziy maskani',
+      title: isClub ? 'KOKOBANGO' : l.name,
+      sub: isClub ? '🎧 Tungi Klub & VIP Lounge · [X] bilan kirish (PC)' : isPark ? 'Dam olish maskani va yashil bog\' hududi' : 'Toshkentning diqqatga sazovor markaziy maskani',
       x: l.x,
       z: l.z,
-      priority: 3,
+      priority: isClub ? 5 : 3,
+      isClub,
     });
   }
 
@@ -197,6 +198,8 @@ function drawBase() {
         g.fillStyle = '#1b283b';
       } else if (info.type === 'citytower') {
         g.fillStyle = '#16243b';
+      } else if (info.type === 'kokobango') {
+        g.fillStyle = '#1c0f30';
       } else {
         g.fillStyle = '#162030';
       }
@@ -248,6 +251,18 @@ function drawBase() {
         g.strokeRect(bx + bw * 0.16, by + bw * 0.16, bw * 0.28, bw * 0.28);
         g.fillRect(bx + bw * 0.54, by + bw * 0.22, bw * 0.26, bw * 0.24);
         g.fillRect(bx + bw * 0.24, by + bw * 0.56, bw * 0.48, bw * 0.24);
+      } else if (info.type === 'kokobango') {
+        // KOKOBANGO tungi klubi konturi va neon VIP maydoni
+        g.fillStyle = '#281145';
+        g.strokeStyle = '#e879f9';
+        g.lineWidth = 2.2;
+        g.beginPath();
+        g.roundRect(bx + bw * 0.14, by + bw * 0.18, bw * 0.72, bw * 0.56, 6);
+        g.fill();
+        g.stroke();
+        g.strokeStyle = '#22d3ee';
+        g.lineWidth = 1.4;
+        g.strokeRect(bx + bw * 0.22, by + bw * 0.26, bw * 0.56, bw * 0.36);
       } else if (info.type === 'city') {
         // Oddiy shahar kvartallarida OpenStreetMap uslubida 3-4 ta ko'p qavatli bino konturi
         g.fillStyle = '#212f45';
@@ -437,6 +452,59 @@ function drawGpsRoute(g, S, cx, cz, scale, player, dest, isMini = false) {
 // ============================================================================
 // HUD MINI-XARITA (O'yin paytida burchakda aylanuvchi GPS radar)
 // ============================================================================
+function drawClubBadge(g, px, py, r, isSelected = false) {
+  g.save();
+  // Tashqi neon shula
+  const glow = g.createRadialGradient(px, py, r * 0.4, px, py, r * 2.1);
+  glow.addColorStop(0, 'rgba(232, 121, 249, 0.55)');
+  glow.addColorStop(0.55, 'rgba(56, 189, 248, 0.22)');
+  glow.addColorStop(1, 'rgba(232, 121, 249, 0)');
+  g.fillStyle = glow;
+  g.beginPath();
+  g.arc(px, py, r * 2.1, 0, Math.PI * 2);
+  g.fill();
+
+  // Asosiy qora-binafsha doira
+  g.fillStyle = '#140626';
+  g.beginPath();
+  g.arc(px, py, r, 0, Math.PI * 2);
+  g.fill();
+
+  // Ikki rangli neon halqa (magenta + cyan)
+  g.strokeStyle = isSelected ? '#00e5ff' : '#e879f9';
+  g.lineWidth = isSelected ? 3.2 : 2.5;
+  g.beginPath();
+  g.arc(px, py, r, 0, Math.PI * 2);
+  g.stroke();
+
+  g.strokeStyle = '#22d3ee';
+  g.lineWidth = 1.5;
+  g.beginPath();
+  g.arc(px, py, r + 3.2, -Math.PI * 0.75, Math.PI * 0.25);
+  g.stroke();
+
+  // Ichki ekvalayzer ustunlari (tungi klub logosi)
+  const bars = [0.42, 0.78, 0.56, 0.86, 0.48];
+  const barW = Math.max(1.6, r * 0.14);
+  const gap = barW * 1.45;
+  const startX = px - ((bars.length - 1) * gap) / 2;
+  for (let i = 0; i < bars.length; i++) {
+    const bh = r * bars[i] * 0.88;
+    const bx = startX + i * gap - barW / 2;
+    const by = py + r * 0.36 - bh;
+    g.fillStyle = i % 2 === 0 ? '#f0abfc' : '#38bdf8';
+    g.fillRect(bx, by, barW, bh);
+  }
+
+  // Yuqori qismda quloqchin yoyi
+  g.strokeStyle = '#ffffff';
+  g.lineWidth = Math.max(1.5, r * 0.13);
+  g.beginPath();
+  g.arc(px, py - r * 0.05, r * 0.56, Math.PI * 1.12, Math.PI * 1.88);
+  g.stroke();
+  g.restore();
+}
+
 export function drawMinimap(canvas, player, extra = {}) {
   if (!baseCanvas) drawBase();
   const g = canvas.getContext('2d');
@@ -487,6 +555,18 @@ export function drawMinimap(canvas, player, extra = {}) {
     g.strokeStyle = '#090d16';
     g.lineWidth = 1.5;
     g.stroke();
+  }
+
+  for (const l of LANDMARKS) {
+    if (l.type !== 'kokobango') continue;
+    const [px, py] = toMap(l.x, l.z, S, player.x, player.z, scale);
+    if (px < -18 || px > S + 18 || py < -18 || py > S + 18) continue;
+    drawClubBadge(g, px, py, 9, false);
+    g.font = '800 8px "Segoe UI", sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#f5d0fe';
+    g.fillText('KOKOBANGO', px, py - 14);
   }
 
   for (const r of extra.remotes || []) {
@@ -653,7 +733,7 @@ export function drawBigMap(canvas, player, extra = {}) {
     if (px < -20 || px > S + 20 || py < -20 || py > S + 20) continue;
 
     const isSelected = mapState.selectedPoi && mapState.selectedPoi.id === item.id;
-    const r = isSelected ? 13 : item.priority >= 3 ? 10.5 : 8.5;
+    const r = item.isClub ? (isSelected ? 16 : 14) : isSelected ? 13 : item.priority >= 3 ? 10.5 : 8.5;
 
     // Tanlangan obyekt atrofidagi puls halqa
     if (isSelected) {
@@ -664,43 +744,83 @@ export function drawBigMap(canvas, player, extra = {}) {
       g.stroke();
     }
 
-    // Doira belgisi
-    g.fillStyle = '#0f172a';
-    g.beginPath();
-    g.arc(px, py, r, 0, Math.PI * 2);
-    g.fill();
-    g.strokeStyle = item.color;
-    g.lineWidth = isSelected ? 3 : 2;
-    g.stroke();
+    if (item.isClub) {
+      drawClubBadge(g, px, py, r, isSelected);
+    } else {
+      // Doira belgisi
+      g.fillStyle = '#0f172a';
+      g.beginPath();
+      g.arc(px, py, r, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = item.color;
+      g.lineWidth = isSelected ? 3 : 2;
+      g.stroke();
 
-    // Ikonka
-    g.font = `${Math.round(r * 1.15)}px "Segoe UI Emoji", "Segoe UI", sans-serif`;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText(item.icon, px, py + 0.5);
+      // Ikonka
+      g.font = `${Math.round(r * 1.15)}px "Segoe UI Emoji", "Segoe UI", sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(item.icon, px, py + 0.5);
+    }
 
     // Obyekt nomi (faqat boshqa yozuv ustiga tushmasa ko'rsatiladi — 0% ustma-ust tushish!)
-    const showLabel = isSelected || zoom >= 1.35 || item.priority >= 3 || mapState.filter !== 'all';
+    const showLabel = isSelected || item.isClub || zoom >= 1.35 || item.priority >= 3 || mapState.filter !== 'all';
     if (showLabel) {
-      g.font = '700 11px "Segoe UI", sans-serif';
-      const labelText = item.title;
-      const tw = g.measureText(labelText).width + 12;
-      const ly = py - r - 11;
-      if (isSelected || canPlaceLabel(px, ly, tw, 18)) {
-        g.fillStyle = 'rgba(9, 14, 26, 0.86)';
+      if (item.isClub) {
+        g.font = '800 12px "Segoe UI", sans-serif';
+        const titleTxt = '🎧 KOKOBANGO';
+        const subTxt = 'TUNGI KLUB';
+        const tw = Math.max(g.measureText(titleTxt).width, 76) + 16;
+        const bh = 30;
+        const ly = py - r - 20;
+        canPlaceLabel(px, ly, tw, bh);
+        g.fillStyle = 'rgba(20, 6, 38, 0.94)';
         g.beginPath();
-        g.roundRect(px - tw / 2, ly - 9, tw, 18, 5);
+        g.roundRect(px - tw / 2, ly - bh / 2, tw, bh, 7);
         g.fill();
-        g.strokeStyle = isSelected ? '#00e5ff' : 'rgba(255,255,255,0.16)';
-        g.lineWidth = 1;
+        g.strokeStyle = isSelected ? '#00e5ff' : '#e879f9';
+        g.lineWidth = 1.6;
         g.stroke();
-        g.fillStyle = isSelected ? '#00e5ff' : '#f8fafc';
-        g.fillText(labelText, px, ly);
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillStyle = '#fdf4ff';
+        g.fillText(titleTxt, px, ly - 6);
+        g.font = '800 9px "Segoe UI", sans-serif';
+        g.fillStyle = '#38bdf8';
+        g.fillText(subTxt, px, ly + 7);
+      } else {
+        g.font = '700 11px "Segoe UI", sans-serif';
+        const labelText = item.title;
+        const tw = g.measureText(labelText).width + 12;
+        const ly = py - r - 11;
+        if (isSelected || canPlaceLabel(px, ly, tw, 18)) {
+          g.fillStyle = 'rgba(9, 14, 26, 0.86)';
+          g.beginPath();
+          g.roundRect(px - tw / 2, ly - 9, tw, 18, 5);
+          g.fill();
+          g.strokeStyle = isSelected ? '#00e5ff' : 'rgba(255,255,255,0.16)';
+          g.lineWidth = 1;
+          g.stroke();
+          g.fillStyle = isSelected ? '#00e5ff' : '#f8fafc';
+          g.fillText(labelText, px, ly);
+        }
       }
     }
   }
 
   // 5. Online o'yinchilar (Do'stlar va boshqa haydovchilar)
+  for (const l of LANDMARKS) {
+    if (l.type !== 'kokobango') continue;
+    const [px, py] = toMap(l.x, l.z, S, player.x, player.z, scale);
+    if (px < -18 || px > S + 18 || py < -18 || py > S + 18) continue;
+    drawClubBadge(g, px, py, 9, false);
+    g.font = '800 8px "Segoe UI", sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#f5d0fe';
+    g.fillText('KOKOBANGO', px, py - 14);
+  }
+
   for (const r of extra.remotes || []) {
     const [px, py] = toMap(r.x, r.z, S, cx, cz, scale);
     g.fillStyle = '#ff4081';
