@@ -30,7 +30,7 @@ import { initAudio, updateEngine, engineStart, engineOff, remoteAudio, thump, ho
 import { initMissions, updateMission, mission, rivals } from './missions.js';
 import { drawMinimap } from './map.js';
 import { initUI, toggle, open, closeModal, isOpen, toast } from './ui.js';
-import { updateCamera, updateCharCamera, menuCamera, addShake, camState } from './camera.js';
+import { updateCamera, updateCharCamera, cycleCharZoom, resetCharCamera, menuCamera, addShake, camState } from './camera.js';
 import { drawSpeedo, updateHud, setPrompt, setMissionHud } from './hud.js';
 import { buildKokobangoClub } from './world/kokobango.js';
 import { PlayerCharacter } from './character.js';
@@ -223,15 +223,18 @@ function enterKokobangoClub() {
   const fadeEl = $('clubFade');
   if (fadeEl) fadeEl.classList.add('active');
   setTimeout(() => {
-    vehicle.place(kokobango.parkDropOff.x, kokobango.parkDropOff.z, kokobango.parkDropOff.h);
+    const dropH = Number.isFinite(kokobango.parkDropOff.heading) ? kokobango.parkDropOff.heading : Math.PI;
+    const spawnH = Number.isFinite(kokobango.insideSpawn.heading) ? kokobango.insideSpawn.heading : Math.PI;
+    vehicle.place(kokobango.parkDropOff.x, kokobango.parkDropOff.z, dropH);
     vehicle.v = 0;
     insideClub = true;
     engineOff();
     if (model) model.group.visible = false;
     kokobango.setInside(true);
-    playerChar.spawnAt(kokobango.insideSpawn.x, kokobango.insideSpawn.z, kokobango.insideSpawn.h, kokobango.interiorY);
+    playerChar.spawnAt(kokobango.insideSpawn.x, kokobango.insideSpawn.z, spawnH, kokobango.interiorY);
+    resetCharCamera(spawnH);
     kokobango.music.setVolume(0.75);
-    toast('🎧 KOKOBANGO CLUBga xush kelibsiz! Raqs: [B], Chiqish: [X]', 'ok');
+    toast('🎧 KOKOBANGO CLUB! [WASD] Yurish · [V] Kamera · [B] Raqs · [X] Chiqish', 'ok');
     setTimeout(() => {
       if (fadeEl) fadeEl.classList.remove('active');
       clubTransitioning = false;
@@ -251,7 +254,8 @@ function exitKokobangoClub() {
     kokobango.music.setVolume(0);
     playerChar.hide();
     if (model) model.group.visible = true;
-    vehicle.place(kokobango.parkDropOff.x, kokobango.parkDropOff.z, kokobango.parkDropOff.h);
+    const dropH = Number.isFinite(kokobango.parkDropOff.heading) ? kokobango.parkDropOff.heading : Math.PI;
+    vehicle.place(kokobango.parkDropOff.x, kokobango.parkDropOff.z, dropH);
     if (playing && !paused) engineStart();
     setTimeout(() => {
       if (fadeEl) fadeEl.classList.remove('active');
@@ -262,6 +266,12 @@ function exitKokobangoClub() {
 
 onKey('KeyH', keyGuard(() => { if (!insideClub) horn(); }));
 onKey('KeyC', keyGuard(() => { if (!insideClub) camState.mode = (camState.mode + 1) % 3; }));
+onKey('KeyV', keyGuard(() => {
+  if (!isTouch() && insideClub) {
+    const zm = cycleCharZoom();
+    toast(`📷 Kamera masofasi: ${zm.label}`, 'ok');
+  }
+}));
 onKey('KeyX', keyGuard(() => {
   if (!isTouch() && kokobango && !clubTransitioning) {
     if (insideClub && kokobango.nearExit(playerChar.x, playerChar.z)) {

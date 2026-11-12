@@ -1051,11 +1051,11 @@ export class PlayerCharacter {
   }
 
   spawnAt(x, z, heading, groundY = 0) {
-    this.x = x;
-    this.z = z;
-    this.y = groundY;
+    this.x = Number.isFinite(x) ? x : 0;
+    this.z = Number.isFinite(z) ? z : 0;
+    this.y = Number.isFinite(groundY) ? groundY : 0;
     this.vy = 0;
-    this.heading = heading;
+    this.heading = Number.isFinite(heading) ? heading : 0;
     this.v = 0;
     this.grounded = true;
     this.animState = 'idle';

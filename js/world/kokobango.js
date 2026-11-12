@@ -3,9 +3,16 @@
 // NPC RAQQOSALAR / DJ / XAVFSIZLIK / BARMENLAR VA JONLI DJ MUSIQA TIZIMI)
 // ============================================================================
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { BLOCK, blockC, addCollider } from './layout.js';
 import { buildCar } from '../carModel.js';
 import { CARS } from '../config.js';
+
+const clubDraco = new DRACOLoader();
+clubDraco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/draco/gltf/');
+const clubGlbLoader = new GLTFLoader();
+clubGlbLoader.setDRACOLoader(clubDraco);
 
 const CLUB_BLOCK_J = 8;
 const CLUB_BLOCK_K = 7;
@@ -953,16 +960,135 @@ export function buildKokobangoClub(scene) {
   interiorGroup.add(recDesk, recTrim);
   addIntCol(cx - 9.0, cz + 16.8, cx - 4.0, cz + 18.2);
 
-  // Interyer yoritish
-  const intAmbient = new THREE.PointLight(0x8b5cf6, 2.2, 48);
+  // Interyer yoritish (yorqin va jonli tungi klub muhiti)
+  const intHemi = new THREE.HemisphereLight(0xd8b4fe, 0x1e1038, 1.55);
+  intHemi.position.set(cx, iy + 9.5, cz);
+  const intAmbient = new THREE.PointLight(0x8b5cf6, 42, 60, 1.25);
   intAmbient.position.set(cx, iy + 8.5, cz);
-  const intStageLight = new THREE.PointLight(0x00e5ff, 3.0, 26);
+  const intStageLight = new THREE.PointLight(0x00e5ff, 68, 38, 1.3);
   intStageLight.position.set(cx, iy + 6.5, cz - 14);
-  const intBarLight = new THREE.PointLight(0xd946ef, 2.4, 22);
+  const intBarLight = new THREE.PointLight(0xd946ef, 48, 32, 1.3);
   intBarLight.position.set(cx + 18, iy + 5.5, cz + 2);
-  const intVipLight = new THREE.PointLight(0xa855f7, 2.2, 22);
+  const intVipLight = new THREE.PointLight(0xa855f7, 46, 32, 1.3);
   intVipLight.position.set(cx - 21, iy + 5.5, cz);
-  interiorGroup.add(intAmbient, intStageLight, intBarLight, intVipLight);
+  const intEntranceLight = new THREE.PointLight(0x38bdf8, 38, 28, 1.3);
+  intEntranceLight.position.set(cx, iy + 6.0, cz + 15);
+  interiorGroup.add(intHemi, intAmbient, intStageLight, intBarLight, intVipLight, intEntranceLight);
+
+  // Aylanuvchi Disko Shari (Mirror Disco Ball)
+  const discoGroup = new THREE.Group();
+  discoGroup.position.set(cx, iy + 8.4, cz - 1.5);
+  const discoRod = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.06, 0.06, 1.6, 8),
+    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9, roughness: 0.2 })
+  );
+  discoRod.position.y = 0.8;
+  const discoBall = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.95, 2),
+    new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0,
+      emissive: 0x3b0764,
+      emissiveIntensity: 0.45,
+      metalness: 0.96,
+      roughness: 0.08,
+      flatShading: true,
+    })
+  );
+  const discoRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.35, 0.04, 8, 32),
+    new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.75 })
+  );
+  discoRing.rotation.x = Math.PI * 0.42;
+  discoGroup.add(discoRod, discoBall, discoRing);
+  interiorGroup.add(discoGroup);
+
+  // Sahna yonidagi LED Ekvalayzer ustunlari
+  const eqBars = [];
+  const eqXs = [-11.5, -10.2, -8.9, 8.9, 10.2, 11.5];
+  for (let i = 0; i < eqXs.length; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: i % 2 === 0 ? 0xe879f9 : 0x22d3ee,
+      transparent: true,
+      opacity: 0.9,
+    });
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.65, 1.0, 0.65), mat);
+    bar.position.set(cx + eqXs[i], iy + 1.4, cz - 15.5);
+    interiorGroup.add(bar);
+    eqBars.push({ mesh: bar, phase: i * 0.9 });
+  }
+
+  // Kokobango/18.glb — faqat klub ichida aylanib yuruvchi 3D model
+  const glbAgent = {
+    root: new THREE.Group(),
+    inner: null,
+    mixer: null,
+    loaded: false,
+    loading: false,
+    wpIdx: 0,
+    speed: 1.75,
+  };
+  glbAgent.root.position.set(cx - 4.0, iy, cz + 5.5);
+  interiorGroup.add(glbAgent.root);
+
+  const glbWaypoints = [
+    [cx - 4.2, cz + 5.8],
+    [cx + 5.2, cz + 4.8],
+    [cx + 6.2, cz - 3.6],
+    [cx - 5.2, cz - 3.8],
+    [cx - 1.5, cz + 11.2],
+  ];
+
+  function ensureGlbModelLoaded() {
+    if (glbAgent.loaded || glbAgent.loading) return;
+    glbAgent.loading = true;
+    clubGlbLoader.load(
+      './Kokobango/18.glb',
+      (gltf) => {
+        const model = gltf.scene;
+        const box = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        box.getSize(size);
+        box.getCenter(center);
+
+        const targetH = 1.78;
+        const sc = targetH / Math.max(0.01, size.y);
+        model.scale.setScalar(sc);
+        model.position.set(-center.x * sc, -box.min.y * sc, -center.z * sc);
+
+        model.traverse((obj) => {
+          if (obj.isMesh) {
+            obj.frustumCulled = true;
+            obj.castShadow = false;
+            obj.receiveShadow = false;
+            if (obj.material) {
+              const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+              for (const m of mats) {
+                m.side = THREE.DoubleSide;
+              }
+            }
+          }
+        });
+
+        glbAgent.inner = model;
+        glbAgent.root.add(model);
+
+        if (gltf.animations && gltf.animations.length > 0) {
+          glbAgent.mixer = new THREE.AnimationMixer(model);
+          const walkClip =
+            gltf.animations.find((a) => /walk|run|move|dance/i.test(a.name)) || gltf.animations[0];
+          const action = glbAgent.mixer.clipAction(walkClip);
+          action.play();
+        }
+        glbAgent.loaded = true;
+        glbAgent.loading = false;
+      },
+      undefined,
+      () => {
+        glbAgent.loading = false;
+      }
+    );
+  }
 
   // ========================================================================
   // 3. INTERYER NPC LAR — 6 RAQQOSA, 1 DJ, 2 BARMEN, 2 QO'RIQCHI, 7 MEHMON
@@ -1157,8 +1283,12 @@ export function buildKokobangoClub(scene) {
     setInside(inside) {
       interiorGroup.visible = inside;
       exteriorGroup.visible = !inside;
-      if (inside) music.start();
-      else music.stop();
+      if (inside) {
+        ensureGlbModelLoaded();
+        music.start();
+      } else {
+        music.stop();
+      }
     },
 
     nearEntrance(px, pz) {
@@ -1209,7 +1339,39 @@ export function buildKokobangoClub(scene) {
         ls.pivot.rotation.x = Math.cos(t * 1.8 + ls.phase) * 0.18;
         ls.mat.opacity = 0.32 + beat * 0.55;
       }
-      intStageLight.intensity = 2.4 + beat * 2.2;
+      intStageLight.intensity = 52 + beat * 38;
+      discoGroup.rotation.y += dt * 0.9;
+      discoRing.rotation.z += dt * 1.4;
+      for (const eq of eqBars) {
+        const h = 1.2 + (0.5 + 0.5 * Math.sin(t * 7.5 + eq.phase)) * (1.8 + beat * 3.4);
+        eq.mesh.scale.y = h;
+        eq.mesh.position.y = iy + 0.9 + h * 0.5;
+      }
+
+      // Kokobango/18.glb faqat klub ichida aylanib yuradi
+      if (glbAgent.loaded) {
+        if (glbAgent.mixer) glbAgent.mixer.update(dt);
+        const wp = glbWaypoints[glbAgent.wpIdx];
+        const dx = wp[0] - glbAgent.root.position.x;
+        const dz = wp[1] - glbAgent.root.position.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 0.65) {
+          glbAgent.wpIdx = (glbAgent.wpIdx + 1) % glbWaypoints.length;
+        } else {
+          const nx = glbAgent.root.position.x + (dx / dist) * glbAgent.speed * dt;
+          const nz = glbAgent.root.position.z + (dz / dist) * glbAgent.speed * dt;
+          glbAgent.root.position.x = Math.max(cx - 21, Math.min(cx + 21, nx));
+          glbAgent.root.position.z = Math.max(cz - 17, Math.min(cz + 17, nz));
+          const targetYaw = Math.atan2(dx, dz);
+          let dy = targetYaw - glbAgent.root.rotation.y;
+          dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+          glbAgent.root.rotation.y += dy * Math.min(1, dt * 6);
+        }
+        if (!glbAgent.mixer && glbAgent.inner) {
+          glbAgent.root.position.y = iy + Math.abs(Math.sin(t * 7.0)) * 0.045;
+          glbAgent.inner.rotation.z = Math.sin(t * 3.5) * 0.035;
+        }
+      }
 
       // Ichki NPC animatsiyalari va yurish
       for (const npc of interiorNpcs) {

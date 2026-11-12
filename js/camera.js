@@ -9,6 +9,25 @@ let followH = null, fov = 62, shake = 0, curDist = 9;
 export const camState = { mode: 0 }; // 0 — yaqin, 1 — uzoq, 2 — kapotdan
 export const addShake = (s) => { shake = Math.max(shake, s); };
 
+const CHAR_ZOOM_MODES = [
+  { dist: 4.2, label: 'Standart' },
+  { dist: 2.35, label: 'Yaqin' },
+  { dist: 1.45, label: 'Juda yaqin' },
+  { dist: 6.2, label: 'Keng' },
+];
+let charZoomIdx = 0;
+
+export function cycleCharZoom() {
+  charZoomIdx = (charZoomIdx + 1) % CHAR_ZOOM_MODES.length;
+  return CHAR_ZOOM_MODES[charZoomIdx];
+}
+
+export function resetCharCamera(heading = 0) {
+  followH = Number.isFinite(heading) ? heading : 0;
+  curDist = CHAR_ZOOM_MODES[charZoomIdx].dist;
+  cam.yaw = 0;
+}
+
 function blocked(x, z) {
   for (const c of queryColliders(x, z, 0.5))
     if (c.tag !== 'water' && x > c.minX - 0.4 && x < c.maxX + 0.4 && z > c.minZ - 0.4 && z < c.maxZ + 0.4) return true;
@@ -50,8 +69,9 @@ export function updateCamera(camera, v, boost, dt) {
 
 // Personaj (piyoda) rejimida 3-shaxs kamerasi
 export function updateCharCamera(camera, ch, dt) {
-  if (followH === null) followH = ch.heading;
-  let dh = ch.heading - followH;
+  const chHeading = Number.isFinite(ch.heading) ? ch.heading : 0;
+  if (!Number.isFinite(followH)) followH = chHeading;
+  let dh = chHeading - followH;
   dh = Math.atan2(Math.sin(dh), Math.cos(dh));
   followH += dh * Math.min(1, dt * 6);
 
@@ -61,7 +81,7 @@ export function updateCharCamera(camera, ch, dt) {
 
   if (performance.now() - cam.lastMove > 2200) cam.yaw *= Math.pow(0.05, dt);
 
-  let dist = 4.2;
+  let dist = CHAR_ZOOM_MODES[charZoomIdx].dist;
   const yaw = followH + Math.PI + cam.yaw;
   const pitch = Math.max(0.08, Math.min(0.85, cam.pitch));
   const horiz = Math.cos(pitch);
@@ -72,10 +92,12 @@ export function updateCharCamera(camera, ch, dt) {
       break;
     }
   }
+  if (!Number.isFinite(curDist)) curDist = dist;
   curDist += (dist - curDist) * Math.min(1, dt * 10);
+  const eyeH = dist < 2.0 ? 1.52 : 1.35;
   camera.position.set(
     ch.x + dx * curDist,
-    ch.y + 1.35 + Math.sin(pitch) * curDist,
+    ch.y + eyeH + Math.sin(pitch) * curDist,
     ch.z + dz * curDist
   );
   look.set(ch.x, ch.y + 1.45, ch.z);
