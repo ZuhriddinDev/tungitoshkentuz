@@ -87,6 +87,7 @@ const SPECIAL = {
   '10,7': { type: 'uzhotel',   name: '"O\'zbekiston" mehmonxonasi' },
   '4,10': { type: 'magiccity', name: 'Magic City & Milliy bog\'' },
   '3,10': { type: 'park',      name: 'Alisher Navoiy Milliy bog\'i' },
+  '8,7':  { type: 'kokobango', name: 'KOKOBANGO CLUB' },
   // Zapravkalar va Markaziy Avtosalon/Garaj
   '8,6':  { type: 'garage',    name: 'Markaziy Avtosalon va Tuning' },
   '11,3': { type: 'gas',       name: 'Zapravka — Yunusobod' },

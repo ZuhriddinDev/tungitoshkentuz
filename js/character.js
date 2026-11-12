@@ -1131,7 +1131,7 @@ export class PlayerCharacter {
     this.emoteTimer = 4.0;
   }
 
-  step(dt, input, groundY = 0, camYaw = 0) {
+  step(dt, input, groundY = 0, camYaw = 0, extraColliders = null) {
     if (!this.active) return;
 
     // 1. Agar mashinaga kirish yoki tushish animatsiyasi ketayotgan bo'lsa
@@ -1245,18 +1245,31 @@ export class PlayerCharacter {
     const nx = this.x + Math.sin(this.heading) * this.v * dt;
     const nz = this.z + Math.cos(this.heading) * this.v * dt;
 
-    // Binolar va to'siqlar bilan to'qnashuvni tekshirish
+    // Binolar va to'siqlar (shuningdek klub interyer devorlari) bilan silliq sirpanuvchi kolliziya
     const r = 0.42;
-    let blocked = false;
-    for (const b of queryColliders(nx, nz, r + 1.5)) {
-      if (nx + r > b.minX && nx - r < b.maxX && nz + r > b.minZ && nz - r < b.maxZ) {
-        blocked = true;
-        break;
+    const isBlocked = (tx, tz) => {
+      if (extraColliders) {
+        for (let i = 0; i < extraColliders.length; i++) {
+          const b = extraColliders[i];
+          if (tx + r > b.minX && tx - r < b.maxX && tz + r > b.minZ && tz - r < b.maxZ) return true;
+        }
+        return false;
       }
-    }
-    if (!blocked) {
-      this.x = Math.max(-HALF + 5, Math.min(HALF - 5, nx));
-      this.z = Math.max(-HALF + 5, Math.min(HALF - 5, nz));
+      for (const b of queryColliders(tx, tz, r + 1.5)) {
+        if (tx + r > b.minX && tx - r < b.maxX && tz + r > b.minZ && tz - r < b.maxZ) return true;
+      }
+      return false;
+    };
+
+    const bx = extraColliders ? nx : Math.max(-HALF + 5, Math.min(HALF - 5, nx));
+    const bz = extraColliders ? nz : Math.max(-HALF + 5, Math.min(HALF - 5, nz));
+    if (!isBlocked(bx, bz)) {
+      this.x = bx;
+      this.z = bz;
+    } else if (!isBlocked(bx, this.z)) {
+      this.x = bx;
+    } else if (!isBlocked(this.x, bz)) {
+      this.z = bz;
     } else {
       this.v = 0;
     }

@@ -3415,6 +3415,66 @@ body.phone .g-canvas-box {
   pointer-events: none;
 }
 
+/* =========================================================
+   KOKOBANGO CLUB — PC INTERACTIVE PROMPT & TRANSITION
+   ========================================================= */
+.club-prompt {
+  position: fixed;
+  bottom: 128px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 11px 24px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(16, 8, 34, 0.94), rgba(34, 10, 62, 0.92));
+  border: 1.5px solid #e879f9;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.72), 0 0 22px rgba(232, 121, 249, 0.42);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 45;
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+  animation: clubPromptPulse 1.8s infinite ease-in-out;
+}
+.club-prompt .club-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  background: #e879f9;
+  color: #090414;
+  font-weight: 900;
+  font-size: 13px;
+  box-shadow: 0 0 12px rgba(232, 121, 249, 0.8);
+}
+@keyframes clubPromptPulse {
+  0%, 100% { box-shadow: 0 10px 32px rgba(0, 0, 0, 0.72), 0 0 16px rgba(232, 121, 249, 0.35); }
+  50% { box-shadow: 0 10px 32px rgba(0, 0, 0, 0.72), 0 0 28px rgba(0, 229, 255, 0.55); }
+}
+body.phone .club-prompt,
+body.phone .club-prompt.hidden {
+  display: none !important;
+}
+.club-fade {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, #16082c, #030208);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 95;
+  transition: opacity 0.25s ease;
+}
+.club-fade.active {
+  opacity: 1;
+}
+
 
 
 

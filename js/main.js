@@ -24,14 +24,16 @@ import { buildCar, preloadCar, isCarReady } from './carModel.js';
 import { withBusy } from './busy.js';
 import { Vehicle } from './physics.js';
 import { Traffic, Pedestrians } from './traffic.js';
-import { initInput, readDrive, onKey, setEnabled, applyControl } from './input.js';
+import { initInput, readDrive, onKey, setEnabled, applyControl, isTouch, cam } from './input.js';
 import { TireSmoke } from './smoke.js';
 import { initAudio, updateEngine, engineStart, engineOff, remoteAudio, thump, horn, beep, suspend } from './audio.js';
 import { initMissions, updateMission, mission, rivals } from './missions.js';
 import { drawMinimap } from './map.js';
 import { initUI, toggle, open, closeModal, isOpen, toast } from './ui.js';
-import { updateCamera, menuCamera, addShake, camState } from './camera.js';
+import { updateCamera, updateCharCamera, menuCamera, addShake, camState } from './camera.js';
 import { drawSpeedo, updateHud, setPrompt, setMissionHud } from './hud.js';
+import { buildKokobangoClub } from './world/kokobango.js';
+import { PlayerCharacter } from './character.js';
 import {
   goOnline,
   joinPublicServer,
@@ -62,6 +64,7 @@ window.__sens = state.settings.sens || 1.0;
 window.__steerSens = state.settings.steerSens || 1.0;
 
 let smoke, sky, traffic, peds, remotes, model, malibuHeroModel, malibuHeadlight, vehicle, headlight;
+let kokobango, playerChar, insideClub = false, clubTransitioning = false;
 let playing = false, paused = false;
 let perfAuditVisible = false;
 let activeDepositRace = null;
@@ -77,15 +80,16 @@ const progress = (p, t) => {
 
 // V9: Barcha o'yinchilar doimo avtomobil ichida bo'ladi
 const player = {
-  get x() { return vehicle.x; },
-  get z() { return vehicle.z; },
-  get heading() { return vehicle.heading; },
-  get kmh() { return vehicle.kmh; },
-  get v() { return vehicle.v; },
+  get x() { return insideClub && playerChar ? playerChar.x : vehicle.x; },
+  get z() { return insideClub && playerChar ? playerChar.z : vehicle.z; },
+  get heading() { return insideClub && playerChar ? playerChar.heading : vehicle.heading; },
+  get kmh() { return insideClub ? 0 : vehicle.kmh; },
+  get v() { return insideClub ? 0 : vehicle.v; },
   get cfg() { return vehicle.cfg; },
   get inst() { return vehicle.inst; },
   get vehicle() { return vehicle; },
   get len() { return vehicle.cfg.len; },
+  get inClub() { return insideClub; },
   locked: false,
 };
 
@@ -200,9 +204,82 @@ onKey('KeyL', keyGuard(() => {
   lightsMode = { auto: 'on', on: 'off', off: 'auto' }[lightsMode];
   toast(`Faralar: ${{ auto: 'avtomatik', on: 'yoqilgan', off: "o'chirilgan" }[lightsMode]}`);
 }));
-onKey('KeyH', keyGuard(() => horn()));
-onKey('KeyC', keyGuard(() => { camState.mode = (camState.mode + 1) % 3; }));
-onKey('KeyX', keyGuard(() => resetCarOnRoad()));
+function setClubPrompt(text) {
+  const el = $('clubPrompt');
+  if (!el) return;
+  if (!text || isTouch()) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = text;
+  el.classList.remove('hidden');
+}
+
+function enterKokobangoClub() {
+  if (!kokobango || !playerChar || insideClub || clubTransitioning || isTouch()) return;
+  clubTransitioning = true;
+  setClubPrompt('');
+  const fadeEl = $('clubFade');
+  if (fadeEl) fadeEl.classList.add('active');
+  setTimeout(() => {
+    vehicle.place(kokobango.parkDropOff.x, kokobango.parkDropOff.z, kokobango.parkDropOff.h);
+    vehicle.v = 0;
+    insideClub = true;
+    engineOff();
+    if (model) model.group.visible = false;
+    kokobango.setInside(true);
+    playerChar.spawnAt(kokobango.insideSpawn.x, kokobango.insideSpawn.z, kokobango.insideSpawn.h, kokobango.interiorY);
+    kokobango.music.setVolume(0.75);
+    toast('🎧 KOKOBANGO CLUBga xush kelibsiz! Raqs: [B], Chiqish: [X]', 'ok');
+    setTimeout(() => {
+      if (fadeEl) fadeEl.classList.remove('active');
+      clubTransitioning = false;
+    }, 140);
+  }, 280);
+}
+
+function exitKokobangoClub() {
+  if (!kokobango || !playerChar || !insideClub || clubTransitioning) return;
+  clubTransitioning = true;
+  setClubPrompt('');
+  const fadeEl = $('clubFade');
+  if (fadeEl) fadeEl.classList.add('active');
+  setTimeout(() => {
+    insideClub = false;
+    kokobango.setInside(false);
+    kokobango.music.setVolume(0);
+    playerChar.hide();
+    if (model) model.group.visible = true;
+    vehicle.place(kokobango.parkDropOff.x, kokobango.parkDropOff.z, kokobango.parkDropOff.h);
+    if (playing && !paused) engineStart();
+    setTimeout(() => {
+      if (fadeEl) fadeEl.classList.remove('active');
+      clubTransitioning = false;
+    }, 140);
+  }, 280);
+}
+
+onKey('KeyH', keyGuard(() => { if (!insideClub) horn(); }));
+onKey('KeyC', keyGuard(() => { if (!insideClub) camState.mode = (camState.mode + 1) % 3; }));
+onKey('KeyX', keyGuard(() => {
+  if (!isTouch() && kokobango && !clubTransitioning) {
+    if (insideClub && kokobango.nearExit(playerChar.x, playerChar.z)) {
+      exitKokobangoClub();
+      return;
+    }
+    if (!insideClub && kokobango.nearEntrance(vehicle.x, vehicle.z)) {
+      enterKokobangoClub();
+      return;
+    }
+  }
+  if (!insideClub) resetCarOnRoad();
+}));
+onKey('KeyB', keyGuard(() => {
+  if (!isTouch() && insideClub && playerChar) {
+    playerChar.triggerEmote('dance');
+  }
+}));
 onKey('F3', () => window.__togglePerfAudit?.());
 
 // Real-vaqt online sinxronizatsiya
@@ -210,6 +287,7 @@ function syncOnlineNow(dt) {
   if (!vehicle || !model) return;
   const night = sky ? sky.night : 0.8;
   const lightsOn = lightsMode === 'on' || (lightsMode === 'auto' && night > 0.35);
+  const inClubNow = insideClub && !!playerChar;
   tickOnline(dt, {
     id: playerId(),
     name: state.name || 'Haydovchi',
@@ -223,21 +301,23 @@ function syncOnlineNow(dt) {
     tint: vehicle.inst.tint || 'none',
     headlightColor: vehicle.inst.headlightColor || '#fff3d0',
     neon: vehicle.inst.neon || 'none',
-    x: vehicle.x,
-    y: model.group.position.y,
-    z: vehicle.z,
-    h: vehicle.heading,
-    v: vehicle.v,
-    steer: vehicle.steer,
-    yawRate: vehicle.yawRate,
-    braking: vehicle.braking,
-    lights: lightsOn,
-    drifting: vehicle.drifting,
-    onFoot: false,
+    x: inClubNow ? playerChar.x : vehicle.x,
+    y: inClubNow ? kokobango.interiorY : model.group.position.y,
+    z: inClubNow ? playerChar.z : vehicle.z,
+    h: inClubNow ? playerChar.heading : vehicle.heading,
+    v: inClubNow ? 0 : vehicle.v,
+    steer: inClubNow ? 0 : vehicle.steer,
+    yawRate: inClubNow ? 0 : vehicle.yawRate,
+    braking: inClubNow ? false : vehicle.braking,
+    lights: inClubNow ? false : lightsOn,
+    drifting: inClubNow ? false : vehicle.drifting,
+    onFoot: inClubNow,
+    inClub: inClubNow,
+    anim: inClubNow ? (playerChar.animState || 'idle') : '',
     km: state.totalKm || 0,
   });
   remotes?.update(dt, onlineList(), player, night);
-  if (remotes?.cars && vehicle) {
+  if (!inClubNow && remotes?.cars && vehicle) {
     remoteAudio.update(remotes.cars, vehicle, dt);
   }
 }
@@ -246,6 +326,31 @@ const othersList = [];
 
 function step(dt, t) {
   hour = (hour + (dt / DAY_LENGTH_SEC) * 24) % 24;
+  if (kokobango) {
+    const dx = player.x - kokobango.cx;
+    const dz = player.z - kokobango.cz;
+    kokobango.update(dt, t, insideClub, dx * dx + dz * dz);
+  }
+
+  if (insideClub && playerChar && kokobango) {
+    const input = player.locked ? { throttle: 0, reverse: 0, steer: 0, boost: false, handbrake: true, drift: false } : readDrive();
+    playerChar.step(dt, input, kokobango.interiorY, cam.yaw, kokobango.interiorColliders);
+    updateCharCamera(camera, playerChar, dt);
+    setPrompt('');
+    if (!isTouch() && kokobango.nearExit(playerChar.x, playerChar.z)) {
+      setClubPrompt('<span class="key">X</span> EXIT KOKOBANGO CLUB');
+    } else {
+      setClubPrompt('');
+    }
+    return;
+  }
+
+  if (!isTouch() && kokobango && kokobango.nearEntrance(vehicle.x, vehicle.z)) {
+    setClubPrompt('<span class="key">X</span> ENTER KOKOBANGO CLUB');
+  } else {
+    setClubPrompt('');
+  }
+
   const input = player.locked ? { throttle: 0, reverse: 0, steer: 0, boost: false, handbrake: true, drift: false } : readDrive();
   othersList.length = 0;
   for (let i = 0; i < traffic.cars.length; i++) othersList.push(traffic.cars[i]);
@@ -476,7 +581,7 @@ function loop() {
 
   if (playing && !paused) {
     if (malibuHeroModel) malibuHeroModel.group.visible = false;
-    model.group.visible = true;
+    model.group.visible = !insideClub;
     step(dt, t);
   } else if (!playing) {
     // MALIBU HERO SCENE — Asosiy kirish bannerida Chevrolet Malibu Premier 3D ko'rinishi
@@ -515,7 +620,7 @@ function loop() {
     if ((hudT += dt) > 0.1) { hudT = 0; updateHud(vehicle, hour, waypoint, fps); }
     if ((mapT += dt) > 0.1) { mapT = 0; drawMinimap($('minimap'), player, mapExtra()); }
     if ((peerHudT += dt) > 0.35) { peerHudT = 0; updateOnlinePeersHud(); }
-    if (!paused && (posSaveTimer += dt) > 2.0) {
+    if (!paused && !insideClub && (posSaveTimer += dt) > 2.0) {
       posSaveTimer = 0;
       state.pos = { x: Math.round(vehicle.x), z: Math.round(vehicle.z), h: vehicle.heading };
       save();
@@ -538,10 +643,17 @@ function onModal(openState) {
   paused = openState;
   setEnabled(!openState);
   if (openState) engineOff();
-  else if (playing) engineStart();
+  else if (playing && !insideClub) engineStart();
 }
 
 function returnToLobby() {
+  if (insideClub) {
+    insideClub = false;
+    kokobango?.setInside(false);
+    kokobango?.music.setVolume(0);
+    playerChar?.hide();
+    setClubPrompt('');
+  }
   engineOff();
   remoteAudio.disposeAll();
   playing = false;
@@ -581,6 +693,8 @@ async function boot() {
   buildProps(scene, q);
   await progress(70, 'Teleminora, Chorsu, Toshkent Siti...');
   buildLandmarks(scene);
+  kokobango = buildKokobangoClub(scene);
+  playerChar = new PlayerCharacter(scene, state.look?.color || '#00e5ff');
   await progress(82, 'Chevrolet Malibu Premier 3D modeli yuklanmoqda...');
   const malibuCfg = carById('malibu');
   preloadCar(malibuCfg);

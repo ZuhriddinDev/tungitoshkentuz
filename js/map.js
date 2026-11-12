@@ -114,13 +114,14 @@ export function getAllMapPOIs() {
   // 4. Muhim joylar va Parklar (LANDMARKS)
   for (const l of LANDMARKS) {
     const isPark = l.type === 'park' || l.type === 'magiccity';
+    const isClub = l.type === 'kokobango';
     items.push({
       id: `lm_${l.x}_${l.z}`,
       category: isPark ? 'park' : 'landmark',
-      icon: isPark ? '🌳' : '⭐',
-      color: isPark ? '#4ade80' : '#a78bfa',
+      icon: isClub ? '🎧' : isPark ? '🌳' : '⭐',
+      color: isClub ? '#e879f9' : isPark ? '#4ade80' : '#a78bfa',
       title: l.name,
-      sub: isPark ? 'Dam olish maskani va yashil bog\' hududi' : 'Toshkentning diqqatga sazovor markaziy maskani',
+      sub: isClub ? 'Hashamatli tungi klub · [X] bilan kirish (PC)' : isPark ? 'Dam olish maskani va yashil bog\' hududi' : 'Toshkentning diqqatga sazovor markaziy maskani',
       x: l.x,
       z: l.z,
       priority: 3,

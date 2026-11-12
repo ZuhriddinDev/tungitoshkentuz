@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { CARS } from './config.js';
 import { buildCar } from './carModel.js';
+import { buildCharacterModel } from './character.js';
 import { sendOnlineEvent } from './online.js';
 
 const beaconGeo = new THREE.CylinderGeometry(0.18, 0.65, 55, 12, 1, true);
@@ -313,7 +314,33 @@ export class RemoteCars {
       const distToMe = Math.hypot(r.x - me.x, r.z - me.z);
       const isFar = distToMe > 1200;
       const g = r.model.group;
+      const sameZone = !!me?.inClub === !!p.inClub;
 
+      if (!sameZone) {
+        g.visible = false;
+        if (r.charModel) r.charModel.group.visible = false;
+        continue;
+      }
+
+      if (p.inClub) {
+        g.visible = false;
+        if (!r.charModel) {
+          r.charModel = buildCharacterModel(p.color || '#00e5ff');
+          this.scene.add(r.charModel.group);
+        }
+        r.charModel.group.visible = true;
+        r.charModel.group.position.set(r.x, r.y, r.z);
+        r.charModel.group.rotation.set(0, r.h, 0);
+        r.charModel.animate(dt, r.v, p.anim || (Math.abs(r.v) > 0.2 ? 'walk' : 'idle'));
+        if (r.label.parent !== r.charModel.group) r.charModel.group.add(r.label);
+        r.label.scale.set(2.4, chatText ? 0.92 : 0.65, 1);
+        r.label.position.set(0, 2.25, 0);
+        r.label.visible = true;
+        r.beacon.visible = false;
+        continue;
+      }
+
+      if (r.charModel) r.charModel.group.visible = false;
       g.visible = !isFar;
       g.position.set(r.x, r.y, r.z);
       g.rotation.set(r.pitch, r.h, r.roll, 'YXZ');
@@ -355,5 +382,6 @@ export class RemoteCars {
   dispose(r) {
     if (!r) return;
     this.scene.remove(r.model.group);
+    if (r.charModel) this.scene.remove(r.charModel.group);
   }
 }

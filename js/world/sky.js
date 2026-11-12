@@ -1,4 +1,4 @@
-﻿// 24 soatlik kun-tun sikli: osmon gradienti, quyosh, oy, yulduzlar, tuman va yorug'lik
+// 24 soatlik kun-tun sikli: osmon gradienti, quyosh, oy, yulduzlar, tuman va yorug'lik
 import * as THREE from 'three';
 import { GLOW_TEX } from '../carModel.js';
 
