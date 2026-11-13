@@ -14,6 +14,48 @@ function inst(geo, mat, items, scene) {
   scene.add(im); return im;
 }
 
+const propChunks = [];
+// Bo'laklarga ajratilgan InstancedMesh: har bir bo'lakning o'z bounding sphere'i bor, shuning uchun
+// frustum culling va masofaviy yashirish ishlaydi (avval 22 500 daraxt har kadr chizilardi).
+function instC(geo, mat, items, scene, cell = 300, colorFn = null) {
+  const buckets = new Map();
+  items.forEach((t, idx) => {
+    const key = Math.floor(t.x / cell) + ',' + Math.floor(t.z / cell);
+    let b = buckets.get(key);
+    if (!b) { b = { list: [], cx: 0, cz: 0 }; buckets.set(key, b); }
+    b.list.push(t); b.cx += t.x; b.cz += t.z; t._idx = idx;
+  });
+  const out = [];
+  const sc = new THREE.Vector3(); const col = new THREE.Color();
+  for (const b of buckets.values()) {
+    const im = new THREE.InstancedMesh(geo, mat, b.list.length);
+    b.list.forEach((t, i) => {
+      q.setFromAxisAngle(up, t.r || 0);
+      im.setMatrixAt(i, m4.compose(v3.set(t.x, t.y, t.z), q, sc.set(t.sx ?? 1, t.sy ?? 1, t.sz ?? 1)));
+      if (colorFn) { colorFn(col, t._idx); im.setColorAt(i, col); }
+    });
+    im.instanceMatrix.needsUpdate = true;
+    im.computeBoundingSphere();
+    im.userData.cx = b.cx / b.list.length; im.userData.cz = b.cz / b.list.length;
+    scene.add(im);
+    propChunks.push(im);
+    out.push(im);
+  }
+  return out;
+}
+
+// Masofaviy yashirish: kamera atrofidagi bo'laklar ko'rinadi, uzoqdagilar chizilmaydi
+let propCullT = 0;
+export function updatePropCulling(px, pz, dt, range = 700) {
+  if ((propCullT += dt) < 0.25) return;
+  propCullT = 0;
+  const r2 = range * range;
+  for (const im of propChunks) {
+    const dx = im.userData.cx - px, dz = im.userData.cz - pz;
+    im.visible = dx * dx + dz * dz < r2 + 150 * 150 * 2;
+  }
+}
+
 export const lights = { phase: 0, poolMat: null, lampMat: null, signs: [] };
 
 export function buildProps(scene, quality) {
@@ -35,11 +77,11 @@ export function buildProps(scene, quality) {
       }
     }
   }
-  inst(box, poleMat, poles, scene);
+  instC(box, poleMat, poles, scene);
   lights.lampMat = new THREE.MeshStandardMaterial({ color: 0xffe0a0, emissive: 0xffc56b, emissiveIntensity: 0 });
-  inst(box, lights.lampMat, heads, scene);
+  instC(box, lights.lampMat, heads, scene);
   lights.poolMat = new THREE.MeshBasicMaterial({ map: GLOW_TEX, color: 0xffb25a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  inst(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), lights.poolMat, pools, scene);
+  instC(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), lights.poolMat, pools, scene);
 
   // Svetoforlar — har bir chorrahada
   const tPoles = [], lamps = { xr: [], xy: [], xg: [], zr: [], zy: [], zg: [] };
@@ -79,18 +121,12 @@ export function buildProps(scene, quality) {
     }
   }
   const richTrunkGeo = new THREE.CylinderGeometry(0.32, 0.52, 1, 5);
-  inst(richTrunkGeo, new THREE.MeshStandardMaterial({ color: 0x4e3928, roughness: 0.92 }), trunks, scene);
+  instC(richTrunkGeo, new THREE.MeshStandardMaterial({ color: 0x4e3928, roughness: 0.92 }), trunks, scene);
 
   // Daraxt shoxlari: 36 poligonli toza past-poligonli daraxt toji (2 mln ortiqcha vertikal poligonlarni yo'qotadi)
   const richCrownGeo = new THREE.DodecahedronGeometry(1.55, 0);
-  const crownIm = inst(richCrownGeo, new THREE.MeshStandardMaterial({ color: 0x2d6e2e, roughness: 0.86 }), crowns, scene);
   const leafPalette = ['#2b6e2c', '#357a32', '#265d28', '#3e8438', '#2f7336'];
-  const cTmp = new THREE.Color();
-  for (let i = 0; i < crowns.length; i++) {
-    cTmp.set(leafPalette[i % leafPalette.length]);
-    crownIm.setColorAt(i, cTmp);
-  }
-  if (crownIm.instanceColor) crownIm.instanceColor.needsUpdate = true;
+  instC(richCrownGeo, new THREE.MeshStandardMaterial({ color: 0x2d6e2e, roughness: 0.86 }), crowns, scene, 300, (c, i) => c.set(leafPalette[i % leafPalette.length]));
 
   // Yo'l belgilari (Tezlik 60/70 va Piyodalar o'tish joyi) — InstancedMesh
   const signPoles = [], signDiscs = [];

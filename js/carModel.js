@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { TUNING } from './config.js';
+import { mergeStaticMeshesByMaterial } from './mergeHelper.js';
 
 // /car/opt/ papkasidagi barcha 26 ta optimallashtirilgan GLB modellar uchun konfiguratsiya
 export const GLB_SPECS = {
@@ -435,6 +436,11 @@ function instantiateGlb(cached, spec, cfg) {
   const isTail = new Set(spec.tailMats || []);
 
   root.traverse((o) => {
+    // Ko'rinmaydigan og'ir qismlar (dvigatel, xavfsizlik kamari, pastki qism) — chizilmaydi (BMW M5: ~70k tri tejaladi)
+    if (o.isMesh && /engine|seatbelt|seat_belt|undercarriage|underbody|underside/i.test(`${o.name} ${o.material?.name || ''}`)) {
+      o.visible = false;
+      return;
+    }
     if (!o.isMesh || !o.material) return;
     const mName = o.material.name || '';
     const isGlassCandidate = !isHead.has(mName) && !isTail.has(mName) && !isPaint.has(mName) && !isRim.has(mName) &&
@@ -493,6 +499,7 @@ function instantiateGlb(cached, spec, cfg) {
   const wheelRig = new THREE.Group();
   wheelRig.name = 'GLB_WheelRig';
   const { wheels: glbWheels, radius: glbRadius } = setupGlbWheels(root, spec, cfg, wheelRig);
+  mergeStaticMeshesByMaterial(root);
 
   return {
     root,

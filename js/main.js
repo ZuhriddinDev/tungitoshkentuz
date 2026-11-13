@@ -16,7 +16,7 @@ import {
 } from './state.js';
 import { createRenderer, PRESETS } from './render.js';
 import { buildCity, updateCitySectors, nightMats, waterMat } from './world/city.js';
-import { buildProps, updateProps } from './world/props.js';
+import { buildProps, updateProps, updatePropCulling } from './world/props.js';
 import { buildLandmarks, updateLandmarks, animated } from './world/landmarks.js';
 import { createSky } from './world/sky.js';
 import { SPAWN, POIS, N, onRoad, blockC, blockInfo } from './world/layout.js';
@@ -593,6 +593,7 @@ function step(dt, t) {
   const lightsOn = lightsMode === 'on' || (lightsMode === 'auto' && night > 0.35);
   model.setLights(lightsOn);
   headlight.intensity = lightsOn ? 90 : 0;
+  headlight.visible = lightsOn;
   if (vehicle.inst.headlightColor) {
     headlight.color.set(vehicle.inst.headlightColor);
   }
@@ -602,8 +603,9 @@ function step(dt, t) {
     waterMat.emissiveIntensity = 0.3 + night;
   }
   updateProps(t, night);
-  const cullDist = R.activeQuality === 'low' ? 550 : R.activeQuality === 'medium' ? 720 : R.activeQuality === 'ultra' ? 1100 : 950;
+  const cullDist = R.activeQuality === 'low' ? 420 : R.activeQuality === 'medium' ? 520 : R.activeQuality === 'ultra' ? 740 : 580;
   updateCitySectors(player.x, player.z, cullDist);
+  updatePropCulling(player.x, player.z, dt, 360);
   updateLandmarks(player.x, player.z);
   traffic.setNight(night);
   traffic.update(dt, t, player, peds);
@@ -808,6 +810,7 @@ function loop() {
     }
     updateProps(t, sky.night);
     updateCitySectors(heroX, heroZ, 950);
+    updatePropCulling(heroX, heroZ, dt, 700);
     updateLandmarks(heroX, heroZ);
     traffic.setNight(sky.night);
     traffic.update(dt, t, { x: heroX, z: heroZ }, peds);

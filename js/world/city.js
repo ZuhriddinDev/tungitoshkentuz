@@ -258,7 +258,8 @@ export function buildCity(scene, quality) {
       const merged = mergeGeometries(geos);
       merged.computeBoundingSphere();
       const mesh = new THREE.Mesh(merged, styleMats[idx]);
-      mesh.castShadow = mesh.receiveShadow = true;
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
       secGroup.add(mesh);
     });
     if (sec.shopGeos.length) {

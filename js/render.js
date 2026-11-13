@@ -39,9 +39,18 @@ function detectGpuCapability(renderer) {
 }
 
 export function createRenderer(canvas, quality) {
+  // Integratsiyalashgan Intel/AMD APU grafikalarida MSAA fill-rate'ni ikki baravar oshiradi — o'chiramiz
+  let integratedGpu = false;
+  try {
+    const gl0 = document.createElement('canvas').getContext('webgl');
+    const ext0 = gl0 && gl0.getExtension('WEBGL_debug_renderer_info');
+    const rn = ext0 ? String(gl0.getParameter(ext0.UNMASKED_RENDERER_WEBGL)) : '';
+    integratedGpu = /Intel|UHD|Iris|Radeon\(TM\) Graphics|Vega \d|Mali|Adreno/i.test(rn) && !/Arc\(TM\) [AB]\d/i.test(rn);
+    gl0?.getExtension('WEBGL_lose_context')?.loseContext();
+  } catch { /* */ }
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: !IS_MOBILE || (devicePixelRatio || 1) < 2,
+    antialias: !integratedGpu && (!IS_MOBILE || (devicePixelRatio || 1) < 2),
     powerPreference: 'high-performance',
     stencil: false,
   });
@@ -67,43 +76,51 @@ export function createRenderer(canvas, quality) {
   const envMap = pmrem.fromScene(new RoomEnvironment(), 0.035).texture;
 
   let composer, bloom, preset, scene, camera, activeQuality = quality;
-  let autoAdapted = false, lastAdaptAt = 0, highFpsStreak = 0;
+  let lastAdaptAt = 0, highFpsStreak = 0, lowFpsStreak = 0, resScale = 1;
+  const applyScale = () => {
+    const pr = Math.min(devicePixelRatio || 1, preset.pr) * resScale;
+    renderer.setPixelRatio(pr);
+    composer?.setPixelRatio(pr);
+    R.resize();
+  };
   const R = {
     renderer,
     envMap,
     get preset() { return preset; },
     get activeQuality() { return activeQuality; },
+    get resScale() { return resScale; },
+    // Adaptiv sifat: FPS past bo'lsa bloom -> soyalar -> dinamik render o'lchami (0.55x gacha); FPS yaxshilansa o'lcham tiklanadi
     reportFps(fpsVal) {
-      if (!Number.isFinite(fpsVal) || fpsVal <= 0) return;
+      if (!Number.isFinite(fpsVal) || fpsVal <= 0 || !preset) return;
       const now = performance.now();
-      if (fpsVal < 34) {
+      if (fpsVal < 52) {
         highFpsStreak = 0;
-        if (now - lastAdaptAt < 6000) return;
-        if (preset?.bloom) {
+        if (fpsVal >= 36 && ++lowFpsStreak < 2) return;
+        if (now - lastAdaptAt < 1500) return;
+        lowFpsStreak = 0;
+        if (preset.bloom) {
           preset = { ...preset, bloom: false };
-          autoAdapted = true;
-          lastAdaptAt = now;
-        } else if (preset && preset.pr > 1.0) {
-          preset = { ...preset, pr: 1.0 };
-          autoAdapted = true;
-          lastAdaptAt = now;
-          R.resize();
-        } else if (preset?.shadows) {
+        } else if (preset.shadows) {
           preset = { ...preset, shadows: false };
           renderer.shadowMap.enabled = false;
-          autoAdapted = true;
-          lastAdaptAt = now;
+        } else if (resScale > 0.56) {
+          resScale = Math.max(0.55, +(resScale - (fpsVal < 34 ? 0.16 : 0.12)).toFixed(2));
+          applyScale();
+        } else {
+          return;
         }
-      } else if (autoAdapted && fpsVal > 54) {
-        highFpsStreak++;
-        if (highFpsStreak >= 4 && now - lastAdaptAt >= 6000) {
+        lastAdaptAt = now;
+      } else if (resScale < 1 && fpsVal > 58) {
+        lowFpsStreak = 0;
+        if (++highFpsStreak >= 6 && now - lastAdaptAt >= 6000) {
           highFpsStreak = 0;
-          autoAdapted = false;
+          resScale = Math.min(1, +(resScale + 0.1).toFixed(2));
           lastAdaptAt = now;
-          R.apply(activeQuality);
+          applyScale();
         }
       } else {
         highFpsStreak = 0;
+        lowFpsStreak = 0;
       }
     },
     getMetrics() {
@@ -166,6 +183,10 @@ export function createRenderer(canvas, quality) {
           };
         }
       }
+      if (!IS_MOBILE && integratedGpu && (activeQuality === 'high' || activeQuality === 'medium')) {
+        preset = { ...preset, pr: 1.0, shadows: false, bloom: false };
+      }
+      resScale = 1; lowFpsStreak = 0; highFpsStreak = 0;
       const pr = Math.min(devicePixelRatio || 1, preset.pr);
       renderer.setPixelRatio(pr);
       renderer.shadowMap.enabled = preset.shadows;

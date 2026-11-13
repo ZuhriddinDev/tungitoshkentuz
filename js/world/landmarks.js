@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { mergeStaticMeshesByMaterial } from '../mergeHelper.js';
 import { LANDMARKS, addCollider } from './layout.js';
 import { nightMats } from './city.js';
 import { signTexture } from './textures.js';
@@ -78,6 +79,7 @@ export function loadBuildingGlb(url, { targetHeight = 0, targetWidth = 0, rotY =
 
             const wrap = new THREE.Group();
             wrap.add(root);
+            mergeStaticMeshesByMaterial(root);
             resolve(wrap);
           } catch (e) {
             console.warn('[Binolar GLB] Xatolik:', url, e);
@@ -112,7 +114,7 @@ export function updateLandmarks(px, pz) {
   for (let i = 0; i < landmarkEntries.length; i++) {
     const item = landmarkEntries[i];
     const d = Math.hypot(item.x - px, item.z - pz);
-    item.group.visible = item.isTall ? d < 2800 : d < 950;
+    item.group.visible = item.isTall ? d < 2200 : d < 660;
   }
 }
 

@@ -9,6 +9,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { BLOCK, blockC, addCollider } from './layout.js';
 import { buildCar } from '../carModel.js';
 import { CARS } from '../config.js';
+import { mergeStaticMeshesByMaterial } from '../mergeHelper.js';
 import {
   createMarblePBR,
   createQuiltedVelvetTex,
@@ -583,6 +584,21 @@ export function buildKokobangoClub(scene) {
   exteriorGroup.name = 'KokobangoExterior';
   scene.add(exteriorGroup);
 
+  // Uzoqdan ko'rinadigan yengil (12 uchburchak) proksi — ekster'er 2.5M tri / 4800 mesh, shuning uchun uzoqda to'liq yashiriladi
+  const farProxy = new THREE.Group();
+  farProxy.name = 'KokobangoFarProxy';
+  {
+    const pMat = new THREE.MeshStandardMaterial({ color: 0x101320, roughness: 0.5, metalness: 0.4, emissive: 0x2a0f3a, emissiveIntensity: 0.6 });
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(76, 18, 60), pMat);
+    b1.position.set(cx, 9, cz + 6);
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(64, 4.5, 48), pMat);
+    b2.position.set(cx, 20.25, cz + 6);
+    farProxy.add(b1, b2);
+    farProxy.visible = false;
+    scene.add(farProxy);
+  }
+  let extFarState = null;
+
   const interiorGroup = new THREE.Group();
   interiorGroup.name = 'KokobangoInterior';
   interiorGroup.visible = false;
@@ -797,6 +813,9 @@ export function buildKokobangoClub(scene) {
     { id: 'mercedes',   x: cx + 18, z: cz - 55, h: -0.12, color: '#0f172a' },
     { id: 'maybach',    x: cx + 28, z: cz - 55, h: -0.22, color: '#1e1b4b' },
   ];
+  const supercarGroup = new THREE.Group();
+  supercarGroup.visible = false;
+  exteriorGroup.add(supercarGroup);
   const parkedSupercars = [];
   for (const ps of parkedSpecs) {
     const cfg = CARS.find((c) => c.id === ps.id) || CARS[0];
@@ -804,10 +823,11 @@ export function buildKokobangoClub(scene) {
     car.group.position.set(ps.x, 0.28, ps.z);
     car.group.rotation.set(0, ps.h, 0);
     car.setLights(true);
-    exteriorGroup.add(car.group);
+    supercarGroup.add(car.group);
     addCollider(ps.x - 1.4, ps.z - 2.6, ps.x + 1.4, ps.z + 2.6, 'building');
     parkedSupercars.push({ x: ps.x, z: ps.z, name: cfg.name, tier: cfg.tier, maxSpeed: cfg.maxSpeed });
   }
+  mergeStaticMeshesByMaterial(exteriorGroup);
 
   // Valet Parking stendi va Valet NPC
   const valetDesk = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.15, 0.8), mObsidian);
@@ -2046,6 +2066,8 @@ export function buildKokobangoClub(scene) {
     setInside(inside) {
       interiorGroup.visible = inside;
       exteriorGroup.visible = !inside;
+      extFarState = null;
+      if (inside) farProxy.visible = false;
       if (inside) {
         ensureGlbModelLoaded();
         music.start();
@@ -2149,6 +2171,14 @@ export function buildKokobangoClub(scene) {
     update(dt, t, isInside, playerDistSq = 0) {
       const beat = music.getBeatPulse();
       if (!isInside) {
+        // Distansiyaga asoslangan ko'rinish: 180m dan uzoqda og'ir ekster'er yashirinadi (gisterezis bilan)
+        const far = extFarState === null ? playerDistSq > 180 * 180 : (extFarState ? playerDistSq > 160 * 160 : playerDistSq > 180 * 180);
+        if (far !== extFarState) {
+          extFarState = far;
+          exteriorGroup.visible = !far;
+          farProxy.visible = far;
+        }
+        supercarGroup.visible = !far && playerDistSq < 110 * 110;
         // Osmon projektori va tashqi LED ekran faqat yaqin bo'lsa yangilanadi
         if (playerDistSq < 600 * 600) {
           skyBeams[0].rotation.z = Math.sin(t * 0.65) * 0.38;
