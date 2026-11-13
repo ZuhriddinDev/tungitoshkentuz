@@ -1215,21 +1215,59 @@ export function buildKokobangoClub(scene) {
     clearcoat: 1.0,
   });
 
+  const posterTexLoader = new THREE.TextureLoader();
+  const CLUB_POSTER_URLS = [
+    './Kokobango/depositphotos_72619833-stock-photo-elegant-brunette-lady-in-lingerie.jpg',
+    './Kokobango/Hazel-robe-campaign4.webp',
+    './Kokobango/June_2023_Desktop_Instagram_Post_Square_2000x.webp',
+    './Kokobango/LINGERIE_-_MOBILE_6e493ed3-9a3a-4fd2-8838-1cbdd654da8b.webp',
+    './Kokobango/0253707-Black_media-2.webp',
+    './Kokobango/images%20(4).jpg',
+    './Kokobango/images%20(5).jpg',
+    './Kokobango/images%20(6).jpg',
+  ];
+
   function addFramedGlamourArt(x, y, z, ry, w, h, variant) {
     const grp = new THREE.Group();
     grp.position.set(x, y, z);
     grp.rotation.y = ry;
     const outer = new THREE.Mesh(new THREE.BoxGeometry(w + 0.24, h + 0.24, 0.09), mGold);
     const backing = new THREE.Mesh(new THREE.BoxGeometry(w + 0.08, h + 0.08, 0.1), mObsidian);
-    const art = new THREE.Mesh(
-      new THREE.PlaneGeometry(w, h),
-      new THREE.MeshBasicMaterial({ map: posterTextures[variant % posterTextures.length] })
-    );
+    const artMat = new THREE.MeshBasicMaterial({ map: posterTextures[variant % posterTextures.length] });
+    const art = new THREE.Mesh(new THREE.PlaneGeometry(w, h), artMat);
     art.position.z = 0.055;
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(w, h), posterGlassMat);
     glass.position.z = 0.062;
     grp.add(outer, backing, art, glass);
     interiorGroup.add(grp);
+
+    const url = CLUB_POSTER_URLS[variant % CLUB_POSTER_URLS.length];
+    if (url) {
+      posterTexLoader.load(
+        url,
+        (tex) => {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = 4;
+          if (tex.image && tex.image.width && tex.image.height) {
+            const imgAspect = tex.image.width / tex.image.height;
+            const frameAspect = w / h;
+            if (imgAspect > frameAspect) {
+              const rx = frameAspect / imgAspect;
+              tex.repeat.set(rx, 1);
+              tex.offset.set((1 - rx) * 0.5, 0);
+            } else {
+              const ryRatio = imgAspect / frameAspect;
+              tex.repeat.set(1, ryRatio);
+              tex.offset.set(0, (1 - ryRatio) * 0.5);
+            }
+          }
+          artMat.map = tex;
+          artMat.needsUpdate = true;
+        },
+        undefined,
+        () => {}
+      );
+    }
   }
 
   // Asosiy zal devorlaridagi Glamour 21+ posterlar
@@ -1445,9 +1483,10 @@ export function buildKokobangoClub(scene) {
   addIntCol(cx + 18.1, cz - 1.25, cx + 23.9, cz + 0.05);
 
   // VIP Lounge ichidagi eksklyuziv 21+ Glamour fotografiyalar (sharqiy va janubiy VIP devorlar)
-  addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 3.5, -Math.PI / 2, 2.1, 3.15, 3);
-  addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 10.5, -Math.PI / 2, 2.1, 3.15, 0);
-  addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 17.5, -Math.PI / 2, 2.1, 3.15, 2);
+  addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 3.5, -Math.PI / 2, 2.1, 3.15, 4);
+  addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 10.5, -Math.PI / 2, 2.1, 3.15, 5);
+  addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 17.5, -Math.PI / 2, 2.1, 3.15, 6);
+  addFramedGlamourArt(cx + 21.0, VIP_Y + 3.4, cz + iD / 2 - 0.56, Math.PI, 2.1, 3.15, 7);
 
   // 2.7 HOJATXONA VA KORIDOR (WC / RESTROOMS — Shimoli-Sharqiy burchak)
   const wcWallFront = new THREE.Mesh(new THREE.BoxGeometry(10, 5.5, 0.4), wallMat);
