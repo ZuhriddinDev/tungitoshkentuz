@@ -1376,7 +1376,24 @@ export function buildKokobangoClub(scene) {
     const rootQuatInv = new THREE.Quaternion();
     root.getWorldQuaternion(rootQuatInv).invert();
 
-    const find = (name) => root.getObjectByName(name) || null;
+    // GLTFLoader PropertyBinding.sanitizeNodeName() bo'shliqlarni '_' ga almashtiradi
+    // (masalan 'Bip01 L UpperArm' -> 'Bip01_L_UpperArm'), shuning uchun ikkala formatni ham qidiramiz
+    const byNorm = new Map();
+    root.traverse((obj) => {
+      if (obj.name) {
+        const norm = obj.name.replace(/\s+/g, '_');
+        if (!byNorm.has(norm)) byNorm.set(norm, obj);
+      }
+      if (obj.isSkinnedMesh && obj.skeleton) {
+        for (const b of obj.skeleton.bones) {
+          if (b && b.name) {
+            const norm = b.name.replace(/\s+/g, '_');
+            if (!byNorm.has(norm)) byNorm.set(norm, b);
+          }
+        }
+      }
+    });
+    const find = (name) => byNorm.get(name.replace(/\s+/g, '_')) || root.getObjectByName(name) || null;
     const raw = {
       pelvis: find('Bip01 Pelvis'),
       spine: find('Bip01 Spine1') || find('Bip01 Spine'),
@@ -1498,7 +1515,7 @@ export function buildKokobangoClub(scene) {
     model.position.set(-center.x * sc, -box.min.y * sc, -center.z * sc);
     model.traverse((obj) => {
       if (obj.isMesh) {
-        obj.frustumCulled = true;
+        obj.frustumCulled = obj.isSkinnedMesh ? false : true;
         obj.castShadow = false;
         obj.receiveShadow = false;
         if (obj.material) {
@@ -1519,38 +1536,53 @@ export function buildKokobangoClub(scene) {
     glbBaseLoading = true;
     glbBaseLoaded = true;
 
-    // 1) 7 ta yangi Bip01 skeletli GLB modellarni yuklash
-    for (const ag of glbAgents) {
+    const startLoads = () => {
+      // 1) 7 ta yangi Bip01 skeletli GLB modellarni yuklash
+      for (const ag of glbAgents) {
+        clubGlbLoader.load(
+          ag.cfg.file,
+          (gltf) => {
+            const model = gltf.scene;
+            normalizeGlbScene(model, ag.cfg.targetH);
+            ag.rig = collectBip01Rig(model);
+            if (Object.keys(ag.rig).length < 10) {
+              console.warn('[KOKOBANGO] Rig bones missing for', ag.cfg.file, Object.keys(ag.rig));
+            }
+            applyRelaxedPose(ag.rig);
+            ag.inner = model;
+            ag.root.add(model);
+            ag.loaded = true;
+          },
+          undefined,
+          (err) => {
+            console.warn('[KOKOBANGO] GLB load failed:', ag.cfg.file, err);
+          }
+        );
+      }
+
+      // 2) 18.glb haykalini faqat 2 ta VIP Podium ustiga qo'yish
       clubGlbLoader.load(
-        ag.cfg.file,
+        './Kokobango/18.glb',
         (gltf) => {
-          const model = gltf.scene;
-          normalizeGlbScene(model, ag.cfg.targetH);
-          ag.rig = collectBip01Rig(model);
-          applyRelaxedPose(ag.rig);
-          ag.inner = model;
-          ag.root.add(model);
-          ag.loaded = true;
+          const baseModel = gltf.scene;
+          normalizeGlbScene(baseModel, 1.82);
+          vipPodiums.forEach((pd, idx) => {
+            const clone = idx === 0 ? baseModel : baseModel.clone(true);
+            pd.holder.add(clone);
+          });
         },
         undefined,
-        () => {}
+        (err) => {
+          console.warn('[KOKOBANGO] 18.glb load failed:', err);
+        }
       );
-    }
+    };
 
-    // 2) 18.glb haykalini faqat 2 ta VIP Podium ustiga qo'yish
-    clubGlbLoader.load(
-      './Kokobango/18.glb',
-      (gltf) => {
-        const baseModel = gltf.scene;
-        normalizeGlbScene(baseModel, 1.82);
-        vipPodiums.forEach((pd, idx) => {
-          const clone = idx === 0 ? baseModel : baseModel.clone(true);
-          pd.holder.add(clone);
-        });
-      },
-      undefined,
-      () => {}
-    );
+    if (MeshoptDecoder && MeshoptDecoder.ready && typeof MeshoptDecoder.ready.then === 'function') {
+      MeshoptDecoder.ready.then(startLoads, startLoads);
+    } else {
+      startLoads();
+    }
   }
 
   // O'yin yuklangandan so'ng fon rejimida oldindan yuklab qo'yish
