@@ -105,7 +105,6 @@ export function buildProps(scene, quality) {
   inst(box, poleMat, signPoles, scene);
   inst(box, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xff2222, emissiveIntensity: 0.35 }), signDiscs, scene);
 
-  buildBillboards(scene);
   buildPOIs(scene);
 }
 
