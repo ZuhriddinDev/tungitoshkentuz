@@ -52,7 +52,7 @@
   <meta name="google-site-verification" content="6pZ1mmJkRVkd4GfHQMg6MSesWPrcUjMaNNZzDRWk2ek" />
   <meta name="theme-color" content="#05060f" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>" />
-  <link rel="stylesheet" href="css/style.css?v=14.0" />
+  <link rel="stylesheet" href="css/style.css?v=15.0" />
   <!-- Eski iPhone/Android brauzerlarida import map qo'llab-quvvatlanishi uchun -->
   <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.0/dist/es-module-shims.js"></script>
   <script>
@@ -94,32 +94,22 @@
       <span id="loadText">3D Toshkent shahri qurilmoqda...</span>
     </div>
 
-    <!-- Asosiy Kirish Banneri -->
-    <div id="menuForm" class="lobby-layout malibu-hero-layout hidden">
-      <!-- 1. YUQORI PANEL: TUNGI TOSHKENT Logotipi + Server Holati + Online O'yinchilar Soni -->
+    <!-- Asosiy Kirish Banneri V15 -->
+    <div id="menuForm" class="lobby-layout malibu-hero-layout hero-v15 hidden">
+      <div class="hero-fx-layer" aria-hidden="true">
+        <div class="hero-aurora"></div>
+        <div class="hero-grid-floor"></div>
+      </div>
+
+      <!-- 1. YUQORI PANEL: Logotip, Live Server va Profil -->
       <header class="lobby-topbar hero-topbar">
         <div class="hero-brand-bar panel-glass">
           <div class="hero-brand-left">
             <h1 class="lobby-logo">TUNGI<span>TOSHKENT</span></h1>
+            <span class="hero-year-pill">2026</span>
           </div>
           <div class="hero-brand-right">
             <span class="hero-brand-tag">3D MULTIPLAYER</span>
-            <svg class="hero-skyline-svg" viewBox="0 0 120 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M2 26H118" stroke="#00e5ff" stroke-width="1.4" stroke-opacity="0.75"/>
-              <rect x="6" y="15" width="7" height="11" fill="#0d2b45" stroke="#00e5ff" stroke-width="0.9"/>
-              <rect x="15" y="11" width="9" height="15" fill="#103454" stroke="#00e5ff" stroke-width="0.9"/>
-              <rect x="26" y="16" width="6" height="10" fill="#0d2b45" stroke="#00e5ff" stroke-width="0.9"/>
-              <path d="M38 26L40 12H42L44 26" stroke="#00e5ff" stroke-width="1.1"/>
-              <ellipse cx="41" cy="12" rx="3.5" ry="1.6" fill="#00e5ff" fill-opacity="0.65"/>
-              <ellipse cx="41" cy="8.5" rx="2.3" ry="1.1" fill="#ff2ec4" fill-opacity="0.8"/>
-              <line x1="41" y1="2" x2="41" y2="12" stroke="#00e5ff" stroke-width="1.2"/>
-              <rect x="49" y="9" width="10" height="17" fill="#103454" stroke="#00e5ff" stroke-width="0.9"/>
-              <rect x="61" y="13" width="8" height="13" fill="#0d2b45" stroke="#00e5ff" stroke-width="0.9"/>
-              <path d="M72 26V17C72 13.5 82 13.5 82 17V26" fill="#123d63" stroke="#00e5ff" stroke-width="1"/>
-              <rect x="85" y="10" width="11" height="16" fill="#103454" stroke="#00e5ff" stroke-width="0.9"/>
-              <rect x="98" y="14" width="8" height="12" fill="#0d2b45" stroke="#00e5ff" stroke-width="0.9"/>
-              <rect x="108" y="17" width="6" height="9" fill="#0d2b45" stroke="#00e5ff" stroke-width="0.9"/>
-            </svg>
           </div>
         </div>
 
@@ -128,20 +118,20 @@
             <i class="pulse-dot" id="lobStatusDot"></i>
             ONLINE: <b id="lobTotalOnline" class="green-txt">1</b>
           </span>
-          <span class="srv-sep">|</span>
+          <span class="srv-sep">•</span>
           <span class="srv-item">
-            👥 Ommaviy: <b id="lobPublicCount">1/30</b>
+            <b id="lobPublicCount">1/30</b>
           </span>
-          <span class="srv-sep">|</span>
+          <span class="srv-sep">•</span>
           <span class="srv-item">
-            🌐 Server: <b id="lobServerStatus" class="cyan-txt">Online</b>
+            <b id="lobServerStatus" class="cyan-txt">Online</b>
             <small id="lobPingMs">(18 ms)</small>
           </span>
         </div>
 
         <div class="lobby-profile-bar panel-glass">
           <div class="prof-name-box">
-            <input id="nameInput" maxlength="18" placeholder="Ismingiz..." title="Haydovchi ismini o'zgartirish" autocomplete="off" />
+            <input id="nameInput" maxlength="18" placeholder="Haydovchi ismi..." title="Haydovchi ismini o'zgartirish" autocomplete="off" />
             <div class="prof-id-row">
               <small id="menuMyId">TT-......</small>
               <button type="button" id="copyMenuId" title="ID kodni nusxalash">📋</button>
@@ -151,71 +141,55 @@
         </div>
       </header>
 
-      <!-- 2. MARKAZIY SAHNA: Realistik Chevrolet Malibu 3D Modeli -->
-      <main class="lobby-center hero-center-stage">
-        <!-- Asoschi (Founder) va Rasmiy Telegram Kartalari -->
-        <div class="hero-floating-cards">
-          <!-- Asoschi Kartasi: Zuhriddin Sulaymonov -->
-          <div class="founder-card panel-glass">
-            <div class="founder-header">
-              <span class="founder-tag">LOYIHA ASOSCHISI</span>
-              <span class="founder-icon">👑</span>
-            </div>
-            <div class="founder-body">
-              <h3 class="founder-name">Zuhriddin Sulaymonov</h3>
-              <a href="https://zuhriddin-uz.netlify.app/" target="_blank" rel="noopener noreferrer" class="founder-site-btn">
-                🌐 zuhriddin-uz.netlify.app ↗
-              </a>
-              <blockquote class="founder-quote">
-                “Great dreams begin quietly. TUNGI TOSHKENT — a great history is still ahead of us. 🌃”
-              </blockquote>
-            </div>
-          </div>
+      <!-- 2. MARKAZIY 3D SAHNA (Toza, to'siqsiz 3D ko'rinish) -->
+      <main class="lobby-center hero-center-stage"></main>
 
-          <!-- Rasmiy Telegram Kanal Kartasi -->
-          <div class="telegram-card panel-glass">
-            <div class="tg-card-header">
-              <div class="tg-icon-badge">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" fill="#00e5ff"/>
-                </svg>
-              </div>
-              <div class="tg-text">
-                <b>TUNGI TOSHKENT 3D</b>
-                <small>Rasmiy Telegram Kanal</small>
-              </div>
-            </div>
-            <a href="https://t.me/Tungitoshkent3d" target="_blank" rel="noopener noreferrer" class="tg-join-btn">
-              <span>A’zo bo‘lish ↗</span>
-            </a>
-          </div>
-        </div>
-      </main>
-
-      <!-- 3. PASTKI MARKAZ: Asosiy Tugmalar (O'YINNI BOSHLASH, DO'STLAR va GORIZONTAL REJIM) -->
+      <!-- 3. PASTKI DOCK: Asosiy Tugmalar va Huquqiy Ma'lumot -->
       <footer class="lobby-bottombar hero-bottombar">
-        <div class="hero-feature-pills">
-          <span class="hf-pill">🌆 6 Real Tuman</span>
-          <span class="hf-pill">🏎️ 21+ 3D Mashina</span>
-          <span class="hf-pill">🌐 Real-Vaqt Online</span>
-          <span class="hf-pill">🎧 Haqiqiy Dvigatel Ovozi</span>
-        </div>
         <div class="malibu-hero-badge">
           <span class="hero-car-dot"></span>
           <span class="hero-car-tag" id="heroCarTag">CHEVROLET MALIBU PREMIER · TURBO</span>
         </div>
+
         <div class="hero-main-actions">
-          <button type="button" id="playBtn" class="lobby-enter-btn hero-start-btn pulse">
+          <button type="button" id="playBtn" class="lobby-enter-btn hero-start-btn hero-shimmer">
             <span>🏁 O‘YINNI BOSHLASH</span>
           </button>
           <button type="button" id="playFriendsBtn" class="lobby-enter-btn hero-friends-btn">
             <span>🌐 ONLINE SERVER</span>
           </button>
           <button type="button" id="autoLandscapeBtn" class="lobby-enter-btn hero-landscape-btn">
-            <span>⛶ GORIZONTAL REJIM</span>
+            <span>⛶ GORIZONTAL</span>
           </button>
         </div>
+
+        <div class="hero-legal-bar">
+          <span class="hero-copy">© 2026 <b>TUNGI TOSHKENT 3D</b> · Barcha huquqlar himoyalangan</span>
+          <nav class="hero-legal-links" aria-label="Huquqiy ma'lumotlar">
+            <button type="button" class="legal-link-btn" data-legal="terms">Foydalanish shartlari</button>
+            <span class="legal-dot">·</span>
+            <button type="button" class="legal-link-btn" data-legal="privacy">Maxfiylik siyosati</button>
+            <span class="legal-dot">·</span>
+            <a href="https://t.me/Tungitoshkent3d" target="_blank" rel="noopener noreferrer" class="legal-link-btn">Telegram ↗</a>
+          </nav>
+        </div>
       </footer>
+    </div>
+  </div>
+
+  <!-- Huquqiy Ma'lumotlar Modali (Foydalanish shartlari / Maxfiylik siyosati) -->
+  <div id="legalModal" class="legal-modal hidden" role="dialog" aria-modal="true" aria-labelledby="legalTitle">
+    <div class="legal-backdrop" id="legalBackdrop"></div>
+    <div class="legal-card panel-glass">
+      <div class="legal-head">
+        <h3 id="legalTitle">Foydalanish shartlari</h3>
+        <button type="button" class="legal-close" id="legalClose" aria-label="Yopish">✕</button>
+      </div>
+      <div class="legal-body" id="legalBody"></div>
+      <div class="legal-foot">
+        <span>Ishlab chiqarilgan sana: 2026 · © TUNGI TOSHKENT 3D</span>
+        <button type="button" class="btn primary" id="legalOkBtn">Tushunarli</button>
+      </div>
     </div>
   </div>
 

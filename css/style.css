@@ -3654,6 +3654,255 @@ body.phone .club-prompt.hidden {
   margin-right: 2px;
 }
 
+/* ============================================================================
+   HERO LANDING V15 — CLEAN AAA CINEMATIC ANIMATIONS, LEGAL BAR & RESPONSIVE
+   ============================================================================ */
+.hero-v15 {
+  overflow: hidden;
+}
+.hero-fx-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.hero-aurora {
+  position: absolute;
+  inset: -20% -10% auto -10%;
+  height: 55%;
+  background:
+    radial-gradient(60% 70% at 25% 20%, rgba(0, 229, 255, 0.16), transparent 70%),
+    radial-gradient(50% 60% at 78% 15%, rgba(232, 121, 249, 0.15), transparent 70%);
+  filter: blur(28px);
+  animation: heroAuroraDrift 11s ease-in-out infinite alternate;
+}
+.hero-grid-floor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 34%;
+  background: linear-gradient(180deg, transparent 0%, rgba(4, 7, 18, 0.78) 65%, rgba(3, 5, 14, 0.94) 100%);
+}
+@keyframes heroAuroraDrift {
+  0%   { transform: translate3d(-2%, 0, 0) scale(1); opacity: 0.85; }
+  100% { transform: translate3d(2%, 3%, 0) scale(1.06); opacity: 1; }
+}
+@keyframes heroFadeUp {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes heroFadeDown {
+  from { opacity: 0; transform: translate3d(0, -14px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.hero-v15 .hero-topbar {
+  position: relative;
+  z-index: 2;
+  animation: heroFadeDown 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.hero-v15 .hero-bottombar {
+  position: relative;
+  z-index: 2;
+  animation: heroFadeUp 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+  gap: 10px;
+}
+.hero-v15 .hero-brand-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hero-year-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #050814;
+  background: linear-gradient(135deg, #00e5ff, #38bdf8);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.45);
+}
+.hero-v15 .lobby-logo {
+  background: linear-gradient(90deg, #ffffff 0%, #67e8f9 50%, #e879f9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.hero-shimmer::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -65%;
+  width: 45%;
+  height: 200%;
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.34) 50%, transparent 80%);
+  transform: skewX(-20deg);
+  animation: heroShimmerSweep 3.4s ease-in-out infinite;
+}
+@keyframes heroShimmerSweep {
+  0%, 45% { left: -65%; }
+  75%, 100% { left: 130%; }
+}
+
+.hero-legal-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 16px;
+  margin-top: 2px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(6, 10, 24, 0.58);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  backdrop-filter: blur(10px);
+  font-size: 11px;
+  color: rgba(203, 213, 225, 0.78);
+}
+.hero-copy b {
+  color: #e2e8f0;
+  font-weight: 700;
+}
+.hero-legal-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.legal-link-btn {
+  background: none;
+  border: 0;
+  padding: 2px 4px;
+  color: #67e8f9;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.18s ease, text-shadow 0.18s ease;
+}
+.legal-link-btn:hover {
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.7);
+}
+.legal-dot {
+  color: rgba(148, 163, 184, 0.45);
+}
+
+/* Legal Modal */
+.legal-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.legal-modal.hidden {
+  display: none !important;
+}
+.legal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 6, 16, 0.76);
+  backdrop-filter: blur(8px);
+}
+.legal-card {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 100%);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  background: linear-gradient(160deg, rgba(10, 16, 36, 0.96), rgba(6, 10, 24, 0.98));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 36px rgba(0, 229, 255, 0.12);
+  overflow: hidden;
+  animation: heroFadeUp 0.24s ease-out both;
+}
+.legal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+.legal-head h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #f8fafc;
+}
+.legal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  cursor: pointer;
+}
+.legal-body {
+  padding: 16px 18px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(226, 232, 240, 0.88);
+}
+.legal-body p {
+  margin: 0 0 10px;
+}
+.legal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  font-size: 11px;
+  color: rgba(148, 163, 184, 0.85);
+}
+
+/* Mobile & Tablet Responsive Polish */
+@media (max-width: 768px) {
+  .hero-v15 .hero-topbar {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .hero-v15 .hero-brand-bar,
+  .hero-v15 .lobby-server-bar,
+  .hero-v15 .lobby-profile-bar {
+    padding: 7px 11px;
+  }
+  .hero-v15 .hero-bottombar {
+    padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  .hero-v15 .hero-main-actions {
+    width: 100%;
+    gap: 8px;
+  }
+  .hero-v15 .lobby-enter-btn {
+    min-height: 44px;
+    font-size: 13px;
+  }
+  .hero-legal-bar {
+    border-radius: 14px;
+    padding: 6px 10px;
+    gap: 4px 10px;
+    font-size: 10px;
+    text-align: center;
+  }
+  .legal-link-btn {
+    font-size: 10.5px;
+    padding: 4px 6px;
+  }
+}
+
 
 
 

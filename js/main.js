@@ -1202,6 +1202,44 @@ async function boot() {
     toast(`Sizning ID nusxalandi: ${myCode}`, 'ok');
   };
 
+  // Huquqiy ma'lumotlar modali (Foydalanish shartlari va Maxfiylik siyosati)
+  const legalModal = $('legalModal');
+  const legalTitle = $('legalTitle');
+  const legalBody = $('legalBody');
+  const LEGAL_CONTENT = {
+    terms: {
+      title: '📜 Foydalanish shartlari',
+      html: `
+        <p><b>1. Umumiy qoidalar:</b> <b>TUNGI TOSHKENT 3D</b> — brauzerda ishlovchi bepul 3D multiplayer avtomobil simulyatori (2026-yil nashri). O‘yinga kirish orqali siz ushbu shartlarga rozilik bildirasiz.</p>
+        <p><b>2. Halol o‘yin (Fair Play):</b> Online xonalarda o‘yin balansini buzuvchi skriptlar, chetlar va boshqa o‘yinchilarga xalaqit beruvchi xatti-harakatlar taqiqlanadi.</p>
+        <p><b>3. Virtual iqtisodiyot:</b> O‘yin ichidagi barcha pullar (so‘m), mashinalar, garovlar va sovrinlar faqat virtual o‘yin jarayoniga tegishli bo‘lib, real pul qiymatiga ega emas.</p>
+        <p><b>4. Intellektual mulk:</b> Loyiha dizayni, kodi, 3D sahnalar va brending © 2026 TUNGI TOSHKENT 3D tomonidan himoyalangan.</p>
+      `,
+    },
+    privacy: {
+      title: '🔒 Maxfiylik siyosati',
+      html: `
+        <p><b>1. Yig‘iladigan ma’lumotlar:</b> O‘yinda siz kiritgan haydovchi ismi, avtomatik berilgan o‘yinchi ID kodi (<code>TT-...</code>), virtual garaj va balans serverda hamda brauzerning <code>localStorage</code> xotirasida saqlanadi.</p>
+        <p><b>2. Shaxsiy ma’lumotlar:</b> O‘yin ro‘yxatdan o‘tishda telefon raqami, email yoki bank karta ma’lumotlarini talab qilmaydi.</p>
+        <p><b>3. Real-vaqt aloqa:</b> Multiplayer rejimida faqat o‘yin ichidagi joylashuv, mashina holati va umumiy chat xabarlari xonadagi boshqa o‘yinchilarga uzatiladi.</p>
+        <p><b>4. Xavfsizlik:</b> Ma’lumotlar uchinchi shaxslarga sotilmaydi va faqat o‘yin jarayonini ta’minlash uchun ishlatiladi.</p>
+      `,
+    },
+  };
+  const closeLegal = () => legalModal?.classList.add('hidden');
+  document.querySelectorAll('[data-legal]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const item = LEGAL_CONTENT[btn.dataset.legal];
+      if (!item || !legalModal || !legalTitle || !legalBody) return;
+      legalTitle.innerHTML = item.title;
+      legalBody.innerHTML = item.html;
+      legalModal.classList.remove('hidden');
+    });
+  });
+  $('legalClose')?.addEventListener('click', closeLegal);
+  $('legalOkBtn')?.addEventListener('click', closeLegal);
+  $('legalBackdrop')?.addEventListener('click', closeLegal);
+
   onOnline((ev) => {
     const inf = onlineInfo();
     if ($('hudOnline')) $('hudOnline').textContent = `🌐 Online: ${inf.count}/${inf.max || MAX_PLAYERS}`;
