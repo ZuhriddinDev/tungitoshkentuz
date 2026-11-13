@@ -1017,49 +1017,153 @@ export function buildKokobangoClub(scene) {
     eqBars.push({ mesh: bar, phase: i * 0.9 });
   }
 
-  // Kokobango/18.glb — faqat klub ichida aylanib yuruvchi va raqsga tushuvchi asosiy 3D model
-  const glbAgent = {
-    root: new THREE.Group(),
-    inner: null,
-    mixer: null,
-    loaded: false,
-    loading: false,
-    wpIdx: 0,
-    pauseTimer: 1.5,
-    speed: 1.65,
-  };
-  glbAgent.root.position.set(cx, iy, cz + 2.2);
-  interiorGroup.add(glbAgent.root);
+  // VIP kirish qizil/binafsha baxmal arqon ustunlari
+  const ropeMat = new THREE.MeshStandardMaterial({ color: 0xd946ef, roughness: 0.4, emissive: 0x701a75, emissiveIntensity: 0.45 });
+  for (const rz of [-4.2, 2.2]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.05, 10), mGold);
+    post.position.set(cx - 15.6, iy + 0.525, cz + rz);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), mGold);
+    knob.position.set(cx - 15.6, iy + 1.08, cz + rz);
+    interiorGroup.add(post, knob);
+  }
+  const vipRope = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 6.2, 8), ropeMat);
+  vipRope.rotation.x = Math.PI / 2;
+  vipRope.position.set(cx - 15.6, iy + 0.85, cz - 1.0);
+  interiorGroup.add(vipRope);
 
-  // Model ostidagi neon halqa va yorug'lik (aniq ko'rinib turishi uchun)
-  const glbAuraRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.55, 0.78, 32),
-    new THREE.MeshBasicMaterial({ color: 0xe879f9, side: THREE.DoubleSide, transparent: true, opacity: 0.78 })
-  );
-  glbAuraRing.rotation.x = -Math.PI / 2;
-  glbAuraRing.position.y = 0.03;
-  const glbSpot = new THREE.PointLight(0xf5d0fe, 20, 9, 1.4);
-  glbSpot.position.set(0, 2.5, 0.6);
-  glbAgent.root.add(glbAuraRing, glbSpot);
+  // Hashamatli marmar kolonnalar va neon chiziqlar (6 ta ustun)
+  const pillarCoords = [
+    [-14.5, -14.0], [14.5, -14.0],
+    [-14.5, 13.5], [14.5, 13.5],
+    [-14.5, 0.0], [14.5, 19.5],
+  ];
+  for (let i = 0; i < pillarCoords.length; i++) {
+    const [pxOff, pzOff] = pillarCoords[i];
+    const pil = new THREE.Mesh(new THREE.BoxGeometry(1.1, iH, 1.1), mObsidian);
+    pil.position.set(cx + pxOff, iy + iH / 2, cz + pzOff);
+    const pilTrim = new THREE.Mesh(
+      new THREE.BoxGeometry(1.18, iH - 1.0, 0.16),
+      i % 2 === 0 ? mNeonPurple : mNeonCyan
+    );
+    pilTrim.position.set(cx + pxOff, iy + iH / 2, cz + pzOff);
+    const pilRing = new THREE.Mesh(
+      new THREE.BoxGeometry(1.26, 0.18, 1.26),
+      mGold
+    );
+    pilRing.position.set(cx + pxOff, iy + 0.12, cz + pzOff);
+    interiorGroup.add(pil, pilTrim, pilRing);
+    addIntCol(cx + pxOff - 0.65, cz + pzOff - 0.65, cx + pxOff + 0.65, cz + pzOff + 0.65);
+  }
 
-  const glbWaypoints = [
-    [cx, cz + 2.2],
-    [cx + 4.8, cz + 3.2],
-    [cx + 5.2, cz - 3.0],
-    [cx - 4.8, cz - 3.2],
-    [cx - 4.2, cz + 4.8],
-    [cx, cz + 8.5],
+  // Shiftdagi neon halqalar (Ceiling Halo Rings)
+  const ceilRings = [];
+  for (let i = 0; i < 3; i++) {
+    const crMat = new THREE.MeshBasicMaterial({
+      color: i === 1 ? 0x22d3ee : 0xe879f9,
+      transparent: true,
+      opacity: 0.72,
+    });
+    const cr = new THREE.Mesh(new THREE.TorusGeometry(4.2 + i * 2.6, 0.09, 10, 48), crMat);
+    cr.rotation.x = Math.PI / 2;
+    cr.position.set(cx, iy + 10.6 - i * 0.25, cz - 1.5);
+    interiorGroup.add(cr);
+    ceilRings.push({ mesh: cr, mat: crMat, baseY: iy + 10.6 - i * 0.25, phase: i * 1.1 });
+  }
+
+  // Sahna CO2 tutun/lazer ustunlari (Beat-synced Smoke Plumes)
+  const co2Jets = [];
+  const co2Mat = new THREE.MeshBasicMaterial({
+    color: 0xe0f2fe,
+    transparent: true,
+    opacity: 0.0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  for (const sx of [-6.8, 6.8]) {
+    const jet = new THREE.Mesh(new THREE.ConeGeometry(1.15, 5.5, 14, 1, true), co2Mat);
+    jet.rotation.x = Math.PI;
+    jet.position.set(cx + sx, iy + 4.1, cz - 13.5);
+    interiorGroup.add(jet);
+    co2Jets.push(jet);
+  }
+
+  // Kokobango/18.glb — Klub ichida 6 ta jonli harakatlanuvchi va raqsga tushuvchi 3D model
+  const GLB_CONFIGS = [
+    {
+      pos: [0, 2.2], color: 0xe879f9, speed: 1.75,
+      wps: [[0, 2.2], [4.8, 3.2], [5.2, -3.0], [-4.8, -3.2], [-4.2, 4.8], [0, 8.5]],
+    },
+    {
+      pos: [-5.5, -1.5], color: 0x22d3ee, speed: 1.6,
+      wps: [[-5.5, -1.5], [-1.8, -5.8], [3.5, -5.2], [1.2, 1.5], [-6.2, 3.5]],
+    },
+    {
+      pos: [5.5, -2.0], color: 0xa855f7, speed: 1.85,
+      wps: [[5.5, -2.0], [7.8, 4.5], [2.5, 7.2], [-2.5, 4.0], [2.2, -5.8]],
+    },
+    {
+      pos: [10.5, 3.5], color: 0xf472b6, speed: 1.5,
+      wps: [[10.5, 3.5], [13.5, -2.5], [13.5, 8.0], [7.2, 9.5], [6.5, 1.0]],
+    },
+    {
+      pos: [-10.5, 2.5], color: 0x38bdf8, speed: 1.55,
+      wps: [[-10.5, 2.5], [-12.2, -4.5], [-8.5, -7.5], [-4.5, -1.5], [-9.2, 8.2]],
+    },
+    {
+      pos: [-2.0, 12.0], color: 0xc084fc, speed: 1.7,
+      wps: [[-2.0, 12.0], [4.5, 12.5], [8.5, 7.0], [0.5, 5.2], [-6.5, 10.5]],
+    },
   ];
 
+  const glbAgents = GLB_CONFIGS.map((cfg, idx) => {
+    const root = new THREE.Group();
+    root.position.set(cx + cfg.pos[0], iy, cz + cfg.pos[1]);
+    interiorGroup.add(root);
+
+    const auraRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.52, 0.74, 28),
+      new THREE.MeshBasicMaterial({ color: cfg.color, side: THREE.DoubleSide, transparent: true, opacity: 0.72 })
+    );
+    auraRing.rotation.x = -Math.PI / 2;
+    auraRing.position.y = 0.03;
+    root.add(auraRing);
+
+    return {
+      idx,
+      root,
+      auraRing,
+      inner: null,
+      mixer: null,
+      vx: 0,
+      vz: 0,
+      yaw: (idx * Math.PI) / 3,
+      wpIdx: 0,
+      pauseTimer: 0.6 + idx * 0.45,
+      speed: cfg.speed,
+      wps: cfg.wps.map(([wx, wz]) => [cx + wx, cz + wz]),
+      phase: idx * 1.15,
+    };
+  });
+
+  // Raqs maydonini yorituvchi 2 ta jonli spotlight
+  const glbSpotA = new THREE.PointLight(0xf5d0fe, 28, 16, 1.35);
+  glbSpotA.position.set(cx - 3.5, iy + 4.8, cz + 1.5);
+  const glbSpotB = new THREE.PointLight(0x67e8f9, 24, 16, 1.35);
+  glbSpotB.position.set(cx + 3.5, iy + 4.8, cz + 1.5);
+  interiorGroup.add(glbSpotA, glbSpotB);
+
+  let glbBaseLoaded = false;
+  let glbBaseLoading = false;
+
   function ensureGlbModelLoaded() {
-    if (glbAgent.loaded || glbAgent.loading) return;
-    glbAgent.loading = true;
+    if (glbBaseLoaded || glbBaseLoading) return;
+    glbBaseLoading = true;
     clubGlbLoader.load(
       './Kokobango/18.glb',
       (gltf) => {
-        const model = gltf.scene;
-        model.updateMatrixWorld(true);
-        const box = new THREE.Box3().setFromObject(model);
+        const baseModel = gltf.scene;
+        baseModel.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(baseModel);
         const size = new THREE.Vector3();
         const center = new THREE.Vector3();
         box.getSize(size);
@@ -1067,10 +1171,10 @@ export function buildKokobangoClub(scene) {
 
         const targetH = 1.82;
         const sc = targetH / Math.max(0.01, size.y);
-        model.scale.setScalar(sc);
-        model.position.set(-center.x * sc, -box.min.y * sc, -center.z * sc);
+        baseModel.scale.setScalar(sc);
+        baseModel.position.set(-center.x * sc, -box.min.y * sc, -center.z * sc);
 
-        model.traverse((obj) => {
+        baseModel.traverse((obj) => {
           if (obj.isMesh) {
             obj.frustumCulled = true;
             obj.castShadow = false;
@@ -1087,22 +1191,30 @@ export function buildKokobangoClub(scene) {
           }
         });
 
-        glbAgent.inner = model;
-        glbAgent.root.add(model);
+        const hasAnims = gltf.animations && gltf.animations.length > 0;
+        const walkClip = hasAnims
+          ? gltf.animations.find((a) => /walk|run|move|dance/i.test(a.name)) || gltf.animations[0]
+          : null;
 
-        if (gltf.animations && gltf.animations.length > 0) {
-          glbAgent.mixer = new THREE.AnimationMixer(model);
-          const walkClip =
-            gltf.animations.find((a) => /walk|run|move|dance/i.test(a.name)) || gltf.animations[0];
-          const action = glbAgent.mixer.clipAction(walkClip);
-          action.play();
+        for (let i = 0; i < glbAgents.length; i++) {
+          const ag = glbAgents[i];
+          const clone = i === 0 ? baseModel : baseModel.clone(true);
+          ag.inner = clone;
+          ag.root.add(clone);
+          if (walkClip) {
+            ag.mixer = new THREE.AnimationMixer(clone);
+            const action = ag.mixer.clipAction(walkClip);
+            action.time = i * 0.4;
+            action.play();
+          }
         }
-        glbAgent.loaded = true;
-        glbAgent.loading = false;
+
+        glbBaseLoaded = true;
+        glbBaseLoading = false;
       },
       undefined,
       () => {
-        glbAgent.loading = false;
+        glbBaseLoading = false;
       }
     );
   }
@@ -1368,40 +1480,116 @@ export function buildKokobangoClub(scene) {
         eq.mesh.position.y = iy + 0.9 + h * 0.5;
       }
 
-      // Kokobango/18.glb faqat klub ichida aylanib yuradi va ritmga mos harakatlanadi
-      glbAuraRing.scale.setScalar(1 + beat * 0.22);
-      glbSpot.intensity = 16 + beat * 12;
-      if (glbAgent.loaded) {
-        if (glbAgent.mixer) glbAgent.mixer.update(dt);
-        if (glbAgent.pauseTimer > 0) {
-          glbAgent.pauseTimer -= dt;
-          // Nuqtada to'xtab musiqa ritmida tebranish
-          if (!glbAgent.mixer && glbAgent.inner) {
-            glbAgent.root.position.y = iy + beat * 0.06;
-            glbAgent.inner.rotation.z = Math.sin(t * 5.2) * 0.045;
-            glbAgent.inner.rotation.x = Math.cos(t * 2.6) * 0.03;
-          }
-        } else {
-          const wp = glbWaypoints[glbAgent.wpIdx];
-          const dx = wp[0] - glbAgent.root.position.x;
-          const dz = wp[1] - glbAgent.root.position.z;
-          const dist = Math.hypot(dx, dz);
-          if (dist < 0.65) {
-            glbAgent.wpIdx = (glbAgent.wpIdx + 1) % glbWaypoints.length;
-            glbAgent.pauseTimer = 2.4;
+      // Shiftdagi neon halqalar va CO2 sahna tutuni (beat-synced)
+      for (const cr of ceilRings) {
+        cr.mesh.position.y = cr.baseY + Math.sin(t * 2.4 + cr.phase) * 0.25;
+        cr.mesh.scale.setScalar(1 + beat * 0.08);
+        cr.mat.opacity = 0.52 + beat * 0.42;
+      }
+      co2Mat.opacity = beat > 0.62 ? (beat - 0.62) * 1.4 : Math.max(0, co2Mat.opacity - dt * 1.5);
+      for (const jet of co2Jets) {
+        jet.scale.set(1 + beat * 0.3, 0.7 + beat * 0.7, 1 + beat * 0.3);
+      }
+
+      // 6 ta Kokobango/18.glb modeli — mukammal fizika, to'qnashuvdan qochish va raqs
+      glbSpotA.intensity = 22 + beat * 14;
+      glbSpotB.intensity = 20 + beat * 12;
+      if (glbBaseLoaded) {
+        const radius = 0.55;
+        for (let i = 0; i < glbAgents.length; i++) {
+          const ag = glbAgents[i];
+          ag.auraRing.scale.setScalar(1 + beat * 0.22);
+          if (ag.mixer) ag.mixer.update(dt);
+
+          let wantVx = 0;
+          let wantVz = 0;
+          let moving = false;
+
+          if (ag.pauseTimer > 0) {
+            ag.pauseTimer -= dt;
           } else {
-            const nx = glbAgent.root.position.x + (dx / dist) * glbAgent.speed * dt;
-            const nz = glbAgent.root.position.z + (dz / dist) * glbAgent.speed * dt;
-            glbAgent.root.position.x = Math.max(cx - 21, Math.min(cx + 21, nx));
-            glbAgent.root.position.z = Math.max(cz - 17, Math.min(cz + 17, nz));
-            const targetYaw = Math.atan2(dx, dz);
-            let dy = targetYaw - glbAgent.root.rotation.y;
+            const wp = ag.wps[ag.wpIdx];
+            const dx = wp[0] - ag.root.position.x;
+            const dz = wp[1] - ag.root.position.z;
+            const dist = Math.hypot(dx, dz);
+            if (dist < 0.75) {
+              ag.wpIdx = (ag.wpIdx + 1) % ag.wps.length;
+              ag.pauseTimer = 1.8 + (i % 3) * 0.7;
+            } else {
+              moving = true;
+              const slowFactor = dist < 1.8 ? Math.max(0.45, dist / 1.8) : 1.0;
+              wantVx = (dx / dist) * ag.speed * slowFactor;
+              wantVz = (dz / dist) * ag.speed * slowFactor;
+            }
+          }
+
+          // Boshqa GLB modellardan masofa saqlash (Agent separation physics)
+          for (let j = 0; j < glbAgents.length; j++) {
+            if (i === j) continue;
+            const other = glbAgents[j];
+            const sx = ag.root.position.x - other.root.position.x;
+            const sz = ag.root.position.z - other.root.position.z;
+            const sd = Math.hypot(sx, sz);
+            if (sd > 0.001 && sd < 1.35) {
+              const push = ((1.35 - sd) / 1.35) * 2.4;
+              wantVx += (sx / sd) * push;
+              wantVz += (sz / sd) * push;
+            }
+          }
+
+          // Silliq tezlanish va tormozlanish (Inertia damping)
+          const accel = Math.min(1, dt * 7.5);
+          ag.vx += (wantVx - ag.vx) * accel;
+          ag.vz += (wantVz - ag.vz) * accel;
+
+          const curSpd = Math.hypot(ag.vx, ag.vz);
+          let nx = Math.max(cx - 24.5, Math.min(cx + 24.5, ag.root.position.x + ag.vx * dt));
+          let nz = Math.max(cz - 19.5, Math.min(cz + 19.5, ag.root.position.z + ag.vz * dt));
+
+          // Klub devorlari va mebellari bilan AABB kolliziya (sirpanish fizikasi)
+          for (const c of interiorColliders) {
+            if (nx > c.minX - radius && nx < c.maxX + radius && nz > c.minZ - radius && nz < c.maxZ + radius) {
+              const dl = Math.abs(nx - (c.minX - radius));
+              const dr = Math.abs((c.maxX + radius) - nx);
+              const dtMin = Math.abs(nz - (c.minZ - radius));
+              const db = Math.abs((c.maxZ + radius) - nz);
+              const m = Math.min(dl, dr, dtMin, db);
+              if (m === dl) { nx = c.minX - radius; ag.vx = Math.min(0, ag.vx); }
+              else if (m === dr) { nx = c.maxX + radius; ag.vx = Math.max(0, ag.vx); }
+              else if (m === dtMin) { nz = c.minZ - radius; ag.vz = Math.min(0, ag.vz); }
+              else { nz = c.maxZ + radius; ag.vz = Math.max(0, ag.vz); }
+            }
+          }
+
+          ag.root.position.x = nx;
+          ag.root.position.z = nz;
+
+          // Silliq burilish va yurish/raqs animatsiyasi
+          if (curSpd > 0.15) {
+            const targetYaw = Math.atan2(ag.vx, ag.vz);
+            let dy = targetYaw - ag.yaw;
             dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-            glbAgent.root.rotation.y += dy * Math.min(1, dt * 6);
-            if (!glbAgent.mixer && glbAgent.inner) {
-              glbAgent.root.position.y = iy + Math.abs(Math.sin(t * 7.2)) * 0.048;
-              glbAgent.inner.rotation.z = Math.sin(t * 3.6) * 0.04;
-              glbAgent.inner.rotation.x = 0.02;
+            ag.yaw += dy * Math.min(1, dt * 8.0);
+            ag.root.rotation.y = ag.yaw;
+
+            if (!ag.mixer && ag.inner) {
+              const stride = t * 7.6 + ag.phase;
+              ag.root.position.y = iy + Math.abs(Math.sin(stride)) * 0.052;
+              ag.inner.rotation.z = Math.sin(stride * 0.5) * 0.042;
+              ag.inner.rotation.x = Math.min(0.06, curSpd * 0.022);
+            }
+          } else {
+            // To'xtaganda musiqa ritmiga mos raqs/tebranish
+            const lookCenterYaw = Math.atan2(cx - nx, cz - 14 - nz);
+            let dy = lookCenterYaw - ag.yaw;
+            dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+            ag.yaw += dy * Math.min(1, dt * 3.0);
+            ag.root.rotation.y = ag.yaw;
+
+            if (!ag.mixer && ag.inner) {
+              ag.root.position.y = iy + beat * 0.065;
+              ag.inner.rotation.z = Math.sin(t * 5.2 + ag.phase) * 0.055;
+              ag.inner.rotation.x = Math.cos(t * 2.6 + ag.phase) * 0.032;
             }
           }
         }
