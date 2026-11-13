@@ -833,7 +833,7 @@ function step(dt, t) {
   updateProps(t, night, player.x, player.z, cullDist);
   updateCitySectors(player.x, player.z, cullDist);
   updateLandmarks(player.x, player.z);
-  traffic.setNight(night);
+  traffic.setNight(night, sky.hour);
   traffic.update(dt, t, player, peds);
   peds.update(dt, t, player);
   updateMission(dt);
@@ -1038,7 +1038,7 @@ function loop() {
     updateProps(t, sky.night, heroX, heroZ, 1000);
     updateCitySectors(heroX, heroZ, 1000);
     updateLandmarks(heroX, heroZ);
-    traffic.setNight(sky.night);
+    traffic.setNight(sky.night, sky.hour);
     traffic.update(dt, t, { x: heroX, z: heroZ }, peds);
     peds.update(dt, t, { x: heroX, z: heroZ });
     for (const f of animated) f(t);
