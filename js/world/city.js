@@ -7,7 +7,8 @@ import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, addCollider, CANA
 import { facadeTextures, asphaltTexture, tileTexture, grassTexture } from './textures.js';
 
 export const nightMats = []; // { mat, base, day } — tunda yorug'ligi oshadigan materiallar
-export const citySectors = []; // { group, cx, cz } — masofa bo'yicha LOD va frustum culling uchun
+export const citySectors = []; // { group, detailGroup, cx, cz, radius } — masofa bo'yicha 2-bosqichli LOD
+export let roadMat = null;
 
 // Deterministik psevdo-tasodifiy generator (barcha 10 ta online o'yinchida shahar 100% bir xil chiqishi uchun!)
 let seed = 20260511;
@@ -58,7 +59,7 @@ export function buildCity(scene, quality) {
 
   // Yo'llar (tungi yomg'irdan keyingi yarim-yaltiroq asfalt reflekslari bilan)
   const asph = asphaltTexture();
-  const roadMat = new THREE.MeshStandardMaterial({ map: asph, roughness: 0.46, metalness: 0.22, envMapIntensity: 1.35 });
+  roadMat = new THREE.MeshStandardMaterial({ map: asph, roughness: 0.46, metalness: 0.22, envMapIntensity: 1.35 });
   const roadGeos = [];
   for (let i = 0; i <= N; i++) {
     const a = new THREE.PlaneGeometry(HALF * 2, ROAD).rotateX(-Math.PI / 2).translate(0, 0.02, roadC(i));
@@ -143,10 +144,13 @@ export function buildCity(scene, quality) {
     return mat;
   });
 
+  const roofDetailMat = new THREE.MeshStandardMaterial({ color: 0x454b54, roughness: 0.72, metalness: 0.35 });
+  const balconyMat = new THREE.MeshStandardMaterial({ color: 0x8e959e, roughness: 0.65, metalness: 0.25 });
+
   // Shaharni 2x2 kvartalli (10x10 bo'linish) yengil sektorlarga bo'lib yuklaymiz
   const SEC_DIV = 10;
   const secSize = Math.ceil(N / SEC_DIV);
-  const sectorBins = new Map(); // "sx,sz" -> { bGeos: STYLES.map(()=>[]), shopGeos: [], cx, cz }
+  const sectorBins = new Map(); // "sx,sz" -> { bGeos: STYLES.map(()=>[]), shopGeos: [], roofGeos: [], balconyGeos: [], cx, cz }
 
   const getSector = (j, k) => {
     const sx = Math.floor(j / secSize), sz = Math.floor(k / secSize);
@@ -156,10 +160,34 @@ export function buildCity(scene, quality) {
       const j1 = Math.min(N - 1, j0 + secSize - 1), k1 = Math.min(N - 1, k0 + secSize - 1);
       const cx = (blockC(j0) + blockC(j1)) / 2;
       const cz = (blockC(k0) + blockC(k1)) / 2;
-      sectorBins.set(key, { bGeos: STYLES.map(() => []), shopGeos: [], cx, cz });
+      sectorBins.set(key, { bGeos: STYLES.map(() => []), shopGeos: [], roofGeos: [], balconyGeos: [], cx, cz });
     }
     return sectorBins.get(key);
   };
+
+  function addRoofDetail(sec, x, z, w, h, d, isTower) {
+    // Tom parapeti (korniz)
+    sec.roofGeos.push(new THREE.BoxGeometry(w + 0.6, 0.55, d + 0.6).translate(x, h + 0.25, z));
+    if (isTower && h > 45) {
+      // Zamonaviy osmono'par tom texnik qavati va shpil
+      sec.roofGeos.push(new THREE.BoxGeometry(w * 0.48, 3.2, d * 0.48).translate(x, h + 1.8, z));
+      sec.roofGeos.push(new THREE.CylinderGeometry(0.14, 0.32, 9.5, 6).translate(x, h + 8.0, z));
+    } else if (w > 10 && d > 10) {
+      // Konditsioner va ventilyatsiya bloklari (HVAC)
+      sec.roofGeos.push(new THREE.BoxGeometry(2.2, 1.1, 1.8).translate(x - w * 0.2, h + 0.85, z + d * 0.15));
+      sec.roofGeos.push(new THREE.BoxGeometry(1.6, 0.9, 1.4).translate(x + w * 0.18, h + 0.75, z - d * 0.18));
+    }
+  }
+
+  function addBalconies(sec, x, z, w, h, d) {
+    if (h < 12) return;
+    const floors = Math.min(8, Math.floor((h - 4) / 3.4));
+    for (let fl = 1; fl <= floors; fl += 2) {
+      const fy = fl * 3.4 + 1.2;
+      sec.balconyGeos.push(new THREE.BoxGeometry(w * 0.55, 0.95, 1.15).translate(x, fy, z + d / 2 + 0.55));
+      sec.balconyGeos.push(new THREE.BoxGeometry(w * 0.55, 0.95, 1.15).translate(x, fy, z - d / 2 - 0.55));
+    }
+  }
 
   for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
     const bx = blockC(j), bz = blockC(k), info = blockInfo(j, k);
@@ -196,9 +224,13 @@ export function buildCity(scene, quality) {
       // Shimoliy va janubiy uzun korpuslar
       const wLong = BLOCK - 22, dLong = 14;
       sec.bGeos[si].push(buildingGeo(wLong, h1, dLong, bx, bz - BLOCK / 2 + 14));
+      addRoofDetail(sec, bx, bz - BLOCK / 2 + 14, wLong, h1, dLong, false);
+      addBalconies(sec, bx, bz - BLOCK / 2 + 14, wLong * 0.42, h1, dLong);
       addCollider(bx - wLong / 2, bz - BLOCK / 2 + 14 - dLong / 2, bx + wLong / 2, bz - BLOCK / 2 + 14 + dLong / 2, 'building');
 
       sec.bGeos[si].push(buildingGeo(wLong, h2, dLong, bx, bz + BLOCK / 2 - 14));
+      addRoofDetail(sec, bx, bz + BLOCK / 2 - 14, wLong, h2, dLong, false);
+      addBalconies(sec, bx, bz + BLOCK / 2 - 14, wLong * 0.42, h2, dLong);
       addCollider(bx - wLong / 2, bz + BLOCK / 2 - 14 - dLong / 2, bx + wLong / 2, bz + BLOCK / 2 - 14 + dLong / 2, 'building');
 
       // Ichki yashil hovli maysazori
@@ -230,19 +262,23 @@ export function buildCity(scene, quality) {
         const z = bz - BLOCK / 2 + 6 + lot * (b + 0.5);
 
         if (isTower && h > 48 && sRnd() < 0.65) {
-          // Pog'onali zamonaviy osmono'par bino (podium + minora)
+          // Pog'onali zamonaviy osmono'par bino (podium + minora + tom shpili)
           const podH = rnd(8, 13);
           sec.bGeos[1].push(buildingGeo(w * 1.15, podH, d * 1.15, x, z));
           sec.bGeos[si].push(buildingGeo(w * 0.78, h - podH, d * 0.78, x, z, podH));
+          addRoofDetail(sec, x, z, w * 0.78, h, d * 0.78, true);
           addCollider(x - (w * 1.15) / 2, z - (d * 1.15) / 2, x + (w * 1.15) / 2, z + (d * 1.15) / 2, 'building');
         } else {
           sec.bGeos[si].push(buildingGeo(w, h, d, x, z));
+          addRoofDetail(sec, x, z, w, h, d, isTower);
+          if ((si === 0 || si === 2) && sRnd() < 0.5) addBalconies(sec, x, z, w * 0.65, h, d);
           addCollider(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 'building');
         }
 
-        // Birinchi qavatda yorug' do'kon vitrinasi (ko'cha yuzida)
+        // Birinchi qavatda yorug' do'kon vitrinasi va kirish soyaboni (ko'cha yuzida)
         if (!isTower && sRnd() < 0.45) {
           sec.shopGeos.push(new THREE.BoxGeometry(w * 0.75, 2.6, d + 0.3).translate(x, 1.6, z));
+          sec.roofGeos.push(new THREE.BoxGeometry(w * 0.78, 0.25, d + 1.8).translate(x, 3.2, z));
         }
       }
     }
@@ -252,10 +288,11 @@ export function buildCity(scene, quality) {
   group.add(new THREE.Mesh(mergeGeometries(curbGeos), curbMat));
   if (grassGeos.length) group.add(new THREE.Mesh(mergeGeometries(grassGeos), grassMat));
 
-  // Har bir sektorni alohida guruh sifatida sahnaga qo'shamiz (Frustum Culling + masofa optimizatsiyasi)
+  // Har bir sektorni alohida guruh sifatida sahnaga qo'shamiz (2-bosqichli LOD + masofa optimizatsiyasi)
   const secHalfDiagonal = Math.hypot(secSize * CELL, secSize * CELL) / 2;
   for (const sec of sectorBins.values()) {
     const secGroup = new THREE.Group();
+    const detailGroup = new THREE.Group();
     let hasGeometry = false;
     sec.bGeos.forEach((geos, idx) => {
       if (!geos.length) return;
@@ -270,11 +307,22 @@ export function buildCity(scene, quality) {
     if (sec.shopGeos.length) {
       hasGeometry = true;
       const sm = new THREE.Mesh(mergeGeometries(sec.shopGeos), shopWindowMat);
-      secGroup.add(sm);
+      detailGroup.add(sm);
+    }
+    if (sec.roofGeos.length) {
+      hasGeometry = true;
+      const rm = new THREE.Mesh(mergeGeometries(sec.roofGeos), roofDetailMat);
+      detailGroup.add(rm);
+    }
+    if (sec.balconyGeos.length) {
+      hasGeometry = true;
+      const bm = new THREE.Mesh(mergeGeometries(sec.balconyGeos), balconyMat);
+      detailGroup.add(bm);
     }
     if (hasGeometry) {
+      secGroup.add(detailGroup);
       group.add(secGroup);
-      citySectors.push({ group: secGroup, cx: sec.cx, cz: sec.cz, radius: secHalfDiagonal });
+      citySectors.push({ group: secGroup, detailGroup, cx: sec.cx, cz: sec.cz, radius: secHalfDiagonal });
     }
   }
 
@@ -289,12 +337,17 @@ export function buildCity(scene, quality) {
   return group;
 }
 
-// Uzoqdagi sektorlarni avtomatik yashirish (radiusi hisobga olingan holda hech qachon binolar ko'rinmay qolmaydi)
+// Uzoqdagi sektorlarni avtomatik yashirish (2-bosqichli LOD: yaqinda balkon/tom/vitrina, uzoqda asosiy bino)
 export function updateCitySectors(px, pz, maxDist = 950) {
+  const detailDist = Math.min(maxDist, 520);
   for (let i = 0; i < citySectors.length; i++) {
     const s = citySectors[i];
-    const d = Math.hypot(s.cx - px, s.cz - pz);
-    s.group.visible = (d - s.radius) < maxDist;
+    const edgeDist = Math.hypot(s.cx - px, s.cz - pz) - s.radius;
+    const vis = edgeDist < maxDist;
+    s.group.visible = vis;
+    if (vis && s.detailGroup) {
+      s.detailGroup.visible = edgeDist < detailDist;
+    }
   }
 }
 

@@ -15,7 +15,7 @@ import {
   syncEconomyWithServer,
 } from './state.js';
 import { createRenderer, PRESETS } from './render.js';
-import { buildCity, updateCitySectors, nightMats, waterMat } from './world/city.js';
+import { buildCity, updateCitySectors, nightMats, waterMat, roadMat } from './world/city.js';
 import { buildProps, updateProps } from './world/props.js';
 import { buildLandmarks, updateLandmarks, animated } from './world/landmarks.js';
 import { createSky } from './world/sky.js';
@@ -560,7 +560,7 @@ function step(dt, t) {
   let impact = 0;
   let steps = 0;
   while (physAcc >= FIXED_DT && steps < 4) {
-    dist += vehicle.step(FIXED_DT, input, othersList, 1.0);
+    dist += vehicle.step(FIXED_DT, input, othersList, sky?.wetGrip || 1.0);
     impact = Math.max(impact, vehicle.impact);
     physAcc -= FIXED_DT;
     steps++;
@@ -576,7 +576,7 @@ function step(dt, t) {
   g.rotation.set(0, vehicle.heading, 0);
   // Mashina to'xtaganda g'ildiraklar aylanmasin
   const signedDist = Math.abs(vehicle.v) > 0.05 ? dist * Math.sign(vehicle.v) : 0;
-  model.update(signedDist, vehicle.steer, vehicle.pitch || 0, vehicle.roll || 0);
+  model.update(signedDist, vehicle.steer, vehicle.pitch || 0, vehicle.roll || 0, vehicle.wheelSusp);
   model.setBrake(vehicle.braking);
 
   updateEngine(vehicle.rpm, input.throttle, vehicle.cfg.pitch, vehicle.slip, vehicle.kmh, {
@@ -589,6 +589,11 @@ function step(dt, t) {
   updateCamera(camera, vehicle, input.boost, dt);
 
   sky.update(hour, g.position, R.preset.shadows, dt);
+  if (roadMat) {
+    const wet = sky.wetness || 0;
+    roadMat.roughness = 0.46 - wet * 0.28;
+    roadMat.envMapIntensity = 1.35 + wet * 0.95;
+  }
   const night = sky.night;
   const lightsOn = lightsMode === 'on' || (lightsMode === 'auto' && night > 0.35);
   model.setLights(lightsOn);
@@ -601,8 +606,8 @@ function step(dt, t) {
     for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * night;
     waterMat.emissiveIntensity = 0.3 + night;
   }
-  updateProps(t, night);
   const cullDist = R.activeQuality === 'low' ? 700 : R.activeQuality === 'medium' ? 850 : R.activeQuality === 'ultra' ? 1250 : 1000;
+  updateProps(t, night, player.x, player.z, cullDist);
   updateCitySectors(player.x, player.z, cullDist);
   updateLandmarks(player.x, player.z);
   traffic.setNight(night);
@@ -778,6 +783,7 @@ function loop() {
 
   if (playing && !paused) {
     if (malibuHeroModel) malibuHeroModel.group.visible = false;
+    if (malibuHeadlight) malibuHeadlight.intensity = 0;
     model.group.visible = !insideClub;
     step(dt, t);
   } else if (!playing) {
@@ -806,7 +812,7 @@ function loop() {
       for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * sky.night;
       waterMat.emissiveIntensity = 0.3 + sky.night;
     }
-    updateProps(t, sky.night);
+    updateProps(t, sky.night, heroX, heroZ, 1000);
     updateCitySectors(heroX, heroZ, 1000);
     updateLandmarks(heroX, heroZ);
     traffic.setNight(sky.night);

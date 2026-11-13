@@ -24,7 +24,7 @@ export class Traffic {
       const cfg = CARS.find((c) => c.id === TRAFFIC_POOL[n % TRAFFIC_POOL.length]) || CARS[0];
       const model = buildCar(cfg, { color: PALETTE[Math.floor(Math.random() * PALETTE.length)] }, { beam: false });
       scene.add(model.group);
-      const car = { model, cfg, len: cfg.len, mass: cfg.body === 'suv' ? 2350 : 1520, x: 0, z: 0, heading: 0, v: 0, cruise: 9 + Math.random() * 5, stun: 0, honk: 0, fuel: 0.35 + Math.random() * 0.65, refuelStation: null, refuelTimer: 0 };
+      const car = { model, cfg, len: cfg.len, mass: cfg.body === 'suv' ? 2350 : 1520, x: 0, z: 0, heading: 0, v: 0, cruise: 9 + Math.random() * 5, stun: 0, honk: 0, fuel: 0.35 + Math.random() * 0.65, refuelStation: null, refuelTimer: 0, lane: 0, laneOffset: LANE, stuckTimer: 0 };
       car.onHit = (nx, nz, kmh) => {
         car.stun = 2.6;
         const pushSpd = Math.min(8, Math.max(1.5, (kmh || 20) * 0.12));
@@ -103,52 +103,89 @@ export class Traffic {
       if (!car.refuelStation && car.fuel < 0.14 && GAS_STATIONS.length > 0) {
         const activeRefuelers = this.cars.reduce((acc, c) => acc + (c.refuelStation ? 1 : 0), 0);
         if (activeRefuelers < 2) {
-          let bestSt = GAS_STATIONS[0], bestD = Infinity;
+          let bestSt = null, bestD = Infinity;
           for (const st of GAS_STATIONS) {
+            if (st._aiBusy && st._aiBusy > t) continue;
             const sd = Math.hypot(st.x - car.x, st.z - car.z);
             if (sd < bestD) { bestD = sd; bestSt = st; }
           }
-          if (bestD < 450) car.refuelStation = bestSt;
+          if (bestSt && bestD < 450) {
+            car.refuelStation = bestSt;
+            bestSt._aiBusy = t + 18;
+          }
         }
       }
 
-      const tx = car.refuelStation ? car.refuelStation.x : (roadC(car.ni) - car.dz * LANE);
-      const tz = car.refuelStation ? (car.refuelStation.z - 2) : (roadC(car.nk) + car.dx * LANE);
+      const targetLane = LANE + (car.lane || 0) * 3.8;
+      car.laneOffset = (car.laneOffset ?? LANE) + (targetLane - (car.laneOffset ?? LANE)) * Math.min(1, dt * 3.5);
+      const tx = car.refuelStation ? car.refuelStation.x : (roadC(car.ni) - car.dz * car.laneOffset);
+      const tz = car.refuelStation ? (car.refuelStation.z - 2) : (roadC(car.nk) + car.dx * car.laneOffset);
       const toT = Math.hypot(tx - car.x, tz - car.z);
       if (car.refuelStation) {
         if (toT < 3.2) {
           car.refuelTimer = 3.5;
           continue;
         }
-      } else if (toT < 4) {
+      } else if (toT < 4.5) {
+        car.lane = 0;
         this.nextNode(car);
       }
 
       let want = car.cruise;
       const interior = car.ni > 0 && car.nk > 0 && car.ni < N && car.nk < N;
       const stopD = toT - ROAD / 2 - 2;
-      if (interior && signalFor(car.dx ? 'x' : 'z', t) !== 'g' && stopD > -1 && stopD < 14) {
+      const atRed = interior && signalFor(car.dx ? 'x' : 'z', t) !== 'g' && stopD > -1 && stopD < 14;
+      if (atRed) {
         want = stopD < 1 ? 0 : Math.min(want, stopD * 0.7);
       }
 
-      // To'siqlar va mashinalar bilan to'qnashuvni tekshirish (GC xotira ajratishsiz)
+      // To'siqlar va mashinalar bilan to'qnashuvni tekshirish + xavfsiz quvib o'tish (overtaking)
       const fx = Math.sin(car.heading), fz = Math.cos(car.heading);
+      let blockedAhead = false;
+      let outerLaneClear = true;
       for (let j = 0; j < this.cars.length; j++) {
         if (j === idx) continue;
         const o = this.cars[j];
         const ox = o.x - car.x, oz = o.z - car.z;
         const ahead = ox * fx + oz * fz;
-        if (ahead > 0 && ahead < 14) {
-          const side = Math.abs(ox * fz - oz * fx);
-          if (side < 2.6) want = Math.min(want, Math.max(0, (ahead - 6) * 0.8));
+        const side = ox * fz - oz * fx;
+        if (ahead > 0 && ahead < 15 && Math.abs(side) < 2.6) {
+          want = Math.min(want, Math.max(0, (ahead - 6) * 0.8));
+          if (ahead < 12) blockedAhead = true;
+        }
+        if (ahead > -6 && ahead < 18 && side > 2.4 && side < 6.4) {
+          outerLaneClear = false;
         }
       }
       // O'yinchi mashinasini tekshirish
       const pox = px - car.x, poz = pz - car.z;
       const pAhead = pox * fx + poz * fz;
-      if (pAhead > 0 && pAhead < 14) {
-        const pSide = Math.abs(pox * fz - poz * fx);
-        if (pSide < 2.6) want = Math.min(want, Math.max(0, (pAhead - 6) * 0.8));
+      const pSideSigned = pox * fz - poz * fx;
+      if (pAhead > 0 && pAhead < 14 && Math.abs(pSideSigned) < 2.6) {
+        want = Math.min(want, Math.max(0, (pAhead - 6) * 0.8));
+        if (pAhead < 12) blockedAhead = true;
+      }
+      if (pAhead > -6 && pAhead < 18 && pSideSigned > 2.4 && pSideSigned < 6.4) {
+        outerLaneClear = false;
+      }
+
+      // Xavfsiz quvib o'tish (faqat yashil chiroqda va chorrahadan uzoqroqda)
+      if (blockedAhead && !atRed && toT > 26 && outerLaneClear && car.lane === 0 && !car.turning) {
+        car.lane = 1;
+      } else if (!blockedAhead && car.lane === 1 && outerLaneClear) {
+        car.lane = 0;
+      }
+
+      // Tirbandlikda abadiy qotib qolmaslik (Gridlock prevention)
+      if (!atRed && car.v < 0.8 && car.stun <= 0 && !car.refuelStation) {
+        car.stuckTimer = (car.stuckTimer || 0) + dt;
+        if (car.stuckTimer > 4.0) {
+          car.stuckTimer = 0;
+          car.lane = car.lane === 0 ? 1 : 0;
+          if (toT < 20) this.nextNode(car);
+        }
+      } else {
+        car.stuckTimer = 0;
       }
 
       // Piyodalar o'tish joyi va piyodalarni urib ketmaslik tekshiruvi
@@ -325,7 +362,7 @@ export class Pedestrians {
 
     const meshes = [this.cap, this.torso, this.head, this.hair, this.armL, this.armR, this.legL, this.legR, this.shoeL, this.shoeR];
     for (const im of meshes) {
-      im.castShadow = true;
+      im.castShadow = (im === this.torso || im === this.head);
       scene.add(im);
     }
 
@@ -434,13 +471,14 @@ export class Pedestrians {
       m.compose(v.set(bx - rx * 0.24, y0 + bob + 1.38 * sh, bz - rz * 0.24), qLimb, s);
       this.armL.setMatrixAt(n, m);
 
-      // O'ng qo'l (to'xtab turganda telefon ko'rish yoki suhbat ishorasi)
-      const rightArmAng = stopped && p.pose === 'phone'
+      // O'ng qo'l (to'xtab turganda telefon ko'rish yoki suhbat ishorasi — silliq o'tish)
+      const targetRightArm = stopped && p.pose === 'phone'
         ? -1.05
         : stopped && p.pose === 'talk'
           ? -0.45 + Math.sin(t * 4.5 + n) * 0.25
           : -swing * 0.85;
-      qSwing.setFromAxisAngle(rightAxis, rightArmAng);
+      p.armRAng = (p.armRAng ?? targetRightArm) + (targetRightArm - (p.armRAng ?? targetRightArm)) * Math.min(1, dt * 8);
+      qSwing.setFromAxisAngle(rightAxis, p.armRAng);
       qLimb.multiplyQuaternions(qRoot, qSwing);
       m.compose(v.set(bx + rx * 0.24, y0 + bob + 1.38 * sh, bz + rz * 0.24), qLimb, s);
       this.armR.setMatrixAt(n, m);

@@ -57,31 +57,91 @@ export function createSky(scene) {
   const sun = new THREE.DirectionalLight(0xffffff, 1.5); scene.add(sun, sun.target);
   scene.fog = new THREE.Fog(0x000000, 750, 2600);
 
+  // Yengil 1-draw-call yomg'ir tizimi (GPU-friendly THREE.Points, nol GC)
+  const RAIN_N = 720;
+  const rainPos = new Float32Array(RAIN_N * 3);
+  for (let i = 0; i < RAIN_N; i++) {
+    rainPos[i * 3] = (Math.random() - 0.5) * 90;
+    rainPos[i * 3 + 1] = Math.random() * 42;
+    rainPos[i * 3 + 2] = (Math.random() - 0.5) * 90;
+  }
+  const rainGeo = new THREE.BufferGeometry();
+  rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+  const rainMat = new THREE.PointsMaterial({
+    color: 0xaad4ff,
+    size: 0.24,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    fog: false,
+  });
+  const rainPts = new THREE.Points(rainGeo, rainMat);
+  rainPts.frustumCulled = false;
+  rainPts.visible = false;
+  scene.add(rainPts);
+
   const dir = new THREE.Vector3();
+  let weatherTimer = 0;
+  let targetRain = 0;
+  let rainStrength = 0;
+
   return {
-    sun, hemi, night: 0, weather: 'clear', wetGrip: 1.0,
-    update(hour, center, shadows) {
+    sun, hemi, night: 0, weather: 'clear', wetGrip: 1.0, wetness: 0,
+    setWeather(w) {
+      this.weather = w === 'rain' ? 'rain' : w === 'overcast' ? 'overcast' : 'clear';
+      targetRain = this.weather === 'rain' ? 1.0 : 0.0;
+    },
+    update(hour, center, shadows, dt = 0.016) {
       const ang = ((hour - 6) / 24) * Math.PI * 2; // 6:00 da ufqda, 12:00 da zenitda
       dir.set(Math.cos(ang) * 0.8, Math.sin(ang), 0.45).normalize();
       const top = sample(hour, 1), bottom = sample(hour, 2), sc = sample(hour, 3), k = sample(hour, 4);
 
-      uniforms.top.value.copy(top); uniforms.bottom.value.copy(bottom);
+      // Tabiiy ob-havo sikli (har ~3.5 daqiqada sokin almashadi)
+      weatherTimer += dt;
+      if (weatherTimer > 210) {
+        weatherTimer = 0;
+        const r = Math.random();
+        this.setWeather(r < 0.22 ? 'rain' : r < 0.45 ? 'overcast' : 'clear');
+      }
+      rainStrength += (targetRain - rainStrength) * Math.min(1, dt * 0.45);
+      const overcast = this.weather === 'overcast' ? 0.45 : rainStrength * 0.75;
+      this.wetness = THREE.MathUtils.clamp(this.wetness + ((rainStrength > 0.2 ? 1 : 0) - this.wetness) * Math.min(1, dt * 0.18), 0, 1);
+      this.wetGrip = 1.0 - this.wetness * 0.16;
+
+      uniforms.top.value.copy(top).lerp(new THREE.Color(0x1b2230), overcast * 0.55);
+      uniforms.bottom.value.copy(bottom).lerp(new THREE.Color(0x283040), overcast * 0.55);
       dome.position.copy(center); stars.position.copy(center);
       sunSprite.position.copy(center).addScaledVector(dir, 3000); sunSprite.material.color.copy(sc);
-      sunSprite.visible = dir.y > -0.1;
-      moon.position.copy(center).addScaledVector(dir, -3000); moon.visible = dir.y < 0.1;
+      sunSprite.visible = dir.y > -0.1 && overcast < 0.6;
+      moon.position.copy(center).addScaledVector(dir, -3000); moon.visible = dir.y < 0.1 && overcast < 0.6;
       this.night = THREE.MathUtils.clamp(1 - (k - 0.05) / 0.5, 0, 1);
-      starMat.opacity = this.night;
+      starMat.opacity = this.night * (1 - overcast);
       const lightDir = dir.y > 0 ? dir : dir.clone().negate(); // tunda oy yorug'ligi
       sun.position.copy(center).addScaledVector(lightDir, 300); sun.target.position.copy(center);
       sun.color.copy(dir.y > 0 ? sc : new THREE.Color(0x8fa6e0));
-      sun.intensity = dir.y > 0 ? 2.2 * k : 0.18;
-      hemi.intensity = 0.1 + k * 0.7;
+      sun.intensity = (dir.y > 0 ? 2.2 * k : 0.18) * (1 - overcast * 0.45);
+      hemi.intensity = (0.1 + k * 0.7) * (1 - overcast * 0.2);
       hemi.color.copy(top).lerp(new THREE.Color(0xffffff), 0.5);
-      scene.fog.color.copy(bottom).lerp(top, 0.3);
-      scene.fog.near = 750;
-      scene.fog.far = 2600;
-      sun.castShadow = shadows && dir.y > 0.05;
+      scene.fog.color.copy(uniforms.bottom.value).lerp(uniforms.top.value, 0.3);
+      scene.fog.near = 750 - overcast * 380;
+      scene.fog.far = 2600 - overcast * 1150;
+      sun.castShadow = shadows && dir.y > 0.05 && overcast < 0.7;
+
+      // Yomg'ir tomchilari animatsiyasi
+      if (rainStrength > 0.03) {
+        rainPts.visible = true;
+        rainPts.position.set(center.x, 0, center.z);
+        rainMat.opacity = rainStrength * 0.48;
+        const arr = rainGeo.attributes.position.array;
+        const fall = 34 * dt;
+        for (let i = 1; i < arr.length; i += 3) {
+          arr[i] -= fall;
+          if (arr[i] < 0) arr[i] = 42;
+        }
+        rainGeo.attributes.position.needsUpdate = true;
+      } else {
+        rainPts.visible = false;
+      }
     },
   };
 }

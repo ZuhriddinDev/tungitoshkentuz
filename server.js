@@ -397,6 +397,23 @@ function sanitizePlayerState(id, raw = {}, prev = null) {
     checkAndClaimUsername(id, rawName);
   }
 
+  const nextX = clampNum(raw.x, -2500, 2500, prev?.x || 0);
+  const nextZ = clampNum(raw.z, -2500, 2500, prev?.z || 0);
+  let finalX = nextX;
+  let finalZ = nextZ;
+  if (prev && !raw.tp) {
+    const dtSec = Math.max(0.02, (now - (prev.updatedAt || now)) / 1000);
+    if (dtSec < 1.5) {
+      const maxJump = Math.max(45, 135 * dtSec);
+      const jump = Math.hypot(nextX - prev.x, nextZ - prev.z);
+      if (jump > maxJump) {
+        const ratio = maxJump / jump;
+        finalX = prev.x + (nextX - prev.x) * ratio;
+        finalZ = prev.z + (nextZ - prev.z) * ratio;
+      }
+    }
+  }
+
   return {
     id,
     name,
@@ -410,9 +427,9 @@ function sanitizePlayerState(id, raw = {}, prev = null) {
     tint: String(raw.tint || prev?.tint || 'none').slice(0, 12),
     headlightColor: String(raw.headlightColor || prev?.headlightColor || '#fff3d0').slice(0, 12),
     neon: String(raw.neon || prev?.neon || 'none').slice(0, 16),
-    x: clampNum(raw.x, -2500, 2500, prev?.x || 0),
+    x: finalX,
     y: clampNum(raw.y, -10, 200, prev?.y || 0),
-    z: clampNum(raw.z, -2500, 2500, prev?.z || 0),
+    z: finalZ,
     h: clampNum(raw.h, -Math.PI * 4, Math.PI * 4, prev?.h || 0),
     v: clampNum(raw.v, -40, 140, 0),
     steer: clampNum(raw.steer, -1.2, 1.2, 0),
@@ -1041,9 +1058,12 @@ function syncPlayerInRoom(pid, targetRoom, rawState = {}, rawEvent = null) {
 
   const recentEvents = targetRoom.events.filter((e) => Date.now() - e.ts < 15000);
   const stats = getServerStats();
+  targetRoom.seq = (targetRoom.seq || 0) + 1;
 
   return {
     ok: true,
+    seq: targetRoom.seq,
+    serverTs: Date.now(),
     room: targetRoom.code,
     roomId: targetRoom.id,
     roomType: targetRoom.type,
@@ -1165,6 +1185,7 @@ function setupWebSocket(req, socket) {
 
       if (opcode === 0x8) {
         // Close frame
+        cleanup();
         socket.end();
         return;
       }
@@ -1200,9 +1221,13 @@ function setupWebSocket(req, socket) {
     if (boundPid && wsClients.has(boundPid)) {
       const set = wsClients.get(boundPid);
       set.delete(socket);
-      if (set.size === 0) wsClients.delete(boundPid);
+      if (set.size === 0) {
+        wsClients.delete(boundPid);
+        removePlayerFromCurrentRoom(boundPid);
+      }
     }
   };
+  socket.on('end', cleanup);
   socket.on('close', cleanup);
   socket.on('error', cleanup);
 }
@@ -1419,7 +1444,7 @@ async function handleApi(req, res, urlPath) {
     if (!id) return sendJson(res, 400, { ok: false, error: 'Player ID topilmadi' });
 
     // Authentication: check secret token if account already has secret
-    const existingAcc = economyStore.accounts.get(id);
+    const existingAcc = accounts.get(id);
     if (existingAcc && existingAcc.secret && body.secret && body.secret !== existingAcc.secret) {
       return sendJson(res, 403, { ok: false, error: 'Xavfsizlik: Noto‘g‘ri autentifikatsiya tokeni!' });
     }

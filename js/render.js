@@ -67,7 +67,8 @@ export function createRenderer(canvas, quality) {
   const envMap = pmrem.fromScene(new RoomEnvironment(), 0.035).texture;
 
   let composer, bloom, preset, scene, camera, activeQuality = quality;
-  let autoAdapted = false, lastAdaptAt = 0, startTime = performance.now();
+  let autoAdaptedBloom = false, autoAdaptedShadow = false, lastAdaptAt = 0, startTime = performance.now();
+  const fpsWindow = [];
   const R = {
     renderer,
     envMap,
@@ -76,20 +77,34 @@ export function createRenderer(canvas, quality) {
     reportFps(fpsVal) {
       if (!Number.isFinite(fpsVal) || fpsVal <= 0) return;
       const now = performance.now();
-      // O'yin boshlangandan keyingi dastlabki 12 soniya davomida sifatni o'zgartirmaymiz (loading jank)
-      if (now - startTime < 12000) return;
-      if (fpsVal < 26) {
-        if (now - lastAdaptAt < 8000) return;
+      if (now - startTime < 10000) return;
+      fpsWindow.push(fpsVal);
+      if (fpsWindow.length > 6) fpsWindow.shift();
+      if (fpsWindow.length < 3) return;
+      const avgFps = fpsWindow.reduce((a, b) => a + b, 0) / fpsWindow.length;
+
+      if (avgFps < 34 && now - lastAdaptAt > 6000) {
         if (preset?.bloom) {
           preset = { ...preset, bloom: false };
-          autoAdapted = true;
+          autoAdaptedBloom = true;
+          lastAdaptAt = now;
+        } else if (avgFps < 26 && preset?.shadows) {
+          preset = { ...preset, shadows: false };
+          renderer.shadowMap.enabled = false;
+          autoAdaptedShadow = true;
           lastAdaptAt = now;
         }
-      } else if (autoAdapted && fpsVal > 54) {
-        if (now - lastAdaptAt >= 10000) {
-          autoAdapted = false;
+      } else if ((autoAdaptedBloom || autoAdaptedShadow) && avgFps > 54 && now - lastAdaptAt > 10000) {
+        if (autoAdaptedShadow) {
+          autoAdaptedShadow = false;
+          const origShadow = PRESETS[activeQuality]?.shadows ?? true;
+          preset = { ...preset, shadows: origShadow };
+          renderer.shadowMap.enabled = origShadow;
           lastAdaptAt = now;
+        } else if (autoAdaptedBloom) {
+          autoAdaptedBloom = false;
           preset = { ...preset, bloom: PRESETS[activeQuality]?.bloom ?? false };
+          lastAdaptAt = now;
         }
       }
     },

@@ -8,38 +8,73 @@ import { nightMats } from './city.js';
 
 const box = new THREE.BoxGeometry(1, 1, 1);
 const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v3 = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
-function inst(geo, mat, items, scene) {
+const s3 = new THREE.Vector3();
+function inst(geo, mat, items, parent, colors = null) {
+  if (!items.length) return null;
   const im = new THREE.InstancedMesh(geo, mat, items.length);
-  items.forEach((t, i) => { q.setFromAxisAngle(up, t.r || 0); im.setMatrixAt(i, m4.compose(v3.set(t.x, t.y, t.z), q, new THREE.Vector3(t.sx ?? 1, t.sy ?? 1, t.sz ?? 1))); });
-  scene.add(im); return im;
+  const cTmp = colors ? new THREE.Color() : null;
+  items.forEach((t, i) => {
+    q.setFromAxisAngle(up, t.r || 0);
+    im.setMatrixAt(i, m4.compose(v3.set(t.x, t.y, t.z), q, s3.set(t.sx ?? 1, t.sy ?? 1, t.sz ?? 1)));
+    if (colors) {
+      cTmp.set(colors[t.ci % colors.length]);
+      im.setColorAt(i, cTmp);
+    }
+  });
+  im.instanceMatrix.needsUpdate = true;
+  if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  im.geometry.computeBoundingSphere();
+  parent.add(im);
+  return im;
 }
 
-export const lights = { phase: 0, poolMat: null, lampMat: null, signs: [] };
+export const lights = { phase: 0, poolMat: null, lampMat: null, signs: [], chunks: [] };
 
 export function buildProps(scene, quality) {
-  const poles = [], heads = [], pools = [], trunks = [], crowns = [];
+  lights.chunks = [];
+  const CHUNK_DIV = 5;
+  const CHUNK_SIZE = (HALF * 2) / CHUNK_DIV; // 1000m x 1000m
+  const CHUNK_RADIUS = Math.hypot(CHUNK_SIZE, CHUNK_SIZE) / 2;
+  const chunkBins = new Map();
+  const getChunk = (x, z) => {
+    const cx = Math.max(0, Math.min(CHUNK_DIV - 1, Math.floor((x + HALF) / CHUNK_SIZE)));
+    const cz = Math.max(0, Math.min(CHUNK_DIV - 1, Math.floor((z + HALF) / CHUNK_SIZE)));
+    const key = `${cx},${cz}`;
+    if (!chunkBins.has(key)) {
+      const g = new THREE.Group();
+      scene.add(g);
+      const bin = {
+        group: g,
+        cx: -HALF + (cx + 0.5) * CHUNK_SIZE,
+        cz: -HALF + (cz + 0.5) * CHUNK_SIZE,
+        radius: CHUNK_RADIUS,
+        poles: [], heads: [], pools: [], trunks: [], crowns: [], signPoles: [], signDiscs: [],
+      };
+      chunkBins.set(key, bin);
+      lights.chunks.push(bin);
+    }
+    return chunkBins.get(key);
+  };
+
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x3a3d42, metalness: 0.6, roughness: 0.5 });
 
-  // Ko'cha chiroqlari — har bir yo'l bo'ylab ikki tomonda
+  // Ko'cha chiroqlari — har bir yo'l bo'ylab ikki tomonda (5x5 sektorlarda)
   const step = quality === 'low' ? 55 : 36;
   for (let i = 0; i <= N; i++) for (let s = -HALF + ROAD + 15; s < HALF - 10; s += step) {
     const f = ((s + HALF) % CELL + CELL) % CELL;
     if (f < ROAD + 6) continue;
     for (const side of [-1, 1]) {
       const off = side * (ROAD / 2 + 1.2), c = roadC(i);
-      // [ustun x, z, chiroq boshining yo'l tomonga siljishi dx, dz]
       for (const [x, z, dx, dz] of [[s, c + off, 0, -side * 1.5], [c + off, s, -side * 1.5, 0]]) {
-        poles.push({ x, y: 4, z, sx: 0.18, sy: 8, sz: 0.18 });
-        heads.push({ x: x + dx, y: 7.9, z: z + dz, sx: dx ? 1.6 : 0.5, sy: 0.18, sz: dz ? 1.6 : 0.5 });
-        pools.push({ x: x + dx * 2.5, y: 0.06, z: z + dz * 2.5, sx: 13, sy: 1, sz: 13 });
+        const ch = getChunk(x, z);
+        ch.poles.push({ x, y: 4, z, sx: 0.18, sy: 8, sz: 0.18 });
+        ch.heads.push({ x: x + dx, y: 7.9, z: z + dz, sx: dx ? 1.6 : 0.5, sy: 0.18, sz: dz ? 1.6 : 0.5 });
+        ch.pools.push({ x: x + dx * 2.5, y: 0.06, z: z + dz * 2.5, sx: 13, sy: 1, sz: 13 });
       }
     }
   }
-  inst(box, poleMat, poles, scene);
   lights.lampMat = new THREE.MeshStandardMaterial({ color: 0xffe0a0, emissive: 0xffc56b, emissiveIntensity: 0 });
-  inst(box, lights.lampMat, heads, scene);
   lights.poolMat = new THREE.MeshBasicMaterial({ map: GLOW_TEX, color: 0xffb25a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  inst(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), lights.poolMat, pools, scene);
 
   // Svetoforlar — har bir chorrahada
   const tPoles = [], lamps = { xr: [], xy: [], xg: [], zr: [], zy: [], zg: [] };
@@ -60,13 +95,15 @@ export function buildProps(scene, quality) {
     lights.tl[key] = mat; inst(box, mat, lamps[key], scene);
   }
 
-  // Daraxtlar (tabiiy ko'p qatlamli Toshkent chinorlari va bog' daraxtlari) — trotuar chetlari va bog'larda
+  // Daraxtlar (tabiiy Toshkent chinorlari va bog' daraxtlari) — 5x5 sektorlarda
+  let treeIdx = 0;
   for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
     const info = blockInfo(j, k), bx = blockC(j), bz = blockC(k);
     const add = (x, z, s = 1) => {
-      const rRot = Math.random() * 6.28;
-      trunks.push({ x, y: 1.65 * s, z, sx: 0.34 * s, sy: 3.3 * s, sz: 0.34 * s, r: rRot });
-      crowns.push({ x, y: 4.55 * s, z, sx: 2.45 * s, sy: 2.35 * s, sz: 2.45 * s, r: rRot });
+      const ch = getChunk(x, z);
+      const rRot = (treeIdx * 1.618) % 6.28;
+      ch.trunks.push({ x, y: 1.65 * s, z, sx: 0.34 * s, sy: 3.3 * s, sz: 0.34 * s, r: rRot });
+      ch.crowns.push({ x, y: 4.55 * s, z, sx: 2.45 * s, sy: 2.35 * s, sz: 2.45 * s, r: rRot, ci: treeIdx++ });
     };
     if (info.type === 'park') for (let t = 0; t < (quality === 'low' ? 14 : 30); t++) add(bx + (Math.random() - 0.5) * (BLOCK - 16), bz + (Math.random() - 0.5) * (BLOCK - 16), 0.8 + Math.random() * 0.6);
     else if (info.type === 'city') for (let t = -BLOCK / 2 + 8; t < BLOCK / 2 - 4; t += quality === 'low' ? 24 : 14) {
@@ -75,34 +112,38 @@ export function buildProps(scene, quality) {
       add(bx - BLOCK / 2 + 2, bz + t, 0.86 + ((Math.abs(j + k + t) % 5) * 0.08));
       add(bx + BLOCK / 2 - 2, bz + t, 0.90 + ((Math.abs(j * 3 + t) % 5) * 0.08));
     } else if (info.type === 'canal') for (let t = -BLOCK / 2 + 6; t < BLOCK / 2 - 4; t += 12) {
-      add(bx - 24, bz + t, 1.08); add(bx + 24, bz + t, 1.05); // Anhor bo'yidagi chinor va tollar
+      add(bx - 24, bz + t, 1.08); add(bx + 24, bz + t, 1.05);
     }
   }
-  const richTrunkGeo = new THREE.CylinderGeometry(0.32, 0.52, 1, 5);
-  inst(richTrunkGeo, new THREE.MeshStandardMaterial({ color: 0x4e3928, roughness: 0.92 }), trunks, scene);
 
-  // Daraxt shoxlari: 36 poligonli toza past-poligonli daraxt toji (2 mln ortiqcha vertikal poligonlarni yo'qotadi)
-  const richCrownGeo = new THREE.DodecahedronGeometry(1.55, 0);
-  const crownIm = inst(richCrownGeo, new THREE.MeshStandardMaterial({ color: 0x2d6e2e, roughness: 0.86 }), crowns, scene);
-  const leafPalette = ['#2b6e2c', '#357a32', '#265d28', '#3e8438', '#2f7336'];
-  const cTmp = new THREE.Color();
-  for (let i = 0; i < crowns.length; i++) {
-    cTmp.set(leafPalette[i % leafPalette.length]);
-    crownIm.setColorAt(i, cTmp);
-  }
-  if (crownIm.instanceColor) crownIm.instanceColor.needsUpdate = true;
-
-  // Yo'l belgilari (Tezlik 60/70 va Piyodalar o'tish joyi) — InstancedMesh
-  const signPoles = [], signDiscs = [];
+  // Yo'l belgilari (Tezlik 60/70 va Piyodalar o'tish joyi)
   for (let i = 1; i < N; i += 2) for (let k = 1; k < N; k += 2) {
     const cx = roadC(i), cz = roadC(k), o = ROAD / 2 + 1.4;
-    signPoles.push({ x: cx + o, y: 1.5, z: cz - o - 3, sx: 0.08, sy: 3.0, sz: 0.08 });
-    signDiscs.push({ x: cx + o, y: 3.1, z: cz - o - 3, sx: 0.65, sy: 0.65, sz: 0.08 });
-    signPoles.push({ x: cx - o - 3, y: 1.5, z: cz + o, sx: 0.08, sy: 3.0, sz: 0.08 });
-    signDiscs.push({ x: cx - o - 3, y: 3.1, z: cz + o, sx: 0.65, sy: 0.65, sz: 0.08, r: Math.PI / 2 });
+    const ch1 = getChunk(cx + o, cz - o - 3);
+    ch1.signPoles.push({ x: cx + o, y: 1.5, z: cz - o - 3, sx: 0.08, sy: 3.0, sz: 0.08 });
+    ch1.signDiscs.push({ x: cx + o, y: 3.1, z: cz - o - 3, sx: 0.65, sy: 0.65, sz: 0.08 });
+    const ch2 = getChunk(cx - o - 3, cz + o);
+    ch2.signPoles.push({ x: cx - o - 3, y: 1.5, z: cz + o, sx: 0.08, sy: 3.0, sz: 0.08 });
+    ch2.signDiscs.push({ x: cx - o - 3, y: 3.1, z: cz + o, sx: 0.65, sy: 0.65, sz: 0.08, r: Math.PI / 2 });
   }
-  inst(box, poleMat, signPoles, scene);
-  inst(box, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xff2222, emissiveIntensity: 0.35 }), signDiscs, scene);
+
+  const poolPlane = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4e3928, roughness: 0.92 });
+  const richTrunkGeo = new THREE.CylinderGeometry(0.32, 0.52, 1, 5);
+  const richCrownGeo = new THREE.DodecahedronGeometry(1.55, 0);
+  const crownMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86 });
+  const leafPalette = ['#2b6e2c', '#357a32', '#265d28', '#3e8438', '#2f7336'];
+  const signDiscMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xff2222, emissiveIntensity: 0.35 });
+
+  for (const ch of lights.chunks) {
+    inst(box, poleMat, ch.poles, ch.group);
+    inst(box, lights.lampMat, ch.heads, ch.group);
+    inst(poolPlane, lights.poolMat, ch.pools, ch.group);
+    inst(richTrunkGeo, trunkMat, ch.trunks, ch.group);
+    inst(richCrownGeo, crownMat, ch.crowns, ch.group, leafPalette);
+    inst(box, poleMat, ch.signPoles, ch.group);
+    inst(box, signDiscMat, ch.signDiscs, ch.group);
+  }
 
   buildPOIs(scene);
 }
@@ -294,7 +335,7 @@ export function signalFor(axis, t) {
   return axis === 'x' ? xs : zs;
 }
 
-export function updateProps(t, night) {
+export function updateProps(t, night, px = 0, pz = 0, cullDist = 900) {
   for (const a of ['x', 'z']) {
     const s = signalFor(a, t);
     for (const c of ['r', 'y', 'g']) lights.tl[a + c].emissiveIntensity = s === c ? 3.5 : 0.05;
@@ -302,4 +343,10 @@ export function updateProps(t, night) {
   lights.lampMat.emissiveIntensity = night * 4;
   lights.poolMat.opacity = night * 0.55;
   for (const p of POIS) if (p.ring) p.ring.material.opacity = 0.35 + Math.sin(t * 3) * 0.2;
+  if (lights.chunks && lights.chunks.length) {
+    for (let i = 0; i < lights.chunks.length; i++) {
+      const ch = lights.chunks[i];
+      ch.group.visible = (Math.hypot(ch.cx - px, ch.cz - pz) - ch.radius) < cullDist;
+    }
+  }
 }

@@ -627,6 +627,8 @@ function setupGlbWheels(root, spec, cfg, wheelRig = null) {
       pivot,
       spin,
       front: key.startsWith('F'),
+      key,
+      baseY: exactCenter.y,
     });
   }
 
@@ -952,14 +954,19 @@ export function buildCar(cfg, look = {}, opts = {}) {
       chassisTilt.position.y = Math.abs(roll) * 0.035;
     },
 
-    update(dist, steer, pitch = 0, roll = 0) {
+    update(dist, steer, pitch = 0, roll = 0, wheelSusp = null) {
       const r = Math.max(api.radius, 0.2);
       // Mashina to'xtaganda g'ildiraklar 100% to'xtaydi (harakat paytida esa tezlikka mos aylanadi)
       const spinAngle = Math.abs(dist) > 1e-4 ? dist / r : 0;
       const targetWheels = api._glbWheels || wheels;
-      for (const w of targetWheels) {
+      for (let i = 0; i < targetWheels.length; i++) {
+        const w = targetWheels[i];
         if (spinAngle !== 0) w.spin.rotation.x += spinAngle;
         if (w.front) w.pivot.rotation.y = steer;
+        if (wheelSusp && w.baseY !== undefined) {
+          const sIdx = w.key === 'FL' ? 0 : w.key === 'FR' ? 1 : w.key === 'RL' ? 2 : 3;
+          w.pivot.position.y = w.baseY + (wheelSusp[sIdx] || 0);
+        }
       }
       if (pitch || roll || steer) {
         api.setTilt(pitch, roll, steer);

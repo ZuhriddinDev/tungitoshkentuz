@@ -36,12 +36,32 @@ export class Vehicle {
     this.nearBorder = false;
     this.borderMsg = '';
     this.mass = cfg.body === 'suv' ? 2350 : cfg.body === 'super' ? 1580 : 1480;
+    this.dragArea = cfg.body === 'suv' ? 0.92 : cfg.body === 'super' ? 0.62 : 0.72; // 0.5 * rho * Cd * A
+    this.drive = (cfg.id === 'spark' || cfg.id === 'gentra' || cfg.id === 'kia_k5' || cfg.id === 'malibu')
+      ? 'FWD'
+      : (cfg.body === 'suv' || cfg.id === 'bmw' || cfg.id === 'bmw2018' || cfg.id === 'bmwm8' || cfg.id === 'bmwm8wb' || cfg.id === 'sf90' || cfg.id === 'lambo' || cfg.id === 'roadster')
+      ? 'AWD'
+      : 'RWD';
+    this.wheelSusp = [0, 0, 0, 0]; // [FL, FR, RL, RR] podveska yurishi (metr)
+    this.wheelSuspVel = [0, 0, 0, 0];
+    this.manualMode = false;
+    this.blinker = 'off'; // 'off' | 'left' | 'right' | 'hazard'
+    this.reversing = false;
     this.hitCooldowns = new Map();
     inst.damage = 0;
   }
   get kmh() { return Math.abs(this.v) * 3.6; }
   get fwdX() { return Math.sin(this.heading); }
   get fwdZ() { return Math.cos(this.heading); }
+
+  shiftUp() {
+    if (!this.manualMode) this.manualMode = true;
+    this.gear = Math.min(6, (this.gear || 1) + 1);
+  }
+  shiftDown() {
+    if (!this.manualMode) this.manualMode = true;
+    this.gear = Math.max(1, (this.gear || 1) - 1);
+  }
 
   // input: { throttle 0..1, reverse 0..1, steer -1..1, boost bool, handbrake bool, drift bool }
   step(dt, input, others = [], weatherGrip = 1.0) {
@@ -75,6 +95,11 @@ export class Vehicle {
 
     let a = 0;
     this.braking = false;
+    this.reversing = false;
+    const gearRatioMul = this.manualMode ? (1.18 - (this.gear - 1) * 0.11) : 1.0;
+    const aeroDrag = (this.dragArea * this.v * Math.abs(this.v)) / this.mass;
+    const rollRes = Math.sign(this.v) * (this.offRoad ? 0.85 : 0.24);
+
     if (input.throttle > 0) {
       if (this.v < -0.35) {
         a = Math.min(brakePower * 1.38, traction * 1.38);
@@ -82,20 +107,21 @@ export class Vehicle {
       } else {
         const speedRatio = Math.max(0, this.v) / Math.max(1, vmax);
         const lowEndBoost = speedRatio < 0.28 ? 1.18 : 1.0;
-        const torqueCurve = Math.max(0.24, 1 - speedRatio ** 1.9) * lowEndBoost;
-        a = Math.min(c.accel * 1.08 * power * boost * this.thr, traction * 1.22) * torqueCurve;
+        const torqueCurve = Math.max(0.24, 1 - speedRatio ** 1.9) * lowEndBoost * gearRatioMul;
+        const driveTraction = this.drive === 'AWD' ? 1.32 : this.drive === 'RWD' ? 1.22 : 1.14;
+        a = Math.min(c.accel * 1.08 * power * boost * this.thr, traction * driveTraction) * torqueCurve - aeroDrag;
       }
     } else if (input.reverse > 0) {
       if (this.v > 0.35) {
         a = -Math.min(brakePower * 1.35, traction * 1.35) * (0.45 + 0.55 * this.brk);
         this.braking = true;
       } else {
+        this.reversing = true;
         const revRatio = Math.abs(this.v) / vrev;
         a = -Math.min(c.accel * 0.58 * power, traction) * input.reverse * Math.max(0.2, 1 - revRatio ** 1.7);
       }
     } else {
-      const offRoadDrag = this.offRoad ? 1.15 : 0.45;
-      a = -Math.sign(this.v) * (offRoadDrag + 0.014 * Math.abs(this.v) + 0.001 * this.v * this.v);
+      a = -rollRes - aeroDrag - 0.012 * this.v;
       if (Math.abs(this.v) < 0.22) { this.v = 0; a = 0; }
     }
 
@@ -182,6 +208,22 @@ export class Vehicle {
     this.roll += (targetRoll - this.roll) * Math.min(1, dt * 12);
     this.pitch += (targetPitch - this.pitch) * Math.min(1, dt * 10);
 
+    // 4-g'ildirakli mustaqil podveska (Spring-Damper) hisobi: [FL, FR, RL, RR]
+    const suspStiff = 120;
+    const suspDamp = 16;
+    const bump = this.offRoad ? Math.sin(this.odo * 1.8) * 0.022 : 0;
+    const targets = [
+      clamp(this.pitch * 0.8 + this.roll * 0.9 + bump, -0.06, 0.06),
+      clamp(this.pitch * 0.8 - this.roll * 0.9 - bump, -0.06, 0.06),
+      clamp(-this.pitch * 0.8 + this.roll * 0.9 - bump, -0.06, 0.06),
+      clamp(-this.pitch * 0.8 - this.roll * 0.9 + bump, -0.06, 0.06),
+    ];
+    for (let wi = 0; wi < 4; wi++) {
+      const fSusp = (targets[wi] - this.wheelSusp[wi]) * suspStiff - this.wheelSuspVel[wi] * suspDamp;
+      this.wheelSuspVel[wi] += fSusp * dt;
+      this.wheelSusp[wi] = clamp(this.wheelSusp[wi] + this.wheelSuspVel[wi] * dt, -0.08, 0.08);
+    }
+
     const rx = Math.cos(this.heading), rz = -Math.sin(this.heading);
     const dx = (this.fwdX * this.v + rx * this.lat) * dt;
     const dz = (this.fwdZ * this.v + rz * this.lat) * dt;
@@ -197,11 +239,14 @@ export class Vehicle {
 
     const kmh = this.kmh;
     const gears = [0, 26, 56, 92, 136, 188, 420];
-    let gIdx = 1;
-    for (let i = 1; i < gears.length; i++) {
-      if (kmh <= gears[i]) { gIdx = i; break; }
+    let gIdx = this.gear || 1;
+    if (!this.manualMode) {
+      gIdx = 1;
+      for (let i = 1; i < gears.length; i++) {
+        if (kmh <= gears[i]) { gIdx = i; break; }
+      }
+      this.gear = gIdx;
     }
-    this.gear = gIdx;
     const gLo = gears[gIdx - 1] * 0.78;
     const gHi = Math.min(gears[gIdx], c.maxSpeed * 1.05);
     const gearRatio = clamp((kmh - gLo) / Math.max(8, gHi - gLo), 0, 1);
