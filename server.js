@@ -1747,13 +1747,33 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  if (urlPath === '/api/club/access' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const ua = String(req.headers['user-agent'] || '');
+    const secMobile = String(req.headers['sec-ch-ua-mobile'] || '') === '?1';
+    const mobileUa = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet|silk|kindle|playbook/i.test(ua);
+    const isMacTouchTablet = /macintosh/i.test(ua) && Number(body.maxTouchPoints) > 1;
+    const coarseTouch = body.coarsePointer === true || body.isTouch === true;
+    const desktopOs = /windows|macintosh|x11|linux/i.test(ua) && !mobileUa && !isMacTouchTablet;
+    const allowed = !(secMobile || mobileUa || isMacTouchTablet || coarseTouch || (!desktopOs && Number(body.maxTouchPoints) > 0));
+    if (!allowed) {
+      return sendJson(res, 403, {
+        ok: false,
+        allowed: false,
+        title: 'KOKOBANGO CLUB',
+        message: 'Ushbu hududga faqat PC va noutbuk orqali kirish mumkin. Klubga kirish uchun kompyuterdan foydalaning.',
+      });
+    }
+    return sendJson(res, 200, { ok: true, allowed: true });
+  }
+
   sendJson(res, 404, { error: 'Not found' });
 }
 
 const server = http.createServer((req, res) => {
   try {
     const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-    if (urlPath === '/healthz' || urlPath === '/health' || urlPath.startsWith('/api/online/') || urlPath.startsWith('/api/economy/')) {
+    if (urlPath === '/healthz' || urlPath === '/health' || urlPath.startsWith('/api/online/') || urlPath.startsWith('/api/economy/') || urlPath.startsWith('/api/club/')) {
       handleApi(req, res, urlPath);
       return;
     }

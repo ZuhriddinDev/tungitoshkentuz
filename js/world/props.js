@@ -134,22 +134,168 @@ function buildPOIs(scene) {
     if (p.type === 'gas') {
       const procGas = new THREE.Group();
       g.add(procGas);
-      const roof = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0xf5f5f5, emissive: 0xffffff, emissiveIntensity: 0.15 }));
-      roof.scale.set(26, 0.8, 14); roof.position.set(0, 6, -6); procGas.add(roof);
-      const stripe = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x00a651, emissive: 0x00ff7a, emissiveIntensity: 0.6 }));
-      stripe.scale.set(26.2, 0.3, 14.2); stripe.position.set(0, 5.6, -6); procGas.add(stripe);
-      for (const px of [-8, 0, 8]) {
-        const pump = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x1565c0 })); pump.scale.set(1.2, 1.8, 0.8); pump.position.set(px, 1.1, -6); procGas.add(pump);
-        const col = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0xdddddd })); col.scale.set(0.4, 5.6, 0.4); col.position.set(px, 3, -6); procGas.add(col);
-        addCollider(p.x + px - 0.8, p.z - 6.6, p.x + px + 0.8, p.z - 5.4, 'pump');
-      }
-      const shopMat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0 }); const shop = new THREE.Mesh(box, shopMat); shop.scale.set(20, 5, 10); shop.position.set(0, 2.5, -30); procGas.add(shop);
-      addCollider(p.x - 10, p.z - 35, p.x + 10, p.z - 25);
-      addSign(g, ['UZ-OIL', 'AI-92 · AI-95 · AI-100'], '#003b1f', '#00ff7a', 0, 9, 4);
 
-      // /binolar/gas-station.glb 3D modelini asinxron yuklash va o'rnatish
+      // Asphalt forecourt pad + lane markings
+      const padMat = new THREE.MeshStandardMaterial({ color: 0x1e232d, roughness: 0.88, metalness: 0.05 });
+      const pad = new THREE.Mesh(box, padMat);
+      pad.scale.set(30, 0.08, 36);
+      pad.position.set(0, 0.04, -14);
+      procGas.add(pad);
+
+      const lineMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xf59e0b, emissiveIntensity: 0.18, roughness: 0.6 });
+      for (const lx of [-11.5, -4, 4, 11.5]) {
+        const lane = new THREE.Mesh(box, lineMat);
+        lane.scale.set(0.18, 0.09, 13);
+        lane.position.set(lx, 0.05, -6);
+        procGas.add(lane);
+      }
+
+      // Modern dark graphite canopy with emerald/amber LED fascia
+      const canopyMat = new THREE.MeshStandardMaterial({ color: 0x1c2432, roughness: 0.35, metalness: 0.55 });
+      const roof = new THREE.Mesh(box, canopyMat);
+      roof.scale.set(27, 0.95, 14.5);
+      roof.position.set(0, 6.1, -6);
+      procGas.add(roof);
+
+      const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x263042, roughness: 0.5, metalness: 0.25 });
+      const ceiling = new THREE.Mesh(box, ceilingMat);
+      ceiling.scale.set(25.8, 0.12, 13.4);
+      ceiling.position.set(0, 5.58, -6);
+      procGas.add(ceiling);
+
+      const stripe = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x00c853, emissive: 0x00ff7a, emissiveIntensity: 0.75, roughness: 0.25 }));
+      stripe.scale.set(27.2, 0.28, 14.7);
+      stripe.position.set(0, 5.75, -6);
+      procGas.add(stripe);
+
+      const goldTrim = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xfbbf24, emissiveIntensity: 0.45, roughness: 0.3 }));
+      goldTrim.scale.set(27.15, 0.1, 14.65);
+      goldTrim.position.set(0, 6.52, -6);
+      procGas.add(goldTrim);
+
+      // Recessed LED canopy downlights + 3D fuel islands & dispensers
+      const ledMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xe6f7ff, emissiveIntensity: 1.4, roughness: 0.2 });
+      const curbMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.75, metalness: 0.1 });
+      const colMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.32, metalness: 0.72 });
+      const pumpBodyMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35, metalness: 0.45 });
+      const pumpAccentMat = new THREE.MeshStandardMaterial({ color: 0x00a651, roughness: 0.35, metalness: 0.25 });
+      const screenMat = new THREE.MeshStandardMaterial({ color: 0x064e3b, emissive: 0x34d399, emissiveIntensity: 1.1, roughness: 0.2 });
+      const hoseMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+
+      for (const px of [-8, 0, 8]) {
+        // Canopy LED panels
+        for (const lz of [-9.5, -2.5]) {
+          const led = new THREE.Mesh(box, ledMat);
+          led.scale.set(2.4, 0.08, 1.2);
+          led.position.set(px, 5.52, lz);
+          procGas.add(led);
+        }
+
+        // Raised safety curb island
+        const island = new THREE.Mesh(box, curbMat);
+        island.scale.set(2.3, 0.24, 5.2);
+        island.position.set(px, 0.14, -6);
+        procGas.add(island);
+
+        // Brushed steel canopy columns
+        for (const cz of [-8.0, -4.0]) {
+          const col = new THREE.Mesh(box, colMat);
+          col.scale.set(0.36, 5.4, 0.36);
+          col.position.set(px, 2.9, cz);
+          procGas.add(col);
+        }
+
+        // 3D fuel dispenser with digital screens & hoses
+        const pump = new THREE.Mesh(box, pumpBodyMat);
+        pump.scale.set(1.15, 1.85, 0.76);
+        pump.position.set(px, 1.15, -6);
+        procGas.add(pump);
+
+        const pumpTop = new THREE.Mesh(box, pumpAccentMat);
+        pumpTop.scale.set(1.22, 0.28, 0.82);
+        pumpTop.position.set(px, 2.12, -6);
+        procGas.add(pumpTop);
+
+        for (const side of [-1, 1]) {
+          const scr = new THREE.Mesh(box, screenMat);
+          scr.scale.set(0.68, 0.38, 0.05);
+          scr.position.set(px, 1.52, -6 + side * 0.39);
+          procGas.add(scr);
+
+          const hose = new THREE.Mesh(box, hoseMat);
+          hose.scale.set(0.08, 1.05, 0.08);
+          hose.position.set(px + side * 0.62, 1.18, -6);
+          procGas.add(hose);
+        }
+
+        addCollider(p.x + px - 1.15, p.z - 8.6, p.x + px + 1.15, p.z - 3.4, 'pump');
+      }
+
+      // Modern convenience store ("UZ-OIL MART") with glass facade & warm lit interior
+      const shopBodyMat = new THREE.MeshStandardMaterial({ color: 0x222938, roughness: 0.45, metalness: 0.35 });
+      const shop = new THREE.Mesh(box, shopBodyMat);
+      shop.scale.set(20, 5.2, 10);
+      shop.position.set(0, 2.6, -30);
+      procGas.add(shop);
+
+      const shopRoofTrim = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x00a651, emissive: 0x00e676, emissiveIntensity: 0.55, roughness: 0.3 }));
+      shopRoofTrim.scale.set(20.4, 0.32, 10.4);
+      shopRoofTrim.position.set(0, 5.25, -30);
+      procGas.add(shopRoofTrim);
+
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: 0x16324a,
+        emissive: 0xffd599,
+        emissiveIntensity: 0.32,
+        roughness: 0.12,
+        metalness: 0.65,
+      });
+      const storefront = new THREE.Mesh(box, glassMat);
+      storefront.scale.set(16.4, 3.3, 0.18);
+      storefront.position.set(0, 1.85, -24.92);
+      procGas.add(storefront);
+
+      const doorGlow = new THREE.Mesh(box, new THREE.MeshStandardMaterial({
+        color: 0x1d4ed8,
+        emissive: 0xfff3d6,
+        emissiveIntensity: 0.65,
+        roughness: 0.15,
+      }));
+      doorGlow.scale.set(3.2, 2.8, 0.22);
+      doorGlow.position.set(0, 1.5, -24.88);
+      procGas.add(doorGlow);
+
+      addCollider(p.x - 10, p.z - 35, p.x + 10, p.z - 25);
+      addSign(g, ['UZ-OIL', 'AI-92 · AI-95 · AI-100'], '#062c1c', '#00ff7a', 0, 9.2, 4);
+
+      // /binolar/gas-station.glb 3D modelini asinxron yuklash va materiallarini PBR sozlash
       loadBuildingGlb('/binolar/gas-station.glb', { targetWidth: 32 }).then((glb) => {
         if (!glb) return;
+        glb.traverse((obj) => {
+          if (!obj.isMesh || !obj.material) return;
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          for (const m of mats) {
+            const mn = (m.name || '').toLowerCase();
+            if (mn.includes('white')) {
+              m.color?.setHex(0xd4dce6);
+              if (m.roughness !== undefined) m.roughness = 0.45;
+              if (m.metalness !== undefined) m.metalness = 0.15;
+              if (m.emissiveIntensity !== undefined) m.emissiveIntensity = Math.min(m.emissiveIntensity, 0.05);
+            } else if (mn.includes('asphalt')) {
+              m.color?.setHex(0x1f242d);
+              if (m.roughness !== undefined) m.roughness = 0.88;
+            } else if (mn.includes('glass')) {
+              m.color?.setHex(0x18344c);
+              if (m.roughness !== undefined) m.roughness = 0.12;
+              if (m.metalness !== undefined) m.metalness = 0.65;
+            } else if (mn.includes('steel') || mn.includes('metal')) {
+              if (m.roughness !== undefined) m.roughness = 0.32;
+              if (m.metalness !== undefined) m.metalness = 0.72;
+            } else if (mn.includes('text_light') || mn.includes('digit')) {
+              if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 0.85;
+            }
+          }
+        });
         procGas.visible = false;
         glb.position.set(0, 0.15, -14);
         g.add(glb);

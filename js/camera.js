@@ -58,8 +58,20 @@ export function updateCamera(camera, v, boost, dt) {
   camera.fov = fov; camera.updateProjectionMatrix();
 
   if (camState.mode === 2) {
-    camera.position.set(v.x + v.fwdX * 0.3, cfg.hei + 0.15, v.z + v.fwdZ * 0.3);
-    camera.lookAt(v.x + v.fwdX * 30, cfg.hei * 0.6, v.z + v.fwdZ * 30);
+    if (performance.now() - cam.lastMove > 2200) cam.yaw *= Math.pow(0.04, dt);
+    const eyeY = Math.max(0.95, (cfg.hei || 1.42) * 0.76);
+    const leftX = v.fwdZ;
+    const leftZ = -v.fwdX;
+    const baseY = (v.y || 0) + eyeY;
+    const camX = v.x + leftX * 0.33 - v.fwdX * 0.04;
+    const camZ = v.z + leftZ * 0.33 - v.fwdZ * 0.04;
+    const lookYaw = v.heading + (cam.yaw || 0) * 0.55;
+    camera.position.set(camX, baseY, camZ);
+    camera.lookAt(
+      camX + Math.sin(lookYaw) * 28,
+      baseY - 0.85 - (v.pitch || 0) * 4,
+      camZ + Math.cos(lookYaw) * 28
+    );
     return;
   }
   // Sichqoncha qo'yib yuborilgach, kamera asta-sekin orqaga qaytadi

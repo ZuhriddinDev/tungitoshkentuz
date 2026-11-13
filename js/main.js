@@ -71,6 +71,7 @@ let activeDepositRace = null;
 let pendingDepositInvite = null;
 const FIXED_DT = 1 / 60;
 let physAcc = 0;
+let speedoT = 0, lastNightVal = -1;
 let hour = 21.75, waypoint = null, lightsMode = 'auto', kmAcc = 0, fuelWarned = false;
 const progress = (p, t) => {
   if ($('loadBar')) $('loadBar').style.width = p + '%';
@@ -204,12 +205,49 @@ onKey('KeyL', keyGuard(() => {
   lightsMode = { auto: 'on', on: 'off', off: 'auto' }[lightsMode];
   toast(`Faralar: ${{ auto: 'avtomatik', on: 'yoqilgan', off: "o'chirilgan" }[lightsMode]}`);
 }));
-function setClubPrompt(text) {
+let clubMobileNoticeShown = false;
+
+function showClubPcOnlyNotice(customTitle, customMsg) {
+  let modal = document.getElementById('clubPcOnlyModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'clubPcOnlyModal';
+    modal.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:9999', 'display:flex', 'align-items:center',
+      'justify-content:center', 'padding:18px', 'background:rgba(4,8,18,0.72)',
+      'backdrop-filter:blur(10px)', '-webkit-backdrop-filter:blur(10px)',
+      'font-family:Inter,system-ui,sans-serif',
+    ].join(';');
+    modal.innerHTML = `
+      <div style="max-width:390px;width:100%;background:linear-gradient(160deg,rgba(16,22,42,0.96),rgba(10,14,28,0.98));border:1px solid rgba(0,229,255,0.35);border-radius:18px;padding:22px 20px;box-shadow:0 20px 50px rgba(0,0,0,0.65),0 0 28px rgba(176,38,255,0.22);text-align:center;color:#f3f6ff;">
+        <div style="width:52px;height:52px;margin:0 auto 12px;border-radius:14px;background:linear-gradient(135deg,rgba(176,38,255,0.25),rgba(0,229,255,0.2));border:1px solid rgba(0,229,255,0.4);display:flex;align-items:center;justify-content:center;font-size:24px;">💻</div>
+        <h3 id="clubPcOnlyTitle" style="margin:0 0 10px;font-size:18px;font-weight:800;letter-spacing:1.2px;color:#00e5ff;">KOKOBANGO CLUB</h3>
+        <p id="clubPcOnlyBody" style="margin:0 0 18px;font-size:14px;line-height:1.55;color:#cbd5e1;">
+          Ushbu hududga faqat PC va noutbuk orqali kirish mumkin.<br><br>
+          Klubga kirish uchun kompyuterdan foydalaning.
+        </p>
+        <button id="clubPcOnlyClose" type="button" style="width:100%;padding:11px 16px;border:none;border-radius:12px;background:linear-gradient(90deg,#00e5ff,#7b2cbf);color:#fff;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:0.4px;">Tushunarli</button>
+      </div>
+    `;
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal || e.target.id === 'clubPcOnlyClose') modal.style.display = 'none';
+    });
+    document.body.appendChild(modal);
+  }
+  const titleEl = document.getElementById('clubPcOnlyTitle');
+  const bodyEl = document.getElementById('clubPcOnlyBody');
+  if (titleEl && customTitle) titleEl.textContent = customTitle;
+  if (bodyEl && customMsg) bodyEl.innerHTML = customMsg;
+  modal.style.display = 'flex';
+}
+
+function setClubPrompt(text, allowTouch = false) {
   const el = $('clubPrompt');
   if (!el) return;
-  if (!text || isTouch()) {
+  if (!text || (isTouch() && !allowTouch)) {
     el.classList.add('hidden');
     el.innerHTML = '';
+    el.onclick = null;
     return;
   }
   el.innerHTML = text;
@@ -227,9 +265,30 @@ function syncClubAudioUi() {
   }
 }
 
-function enterKokobangoClub() {
-  if (!kokobango || !playerChar || insideClub || clubTransitioning || isTouch()) return;
+async function enterKokobangoClub() {
+  if (!kokobango || !playerChar || insideClub || clubTransitioning) return;
+  if (isTouch()) {
+    showClubPcOnlyNotice();
+    return;
+  }
   clubTransitioning = true;
+  try {
+    const res = await fetch('/api/club/access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        isTouch: isTouch(),
+        coarsePointer: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
+        maxTouchPoints: navigator.maxTouchPoints || 0,
+      }),
+    });
+    if (res.status === 403) {
+      const data = await res.json().catch(() => ({}));
+      clubTransitioning = false;
+      showClubPcOnlyNotice(data.title || 'KOKOBANGO CLUB');
+      return;
+    }
+  } catch { /* Offline/static server fallback relies on !isTouch() */ }
   setClubPrompt('');
   const fadeEl = $('clubFade');
   if (fadeEl) fadeEl.classList.add('active');
@@ -462,13 +521,26 @@ function step(dt, t) {
     return;
   }
 
-  if (!isTouch() && kokobango && kokobango.nearEntrance(vehicle.x, vehicle.z)) {
-    setClubPrompt('<span class="key">X</span> ENTER KOKOBANGO CLUB');
-  } else if (!isTouch() && kokobango) {
-    const nearCar = kokobango.getNearbySupercar?.(vehicle.x, vehicle.z);
-    setClubPrompt(nearCar ? `<span class="key">E</span> ${nearCar.name} ko'rish` : '');
+  if (kokobango && kokobango.nearEntrance(vehicle.x, vehicle.z)) {
+    if (isTouch()) {
+      setClubPrompt('🚪 KOKOBANGO CLUB (PC)', true);
+      const el = $('clubPrompt');
+      if (el) el.onclick = () => showClubPcOnlyNotice();
+      if (!clubMobileNoticeShown) {
+        clubMobileNoticeShown = true;
+        showClubPcOnlyNotice();
+      }
+    } else {
+      setClubPrompt('<span class="key">X</span> ENTER KOKOBANGO CLUB');
+    }
   } else {
-    setClubPrompt('');
+    clubMobileNoticeShown = false;
+    if (!isTouch() && kokobango) {
+      const nearCar = kokobango.getNearbySupercar?.(vehicle.x, vehicle.z);
+      setClubPrompt(nearCar ? `<span class="key">E</span> ${nearCar.name} ko'rish` : '');
+    } else {
+      setClubPrompt('');
+    }
   }
 
   const input = player.locked ? { throttle: 0, reverse: 0, steer: 0, boost: false, handbrake: true, drift: false } : readDrive();
@@ -519,12 +591,23 @@ function step(dt, t) {
   const night = sky.night;
   const lightsOn = lightsMode === 'on' || (lightsMode === 'auto' && night > 0.35);
   model.setLights(lightsOn);
+  const gearLabel = vehicle.v < -0.5 ? 'R' : Math.abs(vehicle.v) < 0.2 ? 'N' : 'D';
+  model.setCockpitMode?.(camState.mode === 2, {
+    kmh: player.kmh,
+    rpm: vehicle.rpm || 0.15,
+    fuel: vehicle.fuel ?? 1,
+    gear: gearLabel,
+    lights: lightsOn,
+  });
   headlight.intensity = lightsOn ? 90 : 0;
   if (vehicle.inst.headlightColor) {
     headlight.color.set(vehicle.inst.headlightColor);
   }
-  for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * night;
-  waterMat.emissiveIntensity = 0.3 + night;
+  if (Math.abs(night - lastNightVal) > 0.004) {
+    lastNightVal = night;
+    for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * night;
+    waterMat.emissiveIntensity = 0.3 + night;
+  }
   updateProps(t, night);
   const cullDist = R.activeQuality === 'low' ? 550 : R.activeQuality === 'medium' ? 720 : R.activeQuality === 'ultra' ? 1100 : 950;
   updateCitySectors(player.x, player.z, cullDist);
@@ -689,6 +772,7 @@ function loop() {
     fps = Math.round(frames / fpsT);
     frames = 0;
     fpsT = 0;
+    R.reportFps?.(fps);
   }
   const dt = Math.min(raw, 0.1);
 
@@ -724,7 +808,11 @@ function loop() {
 
     const focusGroup = malibuHeroModel ? malibuHeroModel.group : model.group;
     sky.update(hour, focusGroup.position, R.preset.shadows, dt);
-    for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * sky.night;
+    if (Math.abs(sky.night - lastNightVal) > 0.004) {
+      lastNightVal = sky.night;
+      for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * sky.night;
+      waterMat.emissiveIntensity = 0.3 + sky.night;
+    }
     updateProps(t, sky.night);
     updateCitySectors(heroX, heroZ, 950);
     updateLandmarks(heroX, heroZ);
@@ -736,7 +824,7 @@ function loop() {
   }
 
   if (playing) {
-    drawSpeedo(player.kmh, vehicle.cfg.maxSpeed, vehicle.rpm);
+    if ((speedoT += dt) > 0.033) { speedoT = 0; drawSpeedo(player.kmh, vehicle.cfg.maxSpeed, vehicle.rpm); }
     if ((hudT += dt) > 0.1) { hudT = 0; updateHud(vehicle, hour, waypoint, fps); }
     if ((mapT += dt) > 0.1) { mapT = 0; drawMinimap($('minimap'), player, mapExtra()); }
     if ((peerHudT += dt) > 0.35) { peerHudT = 0; updateOnlinePeersHud(); }
