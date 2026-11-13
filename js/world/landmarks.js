@@ -114,7 +114,7 @@ export function updateLandmarks(px, pz) {
   for (let i = 0; i < landmarkEntries.length; i++) {
     const item = landmarkEntries[i];
     const d = Math.hypot(item.x - px, item.z - pz);
-    item.group.visible = item.isTall ? d < 2200 : d < 660;
+    item.group.visible = item.isTall ? d < 2800 : d < 950;
   }
 }
 

@@ -603,7 +603,7 @@ function step(dt, t) {
     waterMat.emissiveIntensity = 0.3 + night;
   }
   updateProps(t, night);
-  const cullDist = R.activeQuality === 'low' ? 420 : R.activeQuality === 'medium' ? 520 : R.activeQuality === 'ultra' ? 740 : 580;
+  const cullDist = R.activeQuality === 'low' ? 750 : R.activeQuality === 'medium' ? 900 : R.activeQuality === 'ultra' ? 1200 : 1050;
   updateCitySectors(player.x, player.z, cullDist);
   updatePropCulling(player.x, player.z, dt, 360);
   updateLandmarks(player.x, player.z);
