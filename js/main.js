@@ -294,7 +294,9 @@ onKey('KeyM', keyGuard(() => {
     const muted = kokobango.music.toggleMute();
     syncClubAudioUi();
     toast(muted ? '🔇 Klub musiqasi o‘chirildi' : '🔊 Klub musiqasi yoqildi', 'ok');
+    return;
   }
+  toggle('map');
 }));
 $('clubMusicToggle')?.addEventListener('click', () => {
   if (!insideClub || !kokobango) return;
