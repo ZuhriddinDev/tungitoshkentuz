@@ -1064,16 +1064,191 @@ export function buildKokobangoClub(scene) {
     stageHazeMats.push(hm);
   }
 
-  // 2.3 ULKAN ANIMATSIYALI LED VIDEO DEVOR (DJ orqasida)
+  // 2.3 ULKAN ANIMATSIYALI LED VIDEO DEVOR (DJ orqasida — 1024x512 yuqori aniqlik)
   const ledCanvas = document.createElement('canvas');
-  ledCanvas.width = 512;
-  ledCanvas.height = 256;
+  ledCanvas.width = 1024;
+  ledCanvas.height = 512;
   const ledCtx = ledCanvas.getContext('2d');
   const ledTex = new THREE.CanvasTexture(ledCanvas);
   ledTex.colorSpace = THREE.SRGBColorSpace;
+  ledTex.anisotropy = 4;
   const ledWall = new THREE.Mesh(new THREE.PlaneGeometry(21, 7.6), new THREE.MeshBasicMaterial({ map: ledTex }));
   ledWall.position.set(cx, iy + 5.8, cz - 22.1);
   interiorGroup.add(ledWall);
+
+  // 2.3b RAQAMLI DEVOR PANELLARI (Stylish Digital Wall Panels — 512x256)
+  const panelCanvas = document.createElement('canvas');
+  panelCanvas.width = 512;
+  panelCanvas.height = 256;
+  const panelCtx = panelCanvas.getContext('2d');
+  const panelTex = new THREE.CanvasTexture(panelCanvas);
+  panelTex.colorSpace = THREE.SRGBColorSpace;
+  panelTex.anisotropy = 4;
+  const panelMat = new THREE.MeshBasicMaterial({ map: panelTex });
+  const digitalPanelSpecs = [
+    { x: cx - iW / 2 + 0.56, y: iy + 3.8, z: cz - 12.0, ry: Math.PI / 2, w: 4.8, h: 2.4 },
+    { x: cx - iW / 2 + 0.56, y: iy + 3.8, z: cz + 14.0, ry: Math.PI / 2, w: 4.8, h: 2.4 },
+    { x: cx + iW / 2 - 0.56, y: iy + 3.8, z: cz - 6.0, ry: -Math.PI / 2, w: 4.8, h: 2.4 },
+    { x: cx + 14.22, y: iy + 3.2, z: cz + 6.5, ry: -Math.PI / 2, w: 3.6, h: 1.8 },
+  ];
+  for (const dp of digitalPanelSpecs) {
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(dp.w + 0.22, dp.h + 0.22, 0.08), mGold);
+    frame.position.set(dp.x, dp.y, dp.z);
+    frame.rotation.y = dp.ry;
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(dp.w, dp.h), panelMat);
+    scr.position.set(0, 0, 0.05);
+    frame.add(scr);
+    interiorGroup.add(frame);
+  }
+
+  // 2.3c 21+ GLAMOUR ART POSTERLAR VA VIP FOTOGRAFIYA (Yuqori sifatli PBR ramkalarda)
+  function makeGlamourPosterTexture(variant) {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 768;
+    const g = c.getContext('2d');
+
+    const palettes = [
+      { bg1: '#1a0414', bg2: '#3b0724', accent: '#f43f5e', gold: '#fbbf24', title: 'MIDNIGHT VELVET', sub: '21+ EXCLUSIVE LOUNGE' },
+      { bg1: '#130524', bg2: '#2e084d', accent: '#e879f9', gold: '#fde047', title: 'KOKOBANGO GLAMOUR', sub: 'ADULTS ONLY · 21+' },
+      { bg1: '#1f0806', bg2: '#450a18', accent: '#fb7185', gold: '#f59e0b', title: 'CRIMSON NOIR', sub: 'VIP NIGHTLIFE EDITION' },
+      { bg1: '#0f051c', bg2: '#310a3d', accent: '#c084fc', gold: '#fbbf24', title: 'GOLD & SILK', sub: 'PRIVATE VIP SUITE · 21+' },
+    ];
+    const p = palettes[variant % palettes.length];
+    const grad = g.createLinearGradient(0, 0, 512, 768);
+    grad.addColorStop(0, p.bg1);
+    grad.addColorStop(0.55, p.bg2);
+    grad.addColorStop(1, '#07020b');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 512, 768);
+
+    // Warm spotlight halo
+    const halo = g.createRadialGradient(256, 300, 20, 256, 300, 260);
+    halo.addColorStop(0, `${p.accent}66`);
+    halo.addColorStop(0.55, `${p.gold}22`);
+    halo.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = halo;
+    g.fillRect(0, 0, 512, 768);
+
+    // Bokeh highlights
+    for (let i = 0; i < 22; i++) {
+      const bx = ((i * 97 + variant * 53) % 440) + 36;
+      const by = ((i * 131 + variant * 29) % 520) + 60;
+      const br = 8 + (i % 5) * 6;
+      g.fillStyle = i % 2 === 0 ? 'rgba(251, 191, 36, 0.16)' : 'rgba(244, 63, 94, 0.16)';
+      g.beginPath();
+      g.arc(bx, by, br, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    // Tasteful editorial evening-gown silhouette (21+ adult fashion motif)
+    g.save();
+    g.translate(256, 390);
+    g.fillStyle = '#09030d';
+    // Head & updo hairstyle
+    g.beginPath();
+    g.arc(0, -185, 30, 0, Math.PI * 2);
+    g.fill();
+    g.beginPath();
+    g.arc(16, -206, 15, 0, Math.PI * 2);
+    g.fill();
+    // Neck & shoulders
+    g.beginPath();
+    g.moveTo(-10, -158);
+    g.lineTo(10, -158);
+    g.lineTo(44, -124);
+    g.lineTo(24, -40);
+    g.lineTo(36, 18);
+    // Flowing evening gown skirt
+    g.quadraticCurveTo(75, 130, 96, 230);
+    g.lineTo(-82, 230);
+    g.quadraticCurveTo(-55, 120, -32, 18);
+    g.lineTo(-22, -40);
+    g.lineTo(-42, -124);
+    g.closePath();
+    g.fill();
+    // Golden rim-light contour on silhouette
+    g.strokeStyle = p.gold;
+    g.lineWidth = 2.5;
+    g.stroke();
+    g.restore();
+
+    // Fine gold gallery border
+    g.strokeStyle = p.gold;
+    g.lineWidth = 4;
+    g.strokeRect(22, 22, 468, 724);
+    g.strokeStyle = 'rgba(255,255,255,0.22)';
+    g.lineWidth = 1;
+    g.strokeRect(32, 32, 448, 704);
+
+    // Typography
+    g.textAlign = 'center';
+    g.fillStyle = p.gold;
+    g.font = '700 20px "Segoe UI", Arial, sans-serif';
+    g.fillText('KOKOBANGO EXCLUSIVE · 21+', 256, 74);
+
+    g.fillStyle = '#ffffff';
+    g.shadowColor = p.accent;
+    g.shadowBlur = 14;
+    g.font = '900 34px "Segoe UI", Arial, sans-serif';
+    g.fillText(p.title, 256, 668);
+    g.shadowBlur = 0;
+
+    g.fillStyle = p.accent;
+    g.font = '700 18px "Segoe UI", Arial, sans-serif';
+    g.fillText(p.sub, 256, 704);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    return tex;
+  }
+
+  const posterTextures = [0, 1, 2, 3].map((v) => makeGlamourPosterTexture(v));
+  const posterGlassMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.14,
+    roughness: 0.05,
+    metalness: 0.1,
+    clearcoat: 1.0,
+  });
+
+  function addFramedGlamourArt(x, y, z, ry, w, h, variant) {
+    const grp = new THREE.Group();
+    grp.position.set(x, y, z);
+    grp.rotation.y = ry;
+    const outer = new THREE.Mesh(new THREE.BoxGeometry(w + 0.24, h + 0.24, 0.09), mGold);
+    const backing = new THREE.Mesh(new THREE.BoxGeometry(w + 0.08, h + 0.08, 0.1), mObsidian);
+    const art = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ map: posterTextures[variant % posterTextures.length] })
+    );
+    art.position.z = 0.055;
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(w, h), posterGlassMat);
+    glass.position.z = 0.062;
+    grp.add(outer, backing, art, glass);
+    interiorGroup.add(grp);
+  }
+
+  // Asosiy zal devorlaridagi Glamour 21+ posterlar
+  addFramedGlamourArt(cx - iW / 2 + 0.56, iy + 3.6, cz - 4.0, Math.PI / 2, 2.2, 3.3, 0);
+  addFramedGlamourArt(cx - iW / 2 + 0.56, iy + 3.6, cz + 6.0, Math.PI / 2, 2.2, 3.3, 1);
+  addFramedGlamourArt(cx - 10.5, iy + 3.6, cz + iD / 2 - 0.56, Math.PI, 2.2, 3.3, 2);
+  addFramedGlamourArt(cx + 10.5, iy + 3.6, cz + iD / 2 - 0.56, Math.PI, 2.2, 3.3, 3);
+
+  // Dekorativ oltin geometrik devor installyatsiyalari
+  for (const [rx, ryPos, rz, rRot] of [
+    [cx - 14.5, iy + 6.4, cz - 21.9, 0],
+    [cx + 14.5, iy + 6.4, cz - 21.9, 0],
+  ]) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.07, 10, 32), mGold);
+    ring.position.set(rx, ryPos, rz);
+    ring.rotation.y = rRot;
+    const innerRing = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.05, 10, 28), mNeonPurple);
+    innerRing.position.set(rx, ryPos, rz + 0.04);
+    interiorGroup.add(ring, innerRing);
+  }
 
   // 2.4 SHIFT PROJEKTORLARI (8 ta harakatlanuvchi Spotlight + Lazer nurlari)
   const trussMat = new THREE.MeshStandardMaterial({ color: 0x262936, metalness: 0.8, roughness: 0.3 });
@@ -1254,6 +1429,11 @@ export function buildKokobangoClub(scene) {
   interiorGroup.add(vipMiniBar, vipMiniBarTop);
   addIntCol(cx + 18.1, cz - 1.25, cx + 23.9, cz + 0.05);
 
+  // VIP Lounge ichidagi eksklyuziv 21+ Glamour fotografiyalar (sharqiy va janubiy VIP devorlar)
+  addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 3.5, -Math.PI / 2, 2.1, 3.15, 3);
+  addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 10.5, -Math.PI / 2, 2.1, 3.15, 0);
+  addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 17.5, -Math.PI / 2, 2.1, 3.15, 2);
+
   // 2.7 HOJATXONA VA KORIDOR (WC / RESTROOMS — Shimoli-Sharqiy burchak)
   const wcWallFront = new THREE.Mesh(new THREE.BoxGeometry(10, 5.5, 0.4), wallMat);
   wcWallFront.position.set(cx + 22.5, iy + 2.75, cz - 10);
@@ -1297,20 +1477,20 @@ export function buildKokobangoClub(scene) {
   interiorGroup.add(recDesk, recTrim);
   addIntCol(cx - 9.0, cz + 16.8, cx - 4.0, cz + 18.2);
 
-  // Interyer yoritish (yorqin va jonli tungi klub muhiti)
-  const intHemi = new THREE.HemisphereLight(0xd8b4fe, 0x1e1038, 1.55);
+  // Interyer yoritish (qizil, binafsha va iliq oltin/amber 21+ glamour muhiti)
+  const intHemi = new THREE.HemisphereLight(0xf0abfc, 0x2a0818, 1.45);
   intHemi.position.set(cx, iy + 9.5, cz);
-  const intAmbient = new THREE.PointLight(0x8b5cf6, 42, 60, 1.25);
+  const intAmbient = new THREE.PointLight(0xa855f7, 40, 62, 1.25);
   intAmbient.position.set(cx, iy + 8.5, cz);
-  const intStageLight = new THREE.PointLight(0x00e5ff, 68, 38, 1.3);
+  const intStageLight = new THREE.PointLight(0xe11d48, 70, 40, 1.3);
   intStageLight.position.set(cx, iy + 6.5, cz - 14);
   const intBarLight = new THREE.PointLight(0xd946ef, 48, 32, 1.3);
   intBarLight.position.set(cx - 21, iy + 5.5, cz + 1);
-  const intVipLight = new THREE.PointLight(0xfacc15, 42, 26, 1.3);
+  const intVipLight = new THREE.PointLight(0xf59e0b, 46, 26, 1.3);
   intVipLight.position.set(cx + 21, iy + 5.5, cz + 10);
-  const intVipPurple = new THREE.PointLight(0xd946ef, 38, 24, 1.3);
+  const intVipPurple = new THREE.PointLight(0xbe185d, 40, 24, 1.3);
   intVipPurple.position.set(cx + 21, iy + 5.0, cz + 16);
-  const intEntranceLight = new THREE.PointLight(0x38bdf8, 38, 28, 1.3);
+  const intEntranceLight = new THREE.PointLight(0xfbbf24, 34, 28, 1.3);
   intEntranceLight.position.set(cx, iy + 6.0, cz + 15);
   interiorGroup.add(intHemi, intAmbient, intStageLight, intBarLight, intVipLight, intVipPurple, intEntranceLight);
 
@@ -1891,34 +2071,98 @@ export function buildKokobangoClub(scene) {
       extLedTex.needsUpdate = true;
     } else {
       const g = ledCtx;
-      const grad = g.createLinearGradient(0, 0, 512, 256);
-      grad.addColorStop(0, `hsl(${(t * 35) % 360}, 70%, 10%)`);
-      grad.addColorStop(1, '#05020e');
+      const grad = g.createLinearGradient(0, 0, 1024, 512);
+      grad.addColorStop(0, '#180312');
+      grad.addColorStop(0.5, `hsl(${(320 + Math.sin(t * 0.4) * 28) % 360}, 75%, 16%)`);
+      grad.addColorStop(1, '#09020f');
       g.fillStyle = grad;
-      g.fillRect(0, 0, 512, 256);
+      g.fillRect(0, 0, 1024, 512);
+
+      // Warm golden & crimson spotlight cones
+      for (let s = 0; s < 3; s++) {
+        const sx = 220 + s * 292 + Math.sin(t * 1.1 + s * 2) * 55;
+        const sg = g.createRadialGradient(sx, 250, 10, sx, 250, 220);
+        sg.addColorStop(0, s === 1 ? 'rgba(251, 191, 36, 0.34)' : 'rgba(244, 63, 94, 0.32)');
+        sg.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = sg;
+        g.fillRect(0, 0, 1024, 512);
+      }
+
+      // Elegant animated adult dancer silhouettes (non-explicit fashion motif)
+      for (let d = 0; d < 2; d++) {
+        const dx = d === 0 ? 190 : 834;
+        const sway = Math.sin(t * 2.4 + d * Math.PI) * 10;
+        g.save();
+        g.translate(dx + sway, 325);
+        g.fillStyle = 'rgba(12, 3, 18, 0.88)';
+        g.strokeStyle = 'rgba(251, 191, 36, 0.65)';
+        g.lineWidth = 3;
+        g.beginPath();
+        g.arc(0, -108, 18, 0, Math.PI * 2);
+        g.fill();
+        g.beginPath();
+        g.moveTo(-24, -72);
+        g.lineTo(24, -72);
+        g.lineTo(14, -12);
+        g.quadraticCurveTo(42, 72, 54, 155);
+        g.lineTo(-48, 155);
+        g.quadraticCurveTo(-36, 72, -14, -12);
+        g.closePath();
+        g.fill();
+        g.stroke();
+        g.restore();
+      }
 
       // Pulsing rings
-      g.strokeStyle = `rgba(0, 229, 255, ${0.35 + beat * 0.5})`;
-      g.lineWidth = 4 + beat * 4;
+      g.strokeStyle = `rgba(251, 191, 36, ${0.35 + beat * 0.5})`;
+      g.lineWidth = 6 + beat * 6;
       g.beginPath();
-      g.arc(256, 128, 45 + beat * 40, 0, Math.PI * 2);
+      g.arc(512, 256, 85 + beat * 65, 0, Math.PI * 2);
       g.stroke();
 
       // Equalizer bars
-      for (let i = 0; i < 32; i++) {
-        const h = (25 + Math.abs(Math.sin(t * 7 + i * 0.4)) * 125) * (0.65 + beat * 0.55);
-        g.fillStyle = `hsl(${(280 + i * 4 + t * 40) % 360}, 95%, 60%)`;
-        g.fillRect(12 + i * 15.5, 250 - h, 10, h);
+      for (let i = 0; i < 48; i++) {
+        const h = (32 + Math.abs(Math.sin(t * 7 + i * 0.35)) * 175) * (0.65 + beat * 0.55);
+        g.fillStyle = `hsl(${(310 + i * 2.5 + t * 35) % 360}, 90%, 58%)`;
+        g.fillRect(24 + i * 20.5, 502 - h, 13, h);
       }
 
       g.fillStyle = '#ffffff';
-      g.font = '900 46px "Segoe UI", Arial, sans-serif';
+      g.font = '900 74px "Segoe UI", Arial, sans-serif';
       g.textAlign = 'center';
-      g.shadowColor = '#e879f9';
-      g.shadowBlur = 18;
-      g.fillText('KOKOBANGO', 256, 118);
+      g.shadowColor = '#f43f5e';
+      g.shadowBlur = 24;
+      g.fillText('KOKOBANGO 21+', 512, 240);
+      g.font = '700 28px "Segoe UI", Arial, sans-serif';
+      g.fillStyle = '#fde047';
+      g.shadowColor = '#f59e0b';
+      g.fillText('GLAMOUR NIGHTS · VIP LOUNGE', 512, 288);
       g.shadowBlur = 0;
       ledTex.needsUpdate = true;
+
+      // Digital Wall Panels (512x256)
+      const pg = panelCtx;
+      const pGrad = pg.createLinearGradient(0, 0, 512, 256);
+      pGrad.addColorStop(0, '#16041b');
+      pGrad.addColorStop(1, '#31071e');
+      pg.fillStyle = pGrad;
+      pg.fillRect(0, 0, 512, 256);
+      pg.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+      pg.lineWidth = 3;
+      for (let w = 0; w < 4; w++) {
+        pg.beginPath();
+        for (let x = 0; x <= 512; x += 16) {
+          const y = 128 + Math.sin(x * 0.02 + t * 2.2 + w * 0.9) * (34 + beat * 28);
+          if (x === 0) pg.moveTo(x, y);
+          else pg.lineTo(x, y);
+        }
+        pg.stroke();
+      }
+      pg.fillStyle = '#fde047';
+      pg.font = '800 32px "Segoe UI", Arial, sans-serif';
+      pg.textAlign = 'center';
+      pg.fillText('KOKOBANGO · 21+', 256, 138);
+      panelTex.needsUpdate = true;
     }
   }
 

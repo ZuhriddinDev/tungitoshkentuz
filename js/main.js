@@ -271,6 +271,53 @@ onKey('KeyL', keyGuard(() => {
   toast(`Faralar: ${{ auto: 'avtomatik', on: 'yoqilgan', off: "o'chirilgan" }[lightsMode]}`);
 }));
 let clubMobileNoticeShown = false;
+let clubAgeConfirmed = false;
+
+function showClubAgeGateModal(onConfirm) {
+  let modal = document.getElementById('clubAgeGateModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'clubAgeGateModal';
+    modal.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:9999', 'display:flex', 'align-items:center',
+      'justify-content:center', 'padding:18px', 'background:rgba(8,2,14,0.82)',
+      'backdrop-filter:blur(12px)', '-webkit-backdrop-filter:blur(12px)',
+      'font-family:Inter,system-ui,sans-serif',
+    ].join(';');
+    modal.innerHTML = `
+      <div style="max-width:410px;width:100%;background:linear-gradient(160deg,rgba(32,6,24,0.97),rgba(12,4,20,0.99));border:1px solid rgba(244,63,94,0.45);border-radius:18px;padding:24px 22px;box-shadow:0 24px 56px rgba(0,0,0,0.75),0 0 32px rgba(244,63,94,0.22);text-align:center;color:#fdf2f8;">
+        <div style="width:54px;height:54px;margin:0 auto 12px;border-radius:14px;background:linear-gradient(135deg,rgba(244,63,94,0.28),rgba(251,191,36,0.2));border:1px solid rgba(251,191,36,0.45);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fde047;">21+</div>
+        <h3 style="margin:0 0 10px;font-size:18px;font-weight:800;letter-spacing:1.1px;color:#fb7185;">KOKOBANGO CLUB · 18+ / 21+</h3>
+        <p style="margin:0 0 18px;font-size:13.5px;line-height:1.58;color:#e2e8f0;">
+          Ushbu hudud faqat <b>18+ / 21+</b> kattalar uchun mo‘ljallangan tungi klub va VIP lounge muhitidir.<br><br>
+          Davom etish orqali yoshingiz 18+ ekanligini tasdiqlaysiz.
+        </p>
+        <div style="display:flex;gap:10px;">
+          <button id="clubAgeCancel" type="button" style="flex:1;padding:11px 12px;border:1px solid rgba(255,255,255,0.18);border-radius:12px;background:rgba(255,255,255,0.06);color:#cbd5e1;font-weight:700;font-size:13px;cursor:pointer;">Bekor qilish</button>
+          <button id="clubAgeConfirm" type="button" style="flex:1.4;padding:11px 14px;border:none;border-radius:12px;background:linear-gradient(90deg,#e11d48,#a855f7);color:#fff;font-weight:800;font-size:13px;cursor:pointer;letter-spacing:0.3px;">Ha, 18+ man — Kirish</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  const confirmBtn = document.getElementById('clubAgeConfirm');
+  const cancelBtn = document.getElementById('clubAgeCancel');
+  if (confirmBtn) {
+    confirmBtn.onclick = () => {
+      modal.style.display = 'none';
+      if (typeof onConfirm === 'function') onConfirm();
+    };
+  }
+  if (cancelBtn) {
+    cancelBtn.onclick = () => {
+      modal.style.display = 'none';
+    };
+  }
+  modal.onclick = (e) => {
+    if (e.target === modal) modal.style.display = 'none';
+  };
+  modal.style.display = 'flex';
+}
 
 function showClubPcOnlyNotice(customTitle, customMsg) {
   let modal = document.getElementById('clubPcOnlyModal');
@@ -354,6 +401,14 @@ async function enterKokobangoClub() {
       return;
     }
   } catch { /* Offline/static server fallback relies on !isTouch() */ }
+  if (!clubAgeConfirmed) {
+    clubTransitioning = false;
+    showClubAgeGateModal(() => {
+      clubAgeConfirmed = true;
+      enterKokobangoClub();
+    });
+    return;
+  }
   setClubPrompt('');
   const fadeEl = $('clubFade');
   if (fadeEl) fadeEl.classList.add('active');
