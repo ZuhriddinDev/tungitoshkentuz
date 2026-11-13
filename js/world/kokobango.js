@@ -16,6 +16,11 @@ import {
   createDetailedBarStool,
   createSpeakerStack,
   createDetailedVipTable,
+  createArchitecturalStonePBR,
+  createWetPlazaPBR,
+  createQueueBarriers,
+  createOutdoorLounge,
+  createBarBacklitDisplay,
 } from './kokobangoAssets.js';
 
 const clubDraco = new DRACOLoader();
@@ -46,12 +51,45 @@ class ClubMusicEngine {
     this.muted = false;
     this.crowdSrc = null;
     this.zone = 'main';
+    this.outsideFactor = 0;
   }
 
   setZone(z) {
     if (this.zone === z) return;
     this.zone = z;
     this.stepDur = z === 'rooftop' ? 0.144 : z === 'vip' ? 0.127 : 0.117;
+    if (this.zoneFilter && this.ctx) {
+      const cutoff = z === 'outside' ? 280 : z === 'vip' ? 2400 : z === 'rooftop' ? 3600 : 18000;
+      this.zoneFilter.frequency.setTargetAtTime(cutoff, this.ctx.currentTime, 0.12);
+    }
+    this.setVolume(this.volume);
+  }
+
+  setOutsideBleed(factor) {
+    this.outsideFactor = Math.max(0, Math.min(1, factor));
+    if (this.zone === 'outside' && this.master && this.ctx && this.playing) {
+      const eff = this.muted ? 0.0001 : this.volume * 0.22 * this.outsideFactor;
+      this.master.gain.setTargetAtTime(Math.max(0.0001, eff), this.ctx.currentTime, 0.12);
+    }
+  }
+
+  playDoorChime(opening) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!this.ctx) this.ctx = new AC();
+    if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(opening ? 520 : 340, now);
+    osc.frequency.exponentialRampToValueAtTime(opening ? 780 : 210, now + 0.16);
+    g.gain.setValueAtTime(0.06, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+    osc.connect(g);
+    g.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.19);
   }
 
   toggleMute() {
@@ -63,8 +101,15 @@ class ClubMusicEngine {
   setVolume(v) {
     this.volume = Math.max(0, Math.min(1, v));
     if (this.volume > 0) this.targetVol = this.volume;
-    const zoneGain = this.zone === 'rooftop' ? 0.42 : this.zone === 'vip' ? 0.52 : 0.65;
-    const eff = this.muted ? 0.0001 : this.volume * zoneGain;
+    const zoneGain =
+      this.zone === 'outside'
+        ? 0.22 * this.outsideFactor
+        : this.zone === 'rooftop'
+        ? 0.42
+        : this.zone === 'vip'
+        ? 0.52
+        : 0.65;
+    const eff = this.muted ? 0.0001 : Math.max(0.0001, this.volume * zoneGain);
     if (this.master && this.ctx && this.playing) {
       this.master.gain.setTargetAtTime(eff, this.ctx.currentTime, 0.08);
     }
@@ -78,17 +123,21 @@ class ClubMusicEngine {
       this.ctx = new AC();
       this.master = this.ctx.createGain();
       this.master.gain.value = 0.0001;
+      this.zoneFilter = this.ctx.createBiquadFilter();
+      this.zoneFilter.type = 'lowpass';
+      this.zoneFilter.frequency.value = this.zone === 'outside' ? 280 : 18000;
       const comp = this.ctx.createDynamicsCompressor();
       comp.threshold.value = -14;
       comp.ratio.value = 4;
-      this.master.connect(comp);
+      this.master.connect(this.zoneFilter);
+      this.zoneFilter.connect(comp);
       comp.connect(this.ctx.destination);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
     this.playing = true;
     this.step = 0;
     this.nextStepTime = this.ctx.currentTime + 0.05;
-    this.master.gain.setTargetAtTime(this.volume * 0.65, this.ctx.currentTime, 0.25);
+    this.setVolume(this.volume);
 
     this.timer = setInterval(() => this._schedule(), 40);
   }
@@ -593,12 +642,31 @@ export function buildKokobangoClub(scene) {
   // ========================================================================
   // 1. EKSTERYER — HASHAMATLI TUNGI KLUB BINOSI, VIP PARKOVKA VA MASHINALAR
   // ========================================================================
-  const mDarkWall = new THREE.MeshStandardMaterial({ color: 0x101320, roughness: 0.42, metalness: 0.45 });
-  const mObsidian = new THREE.MeshStandardMaterial({ color: 0x070912, roughness: 0.28, metalness: 0.65 });
-  const mGlass = new THREE.MeshStandardMaterial({ color: 0x16223d, roughness: 0.08, metalness: 0.92, transparent: true, opacity: 0.72 });
-  const mGold = new THREE.MeshStandardMaterial({ color: 0xffd166, roughness: 0.25, metalness: 0.9 });
-  const mMarble = new THREE.MeshStandardMaterial({ color: 0x1b1d28, roughness: 0.25, metalness: 0.35 });
+  const stoneTex = createArchitecturalStonePBR();
+  const wetPlazaTex = createWetPlazaPBR();
+  const mDarkWall = new THREE.MeshStandardMaterial({
+    map: stoneTex,
+    bumpMap: stoneTex,
+    bumpScale: 0.08,
+    color: 0xffffff,
+    roughness: 0.48,
+    metalness: 0.25,
+  });
+  const mObsidian = new THREE.MeshStandardMaterial({ color: 0x070912, roughness: 0.26, metalness: 0.68 });
+  const mGlass = new THREE.MeshPhysicalMaterial({
+    color: 0x0f1b33,
+    roughness: 0.06,
+    metalness: 0.15,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.05,
+    reflectivity: 0.95,
+    transparent: true,
+    opacity: 0.78,
+  });
+  const mGold = new THREE.MeshStandardMaterial({ color: 0xffd166, roughness: 0.22, metalness: 0.92 });
+  const mMarble = new THREE.MeshStandardMaterial({ color: 0x1b1d28, roughness: 0.22, metalness: 0.35 });
   const mCarpet = new THREE.MeshStandardMaterial({ color: 0x6d1148, roughness: 0.85 });
+  const mWarmGlow = new THREE.MeshStandardMaterial({ color: 0xfef3c7, emissive: 0xf59e0b, emissiveIntensity: 1.6, roughness: 0.25 });
   const mNeonPurple = new THREE.MeshStandardMaterial({ color: 0xd946ef, emissive: 0xd946ef, emissiveIntensity: 2.8, roughness: 0.2 });
   const mNeonCyan = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 2.6, roughness: 0.2 });
   const mNeonPink = new THREE.MeshStandardMaterial({ color: 0xf43f5e, emissive: 0xf43f5e, emissiveIntensity: 2.8, roughness: 0.2 });
@@ -612,10 +680,23 @@ export function buildKokobangoClub(scene) {
   exteriorGroup.add(mainBody);
   addCollider(cx - 38, bCenterZ - 30, cx + 38, bCenterZ + 30, 'building');
 
-  // Yuqori me'moriy qavat / Toj (crown)
+  // Fasadning chap va o'ng qanotlarida zamonaviy qora oyna (curtain-wall) panellari
+  for (const sx of [-1, 1]) {
+    const curtainGlass = new THREE.Mesh(new THREE.BoxGeometry(20, 8.8, 0.35), mGlass);
+    curtainGlass.position.set(cx + sx * 24, 10.6, cz - 24.15);
+    const curtainFrame = new THREE.Mesh(new THREE.BoxGeometry(20.6, 9.2, 0.25), mObsidian);
+    curtainFrame.position.set(cx + sx * 24, 10.6, cz - 24.05);
+    const sillTrim = new THREE.Mesh(new THREE.BoxGeometry(20.6, 0.16, 0.55), mGold);
+    sillTrim.position.set(cx + sx * 24, 6.0, cz - 24.25);
+    exteriorGroup.add(curtainGlass, curtainFrame, sillTrim);
+  }
+
+  // Yuqori me'moriy qavat / Toj (crown) + metall parapet
   const roofTier = new THREE.Mesh(new THREE.BoxGeometry(64, 4.5, 48), mObsidian);
   roofTier.position.set(cx, 20.25, bCenterZ);
-  exteriorGroup.add(roofTier);
+  const crownGold = new THREE.Mesh(new THREE.BoxGeometry(64.5, 0.22, 48.5), mGold);
+  crownGold.position.set(cx, 22.5, bCenterZ);
+  exteriorGroup.add(roofTier, crownGold);
 
   // Old fasad bo'ylab vertikal bezak ustunlari va neon chiziqlar
   for (let x = -34; x <= 34; x += 6.8) {
@@ -722,9 +803,38 @@ export function buildKokobangoClub(scene) {
   doorRight.position.set(cx + 1.15, 2.4, cz - 24.35);
   exteriorGroup.add(doorLeft, doorRight);
 
+  // Nam granit kirish maydoni (wet-look plaza reflections), VIP navbat to'siqlari va tashqi lounge
+  const wetPlazaMat = new THREE.MeshStandardMaterial({
+    map: wetPlazaTex,
+    color: 0xffffff,
+    roughness: 0.14,
+    metalness: 0.45,
+  });
+  const entrancePlaza = new THREE.Mesh(new THREE.BoxGeometry(58, 0.08, 16), wetPlazaMat);
+  entrancePlaza.position.set(cx, 0.25, cz - 31.8);
+  entrancePlaza.receiveShadow = true;
+  exteriorGroup.add(entrancePlaza);
+
+  const extQueue = createQueueBarriers({ goldMat: mGold, velvetMat: mCarpet, obsidianMat: mObsidian });
+  extQueue.position.set(cx, 0.29, cz - 26.5);
+  exteriorGroup.add(extQueue);
+
+  const extWarmLight = new THREE.PointLight(0xfbbf24, 2.4, 22, 1.3);
+  extWarmLight.position.set(cx, 4.85, cz - 27.5);
+  exteriorGroup.add(extWarmLight);
+
   // Obodonlashtirish: ko'cha daraxtlari, gulzorlar va zamonaviy skameykalar
   const mTrunk = new THREE.MeshStandardMaterial({ color: 0x3b2a1e, roughness: 0.9 });
   const mLeaves = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.78 });
+  const extLounge = createOutdoorLounge({
+    obsidianMat: mObsidian,
+    goldMat: mGold,
+    velvetMat: mCarpet,
+    leafMat: mLeaves,
+    warmMat: mWarmGlow,
+  });
+  extLounge.position.set(cx, 0.29, cz - 28.0);
+  exteriorGroup.add(extLounge);
   for (const sx of [-1, 1]) {
     for (const tx of [12, 26]) {
       const px = cx + sx * tx;
@@ -1392,6 +1502,19 @@ export function buildKokobangoClub(scene) {
   bottleInst.instanceMatrix.needsUpdate = true;
   if (bottleInst.instanceColor) bottleInst.instanceColor.needsUpdate = true;
   interiorGroup.add(bottleInst);
+
+  const barBacklit = createBarBacklitDisplay({
+    obsidianMat: mObsidian,
+    glassMat: mGlass,
+    goldMat: mGold,
+    warmMat: mWarmGlow,
+  });
+  barBacklit.position.set(cx - 26.2, iy, cz + 1);
+  interiorGroup.add(barBacklit);
+
+  const intRestroomLight = new THREE.PointLight(0xfbbf24, 24, 18, 1.3);
+  intRestroomLight.position.set(cx + 21.8, iy + 4.4, cz - 14.5);
+  interiorGroup.add(intRestroomLight);
 
   const mLeather = new THREE.MeshStandardMaterial({ color: 0x3b0764, roughness: 0.42, metalness: 0.15 });
   for (let st = 0; st < 6; st++) {
@@ -2566,32 +2689,64 @@ export function buildKokobangoClub(scene) {
     },
 
     beatDropBoost: 0,
+    prevDoorOpen: false,
     triggerBeatDrop() {
       this.beatDropBoost = 3.5;
     },
 
     update(dt, t, isInside, playerDistSq = 0, gameHour = 0) {
       const beat = music.getBeatPulse();
+      const isNight = gameHour >= 19 || gameHour < 6;
+      const isClubOpen = gameHour >= 0 && gameHour < 3;
+
       if (!isInside) {
         parkedCarsGroup.visible = playerDistSq < 240 * 240;
+        const nightFactor = isNight ? 1.0 : 0.14;
+        skyBeams[0].visible = isNight && playerDistSq < 600 * 600;
+        skyBeams[1].visible = isNight && playerDistSq < 600 * 600;
+        mNeonPurple.emissiveIntensity = isNight ? 2.8 : 0.3;
+        mNeonCyan.emissiveIntensity = isNight ? 2.6 : 0.3;
+        mNeonPink.emissiveIntensity = isNight ? 2.8 : 0.3;
+        mWarmGlow.emissiveIntensity = isNight ? 1.6 : 0.25;
+
         // Osmon projektori va tashqi LED ekran faqat yaqin bo'lsa yangilanadi
         if (playerDistSq < 600 * 600) {
-          skyBeams[0].rotation.z = Math.sin(t * 0.65) * 0.38;
-          skyBeams[0].rotation.x = Math.cos(t * 0.5) * 0.25;
-          skyBeams[1].rotation.z = -Math.sin(t * 0.65) * 0.38;
-          skyBeams[1].rotation.x = -Math.cos(t * 0.5) * 0.25;
-          extLight.intensity = 2.6 + Math.sin(t * 4) * 0.8;
+          if (isNight) {
+            skyBeams[0].rotation.z = Math.sin(t * 0.65) * 0.38;
+            skyBeams[0].rotation.x = Math.cos(t * 0.5) * 0.25;
+            skyBeams[1].rotation.z = -Math.sin(t * 0.65) * 0.38;
+            skyBeams[1].rotation.x = -Math.cos(t * 0.5) * 0.25;
+          }
+          extLight.intensity = (2.6 + Math.sin(t * 4) * 0.8) * nightFactor;
+          extWarmLight.intensity = 2.4 * nightFactor;
         }
         if (playerDistSq < 180 * 180) {
           drawLedScreens(t, 0.5, false, gameHour);
           for (const npc of exteriorNpcs) npc.update(dt, t, 0);
-          const isClubOpen = gameHour >= 0 && gameHour < 3;
-          const doorOpen = isClubOpen && playerDistSq < 55 * 55 ? 1.85 : 0;
+          const doorOpenNow = isClubOpen && playerDistSq < 55 * 55;
+          if (doorOpenNow !== this.prevDoorOpen) {
+            this.prevDoorOpen = doorOpenNow;
+            if (music.ctx) music.playDoorChime(doorOpenNow);
+          }
+          const doorOpen = doorOpenNow ? 1.85 : 0;
           doorLeft.position.x += ((cx - 1.15 - doorOpen) - doorLeft.position.x) * Math.min(1, dt * 6);
           doorRight.position.x += ((cx + 1.15 + doorOpen) - doorRight.position.x) * Math.min(1, dt * 6);
+
+          // Tashqarida eshik yonida klub musiqa bassi bo'g'iq (low-pass) eshitiladi
+          if (music.playing && music.zone === 'outside') {
+            const dist = Math.sqrt(playerDistSq);
+            const bleed = isClubOpen ? Math.max(0, 1 - dist / 65) : 0;
+            music.setOutsideBleed(bleed);
+          }
         }
         return;
       }
+
+      // Ichkarida neon materiallarni to'liq yorqinlikda ushlab turish
+      mNeonPurple.emissiveIntensity = 2.8;
+      mNeonCyan.emissiveIntensity = 2.6;
+      mNeonPink.emissiveIntensity = 2.8;
+      mWarmGlow.emissiveIntensity = 1.6;
 
       // Interyer animatsiyalari (beat-synced)
       drawLedScreens(t, beat, true);

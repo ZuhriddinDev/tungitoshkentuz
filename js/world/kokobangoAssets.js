@@ -285,3 +285,282 @@ export function createDetailedVipTable(mats) {
 
   return group;
 }
+
+/**
+ * Architectural dark basalt/travertine stone PBR texture for club facade & columns
+ */
+export function createArchitecturalStonePBR() {
+  const size = 256;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext('2d');
+
+  ctx.fillStyle = '#141720';
+  ctx.fillRect(0, 0, size, size);
+
+  // Subtle horizontal stone ashlar courses
+  for (let row = 0; row < 8; row++) {
+    const y = row * 32;
+    const shade = 16 + ((row * 7) % 10);
+    ctx.fillStyle = `rgb(${shade}, ${shade + 3}, ${shade + 11})`;
+    ctx.fillRect(0, y + 1, size, 30);
+    ctx.fillStyle = '#090b10';
+    ctx.fillRect(0, y, size, 1.5);
+    const offset = (row % 2) * 64;
+    for (let x = offset; x < size; x += 128) {
+      ctx.fillRect(x, y, 1.5, 32);
+    }
+  }
+  // Fine mineral grain
+  for (let i = 0; i < 1600; i++) {
+    const x = Math.random() * size;
+    const y = Math.random() * size;
+    const v = 18 + Math.floor(Math.random() * 24);
+    ctx.fillStyle = `rgba(${v},${v + 2},${v + 8},0.22)`;
+    ctx.fillRect(x, y, 2, 1.5);
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(6, 3);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Wet-look dark granite entrance plaza texture
+ */
+export function createWetPlazaPBR() {
+  const size = 256;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext('2d');
+
+  ctx.fillStyle = '#0f1119';
+  ctx.fillRect(0, 0, size, size);
+
+  for (let y = 0; y < size; y += 32) {
+    for (let x = 0; x < size; x += 32) {
+      const tone = 14 + (((x + y) * 3) % 9);
+      ctx.fillStyle = `rgb(${tone}, ${tone + 2}, ${tone + 8})`;
+      ctx.fillRect(x + 1, y + 1, 30, 30);
+    }
+  }
+  // Wet sheen patches
+  for (let i = 0; i < 18; i++) {
+    const px = Math.random() * size;
+    const py = Math.random() * size;
+    const r = 16 + Math.random() * 28;
+    const g = ctx.createRadialGradient(px, py, 2, px, py, r);
+    g.addColorStop(0, 'rgba(148, 163, 184, 0.14)');
+    g.addColorStop(1, 'rgba(148, 163, 184, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(8, 5);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * VIP & General queue stanchions + draped velvet ropes + VIP host check-in podium
+ */
+export function createQueueBarriers({ goldMat, velvetMat, obsidianMat }) {
+  const group = new THREE.Group();
+  const baseGeo = new THREE.CylinderGeometry(0.18, 0.21, 0.06, 12);
+  const postGeo = new THREE.CylinderGeometry(0.035, 0.04, 0.96, 10);
+  const finialGeo = new THREE.SphereGeometry(0.06, 10, 8);
+
+  const addStanchion = (x, z) => {
+    const base = new THREE.Mesh(baseGeo, goldMat);
+    base.position.set(x, 0.03, z);
+    const post = new THREE.Mesh(postGeo, goldMat);
+    post.position.set(x, 0.51, z);
+    const finial = new THREE.Mesh(finialGeo, goldMat);
+    finial.position.set(x, 1.01, z);
+    group.add(base, post, finial);
+  };
+
+  const addDrapedRope = (x1, z1, x2, z2) => {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(x1, 0.88, z1),
+      new THREE.Vector3((x1 + x2) * 0.5, 0.72, (z1 + z2) * 0.5),
+      new THREE.Vector3(x2, 0.88, z2),
+    ]);
+    const rope = new THREE.Mesh(new THREE.TubeGeometry(curve, 10, 0.028, 6, false), velvetMat);
+    group.add(rope);
+  };
+
+  // Left & Right VIP Fast-Track & Main Entrance Queue lanes
+  for (const sx of [-1, 1]) {
+    const xOuter = sx * 4.4;
+    const xInner = sx * 2.5;
+    const zStops = [0, -2.6, -5.2, -7.8];
+    for (let i = 0; i < zStops.length; i++) {
+      addStanchion(xOuter, zStops[i]);
+      addStanchion(xInner, zStops[i]);
+      if (i > 0) {
+        addDrapedRope(xOuter, zStops[i - 1], xOuter, zStops[i]);
+        addDrapedRope(xInner, zStops[i - 1], xInner, zStops[i]);
+      }
+    }
+  }
+
+  // VIP Host Check-in Podium (east side of entrance)
+  const podium = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.12, 0.65), obsidianMat);
+  podium.position.set(5.4, 0.56, -2.2);
+  const podiumTop = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.06, 0.72), goldMat);
+  podiumTop.position.set(5.4, 1.15, -2.2);
+  group.add(podium, podiumTop);
+
+  return group;
+}
+
+/**
+ * Outdoor terrace seating, low illuminated tables, planters, and warm bollard lamps
+ */
+export function createOutdoorLounge({ obsidianMat, goldMat, velvetMat, leafMat, warmMat }) {
+  const group = new THREE.Group();
+
+  for (const sx of [-1, 1]) {
+    const lx = sx * 16.5;
+    // Outdoor low sofa facing entrance plaza
+    const sofa = createDetailedSofa({ leatherMat: obsidianMat, velvetMat, goldMat }, 3.4, 1.05);
+    sofa.position.set(lx, 0, -4.5);
+    sofa.rotation.y = sx > 0 ? -Math.PI * 0.28 : Math.PI * 0.28;
+    group.add(sofa);
+
+    // Sleek low cocktail table with warm glowing top trim
+    const tblBase = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.42, 0.36, 12), goldMat);
+    tblBase.position.set(lx - sx * 1.4, 0.18, -5.6);
+    const tblTop = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.06, 16), obsidianMat);
+    tblTop.position.set(lx - sx * 1.4, 0.39, -5.6);
+    const tblGlow = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.18, 12), warmMat);
+    tblGlow.position.set(lx - sx * 1.4, 0.51, -5.6);
+    group.add(tblBase, tblTop, tblGlow);
+
+    // Architectural planter + ornamental multi-tier foliage
+    const px = sx * 22.0;
+    const pot = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.75, 2.2), obsidianMat);
+    pot.position.set(px, 0.375, -1.5);
+    const potRim = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.06, 2.3), goldMat);
+    potRim.position.set(px, 0.76, -1.5);
+    const bush1 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.95, 1), leafMat);
+    bush1.position.set(px, 1.45, -1.5);
+    const bush2 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.65, 1), leafMat);
+    bush2.position.set(px + sx * 0.4, 2.05, -1.3);
+    group.add(pot, potRim, bush1, bush2);
+
+    // Warm architectural bollard lights along terrace edge
+    for (let b = 0; b < 3; b++) {
+      const bx = sx * (12.0 + b * 4.5);
+      const bollard = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.85, 0.18), obsidianMat);
+      bollard.position.set(bx, 0.425, -8.5);
+      const lens = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.2), warmMat);
+      lens.position.set(bx, 0.76, -8.5);
+      group.add(bollard, lens);
+    }
+  }
+
+  return group;
+}
+
+/**
+ * Backlit multi-tier bar display with instanced glassware & under-counter LED strip
+ */
+export function createBarBacklitDisplay({ obsidianMat, glassMat, goldMat, warmMat }) {
+  const group = new THREE.Group();
+
+  // Backlit frosted light panel behind bottle shelves
+  const backLight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 3.6, 13.4), warmMat);
+  backLight.position.set(-0.42, 2.35, 0);
+  group.add(backLight);
+
+  // 3 illuminated glass shelves
+  for (let tier = 0; tier < 3; tier++) {
+    const sy = 1.38 + tier * 0.95;
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.05, 13.4), glassMat);
+    shelf.position.set(-0.08, sy, 0);
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 13.4), goldMat);
+    trim.position.set(0.25, sy, 0);
+    group.add(shelf, trim);
+  }
+
+  // Instanced glassware set on bar back counter (1 draw call)
+  const glassGeo = new THREE.CylinderGeometry(0.055, 0.04, 0.16, 8);
+  const glassInst = new THREE.InstancedMesh(glassGeo, glassMat, 36);
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < 36; i++) {
+    const row = Math.floor(i / 18);
+    const col = i % 18;
+    dummy.position.set(0.02 + row * 0.18, 1.49, -6.0 + col * 0.7);
+    dummy.updateMatrix();
+    glassInst.setMatrixAt(i, dummy.matrix);
+  }
+  glassInst.instanceMatrix.needsUpdate = true;
+  group.add(glassInst);
+
+  // Under-counter warm LED foot-rail & brass rail
+  const footRail = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 15.6, 8), goldMat);
+  footRail.rotation.x = Math.PI / 2;
+  footRail.position.set(8.8, 0.18, 0);
+  const underLed = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 15.6), warmMat);
+  underLed.position.set(8.65, 1.12, 0);
+  group.add(footRail, underLed);
+
+  return group;
+}
+
+/**
+ * Modern Restroom entrance & lit corridor with frosted glass doors and sconces
+ */
+export function createRestroomCorridor({ obsidianMat, goldMat, glassMat, signTex, warmMat }) {
+  const group = new THREE.Group();
+
+  // Corridor partition wall with doorway opening (width 11m along Z, height 5.2m)
+  const wallTop = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.8, 10.5), obsidianMat);
+  wallTop.position.set(0, 4.3, 0);
+  const wallNorth = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.4, 3.5), obsidianMat);
+  wallNorth.position.set(0, 1.7, -3.5);
+  const wallSouth = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.4, 3.5), obsidianMat);
+  wallSouth.position.set(0, 1.7, 3.5);
+  const headerTrim = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.12, 10.6), goldMat);
+  headerTrim.position.set(0, 5.2, 0);
+  group.add(wallTop, wallNorth, wallSouth, headerTrim);
+
+  // Illuminated WC · RESTROOMS sign above doorway
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.2, 0.8),
+    new THREE.MeshBasicMaterial({ map: signTex })
+  );
+  sign.position.set(-0.2, 3.85, 0);
+  sign.rotation.y = -Math.PI / 2;
+  group.add(sign);
+
+  // Two frosted glass restroom stall doors inside corridor
+  for (const dz of [-1.8, 1.8]) {
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.8, 1.7), goldMat);
+    frame.position.set(4.2, 1.4, dz);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.7, 1.55), glassMat);
+    door.position.set(4.2, 1.4, dz);
+    const sconce = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.45, 0.12), warmMat);
+    sconce.position.set(4.1, 2.1, dz + (dz < 0 ? -1.1 : 1.1));
+    group.add(frame, door, sconce);
+  }
+
+  // Ceiling warm cove light strip inside corridor
+  const cove = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.06, 0.25), warmMat);
+  cove.position.set(2.2, 4.8, 0);
+  group.add(cove);
+
+  return group;
+}
