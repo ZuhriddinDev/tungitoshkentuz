@@ -310,6 +310,9 @@ export class RemoteCars {
 
       r.v = targetV;
       r.steer = targetSteer;
+      if (typeof p.rpm === 'number') r.rpm = p.rpm;
+      if (typeof p.thr === 'number') r.thr = p.thr;
+      if (typeof p.gear === 'number') r.gear = p.gear;
 
       // Kuzov egilishi (roll & pitch)
       const dh = angDiff(targetH, r.h);

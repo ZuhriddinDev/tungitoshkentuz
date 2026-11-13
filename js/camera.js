@@ -60,6 +60,19 @@ export function updateCamera(camera, v, boost, dt) {
   // Sichqoncha qo'yib yuborilgach, kamera asta-sekin orqaga qaytadi
   if (performance.now() - cam.lastMove > 2200) cam.yaw *= Math.pow(0.04, dt);
 
+  if (camState.mode === 2) {
+    // Salon / Kapot (Cabin/Hood) perspektivasi
+    const eyeY = Math.max(0.88, (cfg.hei || 1.45) * 0.78);
+    const hoodOff = (cfg.len || 4.5) * 0.14;
+    tmp.set(v.x + v.fwdX * hoodOff, eyeY, v.z + v.fwdZ * hoodOff);
+    if (shake > 0.01) { tmp.x += (Math.random() - 0.5) * shake * 0.5; tmp.y += (Math.random() - 0.5) * shake * 0.5; shake *= Math.pow(0.02, dt); }
+    camera.position.copy(tmp);
+    const lookYaw = v.heading + cam.yaw;
+    look.set(v.x + Math.sin(lookYaw) * 18, eyeY - 0.12, v.z + Math.cos(lookYaw) * 18);
+    camera.lookAt(look);
+    return;
+  }
+
   let dist = cam.dist * (camState.mode === 1 ? 1.65 : 0.96) * Math.sqrt(cfg.len / 4.5) + v.kmh * 0.011;
   const yaw = followH + Math.PI + cam.yaw, horiz = Math.cos(cam.pitch);
   const dx = Math.sin(yaw) * horiz, dz = Math.cos(yaw) * horiz;

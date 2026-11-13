@@ -28,6 +28,7 @@ import { Traffic, Pedestrians } from './traffic.js';
 import { initInput, readDrive, onKey, setEnabled, applyControl, isTouch, cam } from './input.js';
 import { TireSmoke } from './smoke.js';
 import { initAudio, updateEngine, engineStart, engineOff, remoteAudio, thump, horn, beep, suspend } from './audio.js';
+import { toggleAudioDiagnostic } from './audioDiagnostic.js';
 import { initMissions, updateMission, mission, rivals } from './missions.js';
 import { drawMinimap } from './map.js';
 import { initUI, toggle, open, closeModal, isOpen, toast } from './ui.js';
@@ -594,7 +595,14 @@ function exitKokobangoClub() {
 }
 
 onKey('KeyH', keyGuard(() => { if (!insideClub) horn(); }));
-onKey('KeyC', keyGuard(() => { if (!insideClub) camState.mode = (camState.mode + 1) % 2; }));
+onKey('KeyC', keyGuard(() => {
+  if (!insideClub) {
+    camState.mode = (camState.mode + 1) % 3;
+    const names = ['Yaqin kamera', 'Uzoq kamera', 'Salon / Kapot'];
+    toast(`📷 ${names[camState.mode]}`, 'ok');
+  }
+}));
+onKey('F8', () => toggleAudioDiagnostic());
 onKey('KeyV', keyGuard(() => {
   if (!isTouch() && insideClub) {
     const zm = cycleCharZoom();
@@ -668,6 +676,9 @@ function syncOnlineNow(dt) {
     h: inClubNow ? playerChar.heading : vehicle.heading,
     v: inClubNow ? 0 : vehicle.v,
     steer: inClubNow ? 0 : vehicle.steer,
+    rpm: inClubNow ? 0 : Number((vehicle.rpm || 0).toFixed(2)),
+    thr: inClubNow ? 0 : Number((vehicle.thr || 0).toFixed(2)),
+    gear: inClubNow ? 1 : (vehicle.gear || 1),
     yawRate: inClubNow ? 0 : vehicle.yawRate,
     braking: inClubNow ? false : vehicle.braking,
     lights: inClubNow ? false : lightsOn,
@@ -679,7 +690,7 @@ function syncOnlineNow(dt) {
   });
   remotes?.update(dt, onlineList(), player, night);
   if (!inClubNow && remotes?.cars && vehicle) {
-    remoteAudio.update(remotes.cars, vehicle, dt);
+    remoteAudio.update(remotes.cars, vehicle, dt, camera);
   }
 }
 
@@ -791,10 +802,11 @@ function step(dt, t) {
   model.setBrake(vehicle.braking);
 
   updateEngine(vehicle.rpm, input.throttle, vehicle.cfg.pitch, vehicle.slip, vehicle.kmh, {
+    carId: vehicle.cfg.id,
     sound: vehicle.cfg.sound,
     braking: vehicle.braking,
     gear: vehicle.gear,
-    isInterior: false,
+    isInterior: camState.mode === 2,
     dt,
   });
   updateCamera(camera, vehicle, input.boost, dt);
