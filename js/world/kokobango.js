@@ -272,7 +272,11 @@ function createClubNpc(opts = {}) {
     glasses = false,
     headphones = false,
     sitting = false,
-    role = 'visitor', // 'dancer' | 'dj' | 'guard' | 'bartender' | 'visitor' | 'walker'
+    heels = female,
+    hairStyle = 'long', // 'long' | 'bob' | 'updo' | 'ponytail'
+    hasGlass = false,
+    danceStyle = 0,
+    role = 'visitor', // 'dancer' | 'dj' | 'guard' | 'bartender' | 'visitor' | 'walker' | 'hostess'
     phase = Math.random() * Math.PI * 2,
   } = opts;
 
@@ -280,44 +284,83 @@ function createClubNpc(opts = {}) {
   const body = new THREE.Group();
   root.add(body);
 
-  const mSkin = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.6 });
-  const mShirt = new THREE.MeshStandardMaterial({ color: shirt, roughness: dress ? 0.3 : 0.65, metalness: dress ? 0.45 : 0.08 });
-  const mPants = new THREE.MeshStandardMaterial({ color: pants, roughness: 0.7 });
-  const mHair = new THREE.MeshStandardMaterial({ color: hair, roughness: 0.6 });
-  const mShoe = new THREE.MeshStandardMaterial({ color: 0x111116, roughness: 0.4, metalness: 0.3 });
+  const mSkin = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.54 });
+  const mShirt = new THREE.MeshStandardMaterial({
+    color: shirt,
+    roughness: dress ? 0.24 : 0.62,
+    metalness: dress ? 0.42 : 0.08,
+  });
+  const mPants = new THREE.MeshStandardMaterial({ color: pants, roughness: 0.68 });
+  const mHair = new THREE.MeshStandardMaterial({ color: hair, roughness: 0.48, metalness: 0.12 });
+  const mShoe = new THREE.MeshStandardMaterial({ color: heels ? 0x09090f : 0x111116, roughness: 0.25, metalness: 0.45 });
+  const mGoldAcc = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.88, roughness: 0.2 });
 
   const hips = new THREE.Group();
-  hips.position.y = sitting ? 0.52 : 0.92;
+  hips.position.y = sitting ? 0.52 : (heels ? 0.96 : 0.92);
   body.add(hips);
 
-  // Gavda (Torso)
-  const torsoW = female ? 0.30 : 0.38;
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(torsoW, 0.52, 0.20), mShirt);
+  // Gavda (Torso) — katta yoshli tabiiy proporsiyalar
+  const torsoW = female ? 0.28 : 0.38;
+  const torso = new THREE.Mesh(
+    female ? new THREE.CylinderGeometry(0.145, 0.115, 0.48, 12) : new THREE.BoxGeometry(torsoW, 0.52, 0.20),
+    mShirt
+  );
   torso.position.y = 0.28;
+  if (female) torso.scale.set(1.08, 1, 0.78);
   hips.add(torso);
 
   if (dress) {
-    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.21, 0.32, 10), mShirt);
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.215, 0.36, 14), mShirt);
     skirt.position.y = -0.06;
-    hips.add(skirt);
+    skirt.scale.set(1.02, 1, 0.85);
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.122, 0.015, 6, 16), mGoldAcc);
+    belt.rotation.x = Math.PI / 2;
+    belt.position.y = 0.08;
+    hips.add(skirt, belt);
   }
 
-  // Bosh
+  // Bosh va yuz detallari
   const head = new THREE.Group();
-  head.position.y = 0.62;
+  head.position.y = 0.61;
   hips.add(head);
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.125, 12, 10), mSkin);
-  skull.scale.set(0.92, 1.05, 0.95);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.122, 14, 12), mSkin);
+  skull.scale.set(0.90, 1.05, 0.94);
   head.add(skull);
 
-  // Soch
-  const hairTop = new THREE.Mesh(new THREE.SphereGeometry(0.132, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), mHair);
+  if (female) {
+    const lip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.042, 0.014, 0.02),
+      new THREE.MeshStandardMaterial({ color: 0xbe123c, roughness: 0.3 })
+    );
+    lip.position.set(0, -0.045, 0.108);
+    head.add(lip);
+  }
+
+  // Soch turlari
+  const hairTop = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), mHair);
   hairTop.position.y = 0.02;
   head.add(hairTop);
   if (female) {
-    const hairBack = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.26, 0.10), mHair);
-    hairBack.position.set(0, -0.06, -0.09);
-    head.add(hairBack);
+    if (hairStyle === 'long') {
+      const hairBack = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.135, 0.34, 10), mHair);
+      hairBack.position.set(0, -0.09, -0.075);
+      hairBack.scale.set(1.0, 1, 0.58);
+      head.add(hairBack);
+    } else if (hairStyle === 'bob') {
+      const hairBob = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.135, 0.18, 10), mHair);
+      hairBob.position.set(0, -0.03, -0.03);
+      hairBob.scale.set(1.05, 1, 0.85);
+      head.add(hairBob);
+    } else if (hairStyle === 'updo') {
+      const bun = new THREE.Mesh(new THREE.SphereGeometry(0.068, 10, 8), mHair);
+      bun.position.set(0, 0.12, -0.07);
+      head.add(bun);
+    } else if (hairStyle === 'ponytail') {
+      const pony = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.022, 0.28, 8), mHair);
+      pony.position.set(0, 0.01, -0.14);
+      pony.rotation.x = 0.35;
+      head.add(pony);
+    }
   }
   if (glasses) {
     const gl = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.045, 0.05), new THREE.MeshStandardMaterial({ color: 0x050508, metalness: 0.9, roughness: 0.1 }));
@@ -356,20 +399,34 @@ function createClubNpc(opts = {}) {
   const armL = makeArm(-1);
   const armR = makeArm(1);
 
-  // Oyoqlar
+  if (hasGlass) {
+    const glassStem = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.015, 0.11, 8),
+      new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.72, roughness: 0.1 })
+    );
+    glassStem.position.set(0, -0.24, 0.04);
+    armR.el.add(glassStem);
+  }
+
+  // Oyoqlar va poshnali oyoq kiyim
   const makeLeg = (sx) => {
     const hip = new THREE.Group();
-    hip.position.set(sx * 0.095, -0.02, 0);
-    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.32, 4, 8), dress ? mSkin : mPants);
+    hip.position.set(sx * 0.088, -0.02, 0);
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(female ? 0.056 : 0.06, 0.32, 4, 8), dress ? mSkin : mPants);
     thigh.position.y = -0.20;
     hip.add(thigh);
     const knee = new THREE.Group();
     knee.position.y = -0.40;
-    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.32, 4, 8), dress ? mSkin : mPants);
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(female ? 0.044 : 0.05, 0.32, 4, 8), dress ? mSkin : mPants);
     shin.position.y = -0.20;
-    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.19), mShoe);
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.082, 0.055, 0.18), mShoe);
     shoe.position.set(0, -0.42, 0.04);
     knee.add(shin, shoe);
+    if (heels) {
+      const heelSpike = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.006, 0.08, 6), mShoe);
+      heelSpike.position.set(0, -0.46, -0.03);
+      knee.add(heelSpike);
+    }
     hip.add(knee);
     hips.add(hip);
     return { hip, knee };
@@ -396,27 +453,61 @@ function createClubNpc(opts = {}) {
     role,
     phase,
     sitting,
+    danceStyle,
+    aiState: role === 'walker' ? 'WALKING' : role.toUpperCase(),
     walkSpeed: role === 'walker' ? 1.45 : 0,
     wpIdx: 0,
     update(dt, t, beatPulse = 0) {
       const p = t * 4.2 + this.phase;
-      if (this.role === 'dancer') {
+      const baseH = this.sitting ? 0.52 : (heels ? 0.96 : 0.92);
+      const isDancingNow = this.role === 'dancer' || (this.role === 'walker' && this.aiState === 'DANCING');
+      const isTalkingNow = this.role === 'walker' && this.aiState === 'TALKING';
+      if (isDancingNow) {
         const b = Math.sin(t * 6.6 + this.phase);
         const b2 = Math.cos(t * 3.3 + this.phase);
-        this.hips.position.y = 0.90 + Math.abs(b) * 0.045 + beatPulse * 0.03;
-        this.hips.rotation.y = b2 * 0.25;
-        this.hips.rotation.z = b * 0.08;
+        const style = this.danceStyle % 3;
+        this.hips.position.y = baseH - 0.02 + Math.abs(b) * 0.048 + beatPulse * 0.03;
+        this.hips.rotation.y = b2 * (style === 1 ? 0.36 : 0.22);
+        this.hips.rotation.z = b * (style === 2 ? 0.11 : 0.07);
         this.head.rotation.x = Math.sin(t * 6.6 + this.phase) * 0.14;
-        this.armL.sh.rotation.x = -0.9 + Math.sin(t * 6.6 + this.phase) * 0.55;
-        this.armL.sh.rotation.z = -0.45 + b2 * 0.25;
-        this.armL.el.rotation.x = -0.75 + Math.cos(t * 6.6) * 0.35;
-        this.armR.sh.rotation.x = -0.9 + Math.cos(t * 6.6 + this.phase) * 0.55;
-        this.armR.sh.rotation.z = 0.45 - b2 * 0.25;
-        this.armR.el.rotation.x = -0.75 + Math.sin(t * 6.6) * 0.35;
+        if (style === 0) {
+          this.armL.sh.rotation.x = -0.95 + b * 0.55;
+          this.armL.sh.rotation.z = -0.42 + b2 * 0.25;
+          this.armL.el.rotation.x = -0.75 + Math.cos(t * 6.6) * 0.35;
+          this.armR.sh.rotation.x = -0.95 + Math.cos(t * 6.6 + this.phase) * 0.55;
+          this.armR.sh.rotation.z = 0.42 - b2 * 0.25;
+          this.armR.el.rotation.x = -0.75 + b * 0.35;
+        } else if (style === 1) {
+          this.armL.sh.rotation.x = -2.1 + b * 0.35;
+          this.armL.sh.rotation.z = -0.3;
+          this.armL.el.rotation.x = -0.4 + b2 * 0.25;
+          this.armR.sh.rotation.x = -0.6 + b2 * 0.4;
+          this.armR.el.rotation.x = -0.95;
+        } else {
+          this.armL.sh.rotation.x = -0.55 + b2 * 0.3;
+          this.armL.el.rotation.x = -1.05;
+          this.armR.sh.rotation.x = -1.85 + b * 0.45;
+          this.armR.el.rotation.x = -0.55;
+        }
         this.legL.hip.rotation.x = b * 0.18;
         this.legR.hip.rotation.x = -b * 0.18;
         this.legL.knee.rotation.x = Math.max(0, -b * 0.28);
         this.legR.knee.rotation.x = Math.max(0, b * 0.28);
+      } else if (isTalkingNow) {
+        this.hips.position.y = baseH + Math.sin(t * 2.2 + this.phase) * 0.015;
+        this.head.rotation.y = Math.sin(t * 1.4 + this.phase) * 0.28;
+        this.head.rotation.x = Math.sin(t * 2.8 + this.phase) * 0.08;
+        this.armR.sh.rotation.x = -0.55 + Math.sin(t * 3.1 + this.phase) * 0.24;
+        this.armR.el.rotation.x = -0.82;
+        this.armL.sh.rotation.x = -0.25 + Math.cos(t * 2.1 + this.phase) * 0.12;
+        this.legL.hip.rotation.x = 0;
+        this.legR.hip.rotation.x = 0;
+      } else if (this.role === 'hostess') {
+        this.hips.position.y = baseH + Math.sin(t * 2.0 + this.phase) * 0.012;
+        this.head.rotation.y = Math.sin(t * 0.8 + this.phase) * 0.25;
+        this.armR.sh.rotation.x = -0.45 + Math.sin(t * 1.6 + this.phase) * 0.18;
+        this.armR.el.rotation.x = -0.65;
+        this.armL.sh.rotation.x = -0.22;
       } else if (this.role === 'dj') {
         const b = Math.sin(t * 6.6);
         this.hips.position.y = 0.92 + Math.abs(b) * 0.03 + beatPulse * 0.02;
@@ -1362,20 +1453,23 @@ export function buildKokobangoClub(scene) {
   interiorGroup.add(djNpc.root);
   interiorNpcs.push(djNpc);
 
-  // 2) 6 ta Ayol Raqqosa NPC (zamonaviy klub kiyimlarida)
+  // 2) 6 ta Katta Yoshli Ayol Raqqosa NPC (turli soch turmagi, libos va raqs uslublari)
   const dancerConfigs = [
-    { x: cx - 3.6, y: iy + 0.02, z: cz - 3.2, shirt: '#db2777', hair: '#18181b', h: 0 },
-    { x: cx + 3.6, y: iy + 0.02, z: cz - 3.2, shirt: '#7c3aed', hair: '#facc15', h: 0 },
-    { x: cx - 5.2, y: iy + 0.02, z: cz + 1.8, shirt: '#06b6d4', hair: '#78350f', h: 0.4 },
-    { x: cx + 5.2, y: iy + 0.02, z: cz + 1.8, shirt: '#e11d48', hair: '#09090b', h: -0.4 },
-    { x: cx - 7.8, y: iy + 1.32, z: cz - 13.5, shirt: '#c026d3', hair: '#18181b', h: 0.2 }, // Sahnada
-    { x: cx + 7.8, y: iy + 1.32, z: cz - 13.5, shirt: '#2563eb', hair: '#f59e0b', h: -0.2 }, // Sahnada
+    { x: cx - 3.6, y: iy + 0.02, z: cz - 3.2, shirt: '#db2777', hair: '#18181b', h: 0, hs: 'long', ds: 0 },
+    { x: cx + 3.6, y: iy + 0.02, z: cz - 3.2, shirt: '#7c3aed', hair: '#facc15', h: 0, hs: 'ponytail', ds: 1 },
+    { x: cx - 5.2, y: iy + 0.02, z: cz + 1.8, shirt: '#06b6d4', hair: '#78350f', h: 0.4, hs: 'bob', ds: 2 },
+    { x: cx + 5.2, y: iy + 0.02, z: cz + 1.8, shirt: '#e11d48', hair: '#09090b', h: -0.4, hs: 'updo', ds: 0 },
+    { x: cx - 7.8, y: iy + 1.32, z: cz - 13.5, shirt: '#c026d3', hair: '#18181b', h: 0.2, hs: 'long', ds: 1 }, // Sahnada
+    { x: cx + 7.8, y: iy + 1.32, z: cz - 13.5, shirt: '#2563eb', hair: '#f59e0b', h: -0.2, hs: 'ponytail', ds: 2 }, // Sahnada
   ];
   dancerConfigs.forEach((dc, idx) => {
     const npc = createClubNpc({
       role: 'dancer',
       female: true,
       dress: true,
+      heels: true,
+      hairStyle: dc.hs,
+      danceStyle: dc.ds,
       shirt: dc.shirt,
       hair: dc.hair,
       phase: idx * 1.1,
@@ -1401,10 +1495,10 @@ export function buildKokobangoClub(scene) {
     interiorNpcs.push(barNpc);
   }
 
-  // 4) 2 ta Ichki Qo'riqchi NPC
+  // 4) 2 ta Ichki Qo'riqchi + 1 ta VIP Hostess (VIP eshik oldida kutib oluvchi)
   const intGuards = [
     [cx - 3.2, iy, cz + 19.5, Math.PI * 0.85],
-    [cx - 14.5, iy, cz - 1.0, Math.PI / 2],
+    [cx + 13.7, iy, cz + 14.2, -Math.PI / 2],
   ];
   intGuards.forEach(([gx, gy, gz, gh], i) => {
     const gNpc = createClubNpc({ role: 'guard', shirt: '#09090b', pants: '#09090b', glasses: true, phase: i * 2 });
@@ -1414,14 +1508,40 @@ export function buildKokobangoClub(scene) {
     interiorNpcs.push(gNpc);
   });
 
-  // 5) VIP divanlarda o'tirgan mehmonlar + Bar yonida suhbatlashayotganlar + Yuruvchi mehmonlar
+  const vipHostess = createClubNpc({
+    role: 'hostess',
+    female: true,
+    dress: true,
+    heels: true,
+    hairStyle: 'updo',
+    shirt: '#eab308',
+    hair: '#1c1917',
+    phase: 0.7,
+  });
+  vipHostess.root.position.set(cx + 13.7, iy, cz + 9.9);
+  vipHostess.root.rotation.y = -Math.PI / 2;
+  interiorGroup.add(vipHostess.root);
+  interiorNpcs.push(vipHostess);
+
+  // 5) VIP Xona divanlarida o'tirgan mehmonlar (bokallar bilan) va Asosiy zal bar mehmonlari
   const seatedGuests = [
-    [cx - 24.0, iy + 0.65, cz - 9.2, Math.PI / 2, true, '#ec4899'],
-    [cx - 24.0, iy + 0.65, cz - 6.8, Math.PI / 2, false, '#3b82f6'],
-    [cx - 24.0, iy + 0.65, cz + 6.0, Math.PI / 2, true, '#a855f7'],
+    [cx + 24.8, VIP_Y + 0.08, cz + 2.3, -Math.PI / 2, true, '#ec4899', 'long', '#18181b'],
+    [cx + 24.8, VIP_Y + 0.08, cz + 4.7, -Math.PI / 2, true, '#a855f7', 'bob', '#facc15'],
+    [cx + 24.8, VIP_Y + 0.08, cz + 16.5, -Math.PI / 2, true, '#e11d48', 'updo', '#78350f'],
   ];
-  seatedGuests.forEach(([sx, sy, sz, sh, fem, col], i) => {
-    const sg = createClubNpc({ role: 'visitor', sitting: true, female: fem, dress: fem, shirt: col, phase: i });
+  seatedGuests.forEach(([sx, sy, sz, sh, fem, col, hs, hr], i) => {
+    const sg = createClubNpc({
+      role: 'visitor',
+      sitting: true,
+      female: fem,
+      dress: fem,
+      heels: fem,
+      hairStyle: hs,
+      hair: hr,
+      hasGlass: true,
+      shirt: col,
+      phase: i * 1.4,
+    });
     sg.root.position.set(sx, sy, sz);
     sg.root.rotation.y = sh;
     interiorGroup.add(sg.root);
@@ -1429,11 +1549,21 @@ export function buildKokobangoClub(scene) {
   });
 
   const standingGuests = [
-    [cx + 15.2, iy, cz + 1.0, Math.PI / 2, false, '#2563eb'],
-    [cx + 15.2, iy, cz + 2.4, Math.PI / 2, true, '#e11d48'],
+    [cx - 15.8, iy, cz - 1.4, -Math.PI / 2, false, '#2563eb', 'long', '#09090b', false],
+    [cx - 15.8, iy, cz + 0.4, -Math.PI / 2, true, '#e11d48', 'ponytail', '#78350f', true],
   ];
-  standingGuests.forEach(([sx, sy, sz, sh, fem, col], i) => {
-    const sg = createClubNpc({ role: 'visitor', female: fem, dress: fem, shirt: col, phase: i + 1 });
+  standingGuests.forEach(([sx, sy, sz, sh, fem, col, hs, hr, gl], i) => {
+    const sg = createClubNpc({
+      role: 'visitor',
+      female: fem,
+      dress: fem,
+      heels: fem,
+      hairStyle: hs,
+      hair: hr,
+      hasGlass: gl,
+      shirt: col,
+      phase: i + 1,
+    });
     sg.root.position.set(sx, sy, sz);
     sg.root.rotation.y = sh;
     interiorGroup.add(sg.root);
@@ -1572,6 +1702,9 @@ export function buildKokobangoClub(scene) {
       }
       if (Math.hypot(px - (cx + 23.8), pz - (cz + 17.5)) < 2.8) {
         return { id: 'vip_sofa_2', label: "[E] VIP Divanga o'tirish", seat: { x: cx + 24.5, y: VIP_Y + 0.18, z: cz + 17.5, h: -Math.PI / 2 } };
+      }
+      if (Math.hypot(px - (cx + 13.8), pz - (cz + 12.0)) < 2.4) {
+        return { id: 'vip_door', label: '👑 VIP LOUNGE (21+) — Kirish ochiq' };
       }
       return null;
     },
