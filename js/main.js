@@ -64,7 +64,7 @@ window.__sens = state.settings.sens || 1.0;
 window.__steerSens = state.settings.steerSens || 1.0;
 
 let smoke, sky, traffic, peds, remotes, model, malibuHeroModel, malibuHeadlight, vehicle, headlight;
-let kokobango, playerChar, insideClub = false, clubTransitioning = false;
+let kokobango, playerChar, insideClub = false, clubTransitioning = false, clubSeated = false;
 let playing = false, paused = false;
 let perfAuditVisible = false;
 let activeDepositRace = null;
@@ -250,6 +250,7 @@ function exitKokobangoClub() {
   if (fadeEl) fadeEl.classList.add('active');
   setTimeout(() => {
     insideClub = false;
+    clubSeated = false;
     kokobango.setInside(false);
     kokobango.music.setVolume(0);
     playerChar.hide();
@@ -270,6 +271,36 @@ onKey('KeyV', keyGuard(() => {
   if (!isTouch() && insideClub) {
     const zm = cycleCharZoom();
     toast(`📷 Kamera masofasi: ${zm.label}`, 'ok');
+  }
+}));
+onKey('KeyM', keyGuard(() => {
+  if (!isTouch() && insideClub && kokobango) {
+    const muted = kokobango.music.toggleMute();
+    toast(muted ? '🔇 Klub musiqasi o‘chirildi' : '🔊 Klub musiqasi yoqildi', 'ok');
+  }
+}));
+onKey('KeyE', keyGuard(() => {
+  if (!isTouch() && insideClub && kokobango && playerChar) {
+    if (clubSeated) {
+      clubSeated = false;
+      playerChar.spawnAt(playerChar.x - 0.9, playerChar.z, playerChar.heading, kokobango.getFloorY(playerChar.x - 0.9, playerChar.z));
+      toast('🚶 Divandan turdingiz', 'ok');
+      return;
+    }
+    const act = kokobango.getInteractable?.(playerChar.x, playerChar.z);
+    if (!act) return;
+    if (act.id === 'bar') {
+      beep(660, 0.09);
+      toast('🍹 KOKOBANGO BAR: Maxsus alkogolsiz kokteyl tayyorlandi!', 'ok');
+    } else if (act.id === 'dj') {
+      kokobango.triggerBeatDrop();
+      beep(880, 0.12);
+      toast('🎧 DJ BEAT DROP! Lazer shou boshlandi!', 'ok');
+    } else if (act.seat) {
+      clubSeated = true;
+      playerChar.spawnAt(act.seat.x, act.seat.z, act.seat.h, act.seat.y);
+      toast("🛋️ VIP divanga o'tirdingiz ([E] yoki [WASD] — turish)", 'ok');
+    }
   }
 }));
 onKey('KeyX', keyGuard(() => {
@@ -344,12 +375,27 @@ function step(dt, t) {
 
   if (insideClub && playerChar && kokobango) {
     const input = player.locked ? { throttle: 0, reverse: 0, steer: 0, boost: false, handbrake: true, drift: false } : readDrive();
-    const clubFloorY = kokobango.getFloorY ? kokobango.getFloorY(playerChar.x, playerChar.z) : kokobango.interiorY;
-    playerChar.step(dt, input, clubFloorY, cam.yaw, kokobango.interiorColliders);
-    updateCharCamera(camera, playerChar, dt);
+    if (clubSeated && (input.throttle > 0.1 || input.reverse > 0.1 || Math.abs(input.steer) > 0.1)) {
+      clubSeated = false;
+      playerChar.x -= 0.85;
+    }
+    if (!clubSeated) {
+      const clubFloorY = kokobango.getFloorY ? kokobango.getFloorY(playerChar.x, playerChar.z) : kokobango.interiorY;
+      playerChar.step(dt, input, clubFloorY, cam.yaw, kokobango.interiorColliders);
+    } else {
+      playerChar.model.animate(dt, 0, 'sit');
+    }
+    updateCharCamera(camera, playerChar, dt, kokobango.interiorColliders);
     setPrompt('');
-    if (!isTouch() && kokobango.nearExit(playerChar.x, playerChar.z)) {
-      setClubPrompt('<span class="key">X</span> EXIT KOKOBANGO CLUB');
+    if (!isTouch()) {
+      if (kokobango.nearExit(playerChar.x, playerChar.z)) {
+        setClubPrompt('<span class="key">X</span> EXIT KOKOBANGO CLUB');
+      } else if (clubSeated) {
+        setClubPrompt('<span class="key">E</span> DIVANDAN TURISH');
+      } else {
+        const act = kokobango.getInteractable?.(playerChar.x, playerChar.z);
+        setClubPrompt(act ? act.label : '');
+      }
     } else {
       setClubPrompt('');
     }

@@ -12,10 +12,14 @@ export const addShake = (s) => { shake = Math.max(shake, s); };
 const CHAR_ZOOM_MODES = [
   { dist: 4.2, label: 'Standart' },
   { dist: 2.35, label: 'Yaqin' },
-  { dist: 1.45, label: 'Juda yaqin' },
+  { dist: 0, label: '1-shaxs (FPS)' },
   { dist: 6.2, label: 'Keng' },
 ];
 let charZoomIdx = 0;
+
+export function isCharFirstPerson() {
+  return CHAR_ZOOM_MODES[charZoomIdx].dist === 0;
+}
 
 export function cycleCharZoom() {
   charZoomIdx = (charZoomIdx + 1) % CHAR_ZOOM_MODES.length;
@@ -28,7 +32,14 @@ export function resetCharCamera(heading = 0) {
   cam.yaw = 0;
 }
 
-function blocked(x, z) {
+function blocked(x, z, extraColliders = null) {
+  if (extraColliders) {
+    for (let i = 0; i < extraColliders.length; i++) {
+      const c = extraColliders[i];
+      if (x > c.minX - 0.35 && x < c.maxX + 0.35 && z > c.minZ - 0.35 && z < c.maxZ + 0.35) return true;
+    }
+    return false;
+  }
   for (const c of queryColliders(x, z, 0.5))
     if (c.tag !== 'water' && x > c.minX - 0.4 && x < c.maxX + 0.4 && z > c.minZ - 0.4 && z < c.maxZ + 0.4) return true;
   return false;
@@ -67,40 +78,59 @@ export function updateCamera(camera, v, boost, dt) {
   camera.lookAt(look);
 }
 
-// Personaj (piyoda) rejimida 3-shaxs kamerasi
-export function updateCharCamera(camera, ch, dt) {
+// Personaj (piyoda) rejimida 3-shaxs va ixtiyoriy 1-shaxs (FPS) kamerasi
+export function updateCharCamera(camera, ch, dt, extraColliders = null) {
   const chHeading = Number.isFinite(ch.heading) ? ch.heading : 0;
   if (!Number.isFinite(followH)) followH = chHeading;
   let dh = chHeading - followH;
   dh = Math.atan2(Math.sin(dh), Math.cos(dh));
   followH += dh * Math.min(1, dt * 6);
 
-  fov += (60 - fov) * Math.min(1, dt * 4);
+  const mode = CHAR_ZOOM_MODES[charZoomIdx];
+  const targetFov = mode.dist === 0 ? 70 : 60;
+  fov += (targetFov - fov) * Math.min(1, dt * 6);
   camera.fov = fov;
   camera.updateProjectionMatrix();
 
+  if (mode.dist === 0) {
+    // 1-shaxs (First-Person) kamera: personaj o'z ko'rinishini to'smasligi uchun lokal yashiriladi
+    if (ch.model?.group) ch.model.group.visible = false;
+    const eyeY = ch.y + 1.62;
+    const lookYaw = chHeading + cam.yaw;
+    const lookPitch = Math.max(-0.55, Math.min(0.45, -(cam.pitch - 0.25)));
+    camera.position.set(ch.x, eyeY, ch.z);
+    look.set(
+      ch.x + Math.sin(lookYaw) * Math.cos(lookPitch) * 12,
+      eyeY + Math.sin(lookPitch) * 12,
+      ch.z + Math.cos(lookYaw) * Math.cos(lookPitch) * 12
+    );
+    camera.lookAt(look);
+    return;
+  }
+
+  if (ch.model?.group && ch.active) ch.model.group.visible = true;
   if (performance.now() - cam.lastMove > 2200) cam.yaw *= Math.pow(0.05, dt);
 
-  let dist = CHAR_ZOOM_MODES[charZoomIdx].dist;
+  let dist = mode.dist;
   const yaw = followH + Math.PI + cam.yaw;
   const pitch = Math.max(0.08, Math.min(0.85, cam.pitch));
   const horiz = Math.cos(pitch);
   const dx = Math.sin(yaw) * horiz, dz = Math.cos(yaw) * horiz;
-  for (const t of [0.4, 0.7, 1]) {
-    if (blocked(ch.x + dx * dist * t, ch.z + dz * dist * t)) {
-      dist *= Math.max(0.35, t - 0.15);
+  for (const t of [0.35, 0.65, 1]) {
+    if (blocked(ch.x + dx * dist * t, ch.z + dz * dist * t, extraColliders)) {
+      dist *= Math.max(0.32, t - 0.16);
       break;
     }
   }
   if (!Number.isFinite(curDist)) curDist = dist;
   curDist += (dist - curDist) * Math.min(1, dt * 10);
-  const eyeH = dist < 2.0 ? 1.52 : 1.35;
+  const eyeH = dist < 2.6 ? 1.52 : 1.38;
   camera.position.set(
     ch.x + dx * curDist,
     ch.y + eyeH + Math.sin(pitch) * curDist,
     ch.z + dz * curDist
   );
-  look.set(ch.x, ch.y + 1.45, ch.z);
+  look.set(ch.x, ch.y + 1.48, ch.z);
   camera.lookAt(look);
 }
 

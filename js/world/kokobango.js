@@ -8,6 +8,14 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { BLOCK, blockC, addCollider } from './layout.js';
 import { buildCar } from '../carModel.js';
 import { CARS } from '../config.js';
+import {
+  createMarblePBR,
+  createQuiltedVelvetTex,
+  createDetailedSofa,
+  createDetailedBarStool,
+  createSpeakerStack,
+  createDetailedVipTable,
+} from './kokobangoAssets.js';
 
 const clubDraco = new DRACOLoader();
 clubDraco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/draco/gltf/');
@@ -32,12 +40,21 @@ class ClubMusicEngine {
     this.lastBeatTime = 0;
     this.timer = null;
     this.volume = 0.55;
+    this.muted = false;
+    this.crowdSrc = null;
+  }
+
+  toggleMute() {
+    this.muted = !this.muted;
+    this.setVolume(this.volume);
+    return this.muted;
   }
 
   setVolume(v) {
     this.volume = Math.max(0, Math.min(1, v));
+    const eff = this.muted ? 0.0001 : this.volume * 0.65;
     if (this.master && this.ctx && this.playing) {
-      this.master.gain.setTargetAtTime(this.volume * 0.65, this.ctx.currentTime, 0.08);
+      this.master.gain.setTargetAtTime(eff, this.ctx.currentTime, 0.08);
     }
   }
 
@@ -707,8 +724,15 @@ export function buildKokobangoClub(scene) {
   addIntCol(cx - iW / 2 - 2, cz - iD / 2, cx - iW / 2 + 0.5, cz + iD / 2); // G'arbiy devor
   addIntCol(cx + iW / 2 - 0.5, cz - iD / 2, cx + iW / 2 + 2, cz + iD / 2); // Sharqiy devor
 
-  // Pol, Shift va Devorlar
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x0b0c14, roughness: 0.18, metalness: 0.65 });
+  // Pol, Shift va Devorlar (PBR Marmar + Shift to'sinlari + Akustik devor panellari)
+  const marbleTex = createMarblePBR();
+  const velvetTex = createQuiltedVelvetTex('#3b0764', '#160329');
+  const mQuiltedVelvet = new THREE.MeshStandardMaterial({ map: velvetTex, roughness: 0.52, metalness: 0.12 });
+  const mChrome = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.92, roughness: 0.14 });
+  const mSpeakerCab = new THREE.MeshStandardMaterial({ color: 0x0f111a, roughness: 0.6, metalness: 0.25 });
+  const mSpeakerCone = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.4 });
+
+  const floorMat = new THREE.MeshStandardMaterial({ map: marbleTex, color: 0xcbd5e1, roughness: 0.22, metalness: 0.48 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(iW, iD), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(cx, iy, cz);
@@ -718,6 +742,18 @@ export function buildKokobangoClub(scene) {
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(cx, iy + iH, cz);
   interiorGroup.add(ceil);
+
+  // InstancedMesh shift arxitektura to'sinlari (Ceiling I-Beams)
+  const ceilBeamGeo = new THREE.BoxGeometry(iW - 2, 0.42, 0.48);
+  const beamInst = new THREE.InstancedMesh(ceilBeamGeo, mObsidian, 7);
+  const dummy = new THREE.Object3D();
+  for (let b = 0; b < 7; b++) {
+    dummy.position.set(cx, iy + iH - 0.22, cz - 18 + b * 6);
+    dummy.updateMatrix();
+    beamInst.setMatrixAt(b, dummy.matrix);
+  }
+  beamInst.instanceMatrix.needsUpdate = true;
+  interiorGroup.add(beamInst);
 
   const wallMat = new THREE.MeshStandardMaterial({ color: 0x111324, roughness: 0.5, metalness: 0.35 });
   const wallsSpec = [
@@ -732,13 +768,40 @@ export function buildKokobangoClub(scene) {
     interiorGroup.add(wm);
   }
 
-  // Devor neon bezaklari
+  // Devor akustik panellari va neon chiziqlar (3D chuqurlik)
+  const slatGeo = new THREE.BoxGeometry(0.16, 6.8, 0.75);
+  const slatInst = new THREE.InstancedMesh(slatGeo, mSpeakerCab, 16);
+  let sIdx = 0;
   for (const sx of [-1, 1]) {
+    for (let z = -18; z <= 18; z += 5.1) {
+      if (sIdx < 16) {
+        dummy.position.set(cx + sx * (iW / 2 - 0.45), iy + 4.4, cz + z);
+        dummy.updateMatrix();
+        slatInst.setMatrixAt(sIdx++, dummy.matrix);
+      }
+    }
     for (let z = -16; z <= 16; z += 8) {
       const strip = new THREE.Mesh(new THREE.BoxGeometry(0.18, 7.5, 0.25), Math.abs(z) % 16 === 0 ? mNeonPurple : mNeonCyan);
       strip.position.set(cx + sx * (iW / 2 - 0.5), iy + 4.8, cz + z);
       interiorGroup.add(strip);
     }
+  }
+  slatInst.count = sIdx;
+  slatInst.instanceMatrix.needsUpdate = true;
+  interiorGroup.add(slatInst);
+
+  // DJ Sahnasining chap va o'ng tomonida Line-Array dinamik minoralari
+  for (const sx of [-1, 1]) {
+    const spk = createSpeakerStack({
+      cabinetMat: mSpeakerCab,
+      coneMat: mSpeakerCone,
+      chromeMat: mChrome,
+      neonMat: sx < 0 ? mNeonCyan : mNeonPurple,
+    });
+    spk.position.set(cx + sx * 12.2, iy + 0.02, cz - 13.0);
+    spk.rotation.y = -sx * 0.28;
+    interiorGroup.add(spk);
+    addIntCol(cx + sx * 12.2 - 0.9, cz - 13.9, cx + sx * 12.2 + 0.9, cz - 12.1);
   }
 
   // 2.1 ASOSIY RAQS MAYDONI (8x8 animatsiyali LED plitkalar)
@@ -866,26 +929,36 @@ export function buildKokobangoClub(scene) {
   barSign.rotation.y = Math.PI / 2;
   interiorGroup.add(barSign);
 
-  // Bar ortidagi javon va rang-barang bezak shishalar
+  // Bar ortidagi javon va InstancedMesh bezak shishalar (1 draw call)
   const barShelf = new THREE.Mesh(new THREE.BoxGeometry(0.9, 4.2, 14), mDarkWall);
   barShelf.position.set(cx - 26.8, iy + 2.1, cz + 1);
   interiorGroup.add(barShelf);
   const bottleCols = [0x00e5ff, 0xd946ef, 0xfacc15, 0x38bdf8, 0xf43f5e, 0xa855f7];
-  for (let b = 0; b < 18; b++) {
-    const bMat = new THREE.MeshStandardMaterial({
-      color: bottleCols[b % bottleCols.length],
-      emissive: bottleCols[b % bottleCols.length],
-      emissiveIntensity: 0.7,
-      roughness: 0.15,
-    });
-    const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.36, 8), bMat);
-    bottle.position.set(cx - 26.2, iy + 1.8 + (b % 2) * 1.1, cz - 5 + Math.floor(b / 2) * 1.45);
-    interiorGroup.add(bottle);
+  const bottleGeo = new THREE.CylinderGeometry(0.06, 0.09, 0.36, 8);
+  const bottleMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0x38bdf8,
+    emissiveIntensity: 0.38,
+    roughness: 0.15,
+    metalness: 0.25,
+  });
+  const bottleInst = new THREE.InstancedMesh(bottleGeo, bottleMat, 27);
+  const bColor = new THREE.Color();
+  for (let b = 0; b < 27; b++) {
+    dummy.position.set(cx - 26.2, iy + 1.55 + (b % 3) * 0.95, cz - 5 + Math.floor(b / 3) * 1.45);
+    dummy.updateMatrix();
+    bottleInst.setMatrixAt(b, dummy.matrix);
+    bColor.setHex(bottleCols[b % bottleCols.length]);
+    bottleInst.setColorAt(b, bColor);
   }
+  bottleInst.instanceMatrix.needsUpdate = true;
+  if (bottleInst.instanceColor) bottleInst.instanceColor.needsUpdate = true;
+  interiorGroup.add(bottleInst);
+
   const mLeather = new THREE.MeshStandardMaterial({ color: 0x3b0764, roughness: 0.42, metalness: 0.15 });
   for (let st = 0; st < 6; st++) {
-    const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.12, 0.75, 10), mLeather);
-    stool.position.set(cx - 16.8, iy + 0.38, cz - 5 + st * 2.4);
+    const stool = createDetailedBarStool({ chromeMat: mChrome, velvetMat: mQuiltedVelvet });
+    stool.position.set(cx - 16.8, iy, cz - 5 + st * 2.4);
     interiorGroup.add(stool);
   }
 
@@ -940,21 +1013,21 @@ export function buildKokobangoClub(scene) {
   vipDoorGlowR.position.set(cx + 14.5, iy + 1.9, cz + 13.85);
   interiorGroup.add(vipDoorTop, vipSign, vipDoorGlowL, vipDoorGlowR);
 
-  // VIP xona ichidagi hashamatli divanlar, stollar va shampan idishlari
+  // VIP xona ichidagi hashamatli 3D divanlar, stollar, shampan idishlari va bokallar
   for (const vz of [cz + 3.5, cz + 17.5]) {
-    const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.05, 5.2), mLeather);
-    sofaBack.position.set(cx + 25.8, VIP_Y + 0.52, vz);
-    const sofaSeat = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.45, 5.2), mLeather);
-    sofaSeat.position.set(cx + 24.9, VIP_Y + 0.22, vz);
-    const table = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.52, 2.8), mObsidian);
-    table.position.set(cx + 22.4, VIP_Y + 0.26, vz);
-    const tableGlow = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.08, 2.86), mNeonCyan);
-    tableGlow.position.set(cx + 22.4, VIP_Y + 0.52, vz);
-    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 0.3, 10), mGold);
-    bucket.position.set(cx + 22.4, VIP_Y + 0.7, vz);
-    interiorGroup.add(sofaBack, sofaSeat, table, tableGlow, bucket);
+    const sofa = createDetailedSofa(5.2, { velvetMat: mQuiltedVelvet, goldMat: mGold, trimMat: mNeonPurple });
+    sofa.position.set(cx + 25.1, VIP_Y, vz);
+    sofa.rotation.y = Math.PI; // Zalga qarab
+    const vTable = createDetailedVipTable({
+      obsidianMat: mObsidian,
+      goldMat: mGold,
+      glassMat: mGlass,
+      neonMat: mNeonCyan,
+    });
+    vTable.position.set(cx + 22.3, VIP_Y, vz);
+    interiorGroup.add(sofa, vTable);
     addIntCol(cx + 24.0, vz - 2.6, cx + 26.6, vz + 2.6);
-    addIntCol(cx + 21.6, vz - 1.4, cx + 23.2, vz + 1.4);
+    addIntCol(cx + 21.5, vz - 1.4, cx + 23.2, vz + 1.4);
   }
   // VIP xona ichidagi shaxsiy mini-bar (shimoliy devor bo'ylab)
   const vipMiniBar = new THREE.Mesh(new THREE.BoxGeometry(5.6, 1.1, 1.1), mObsidian);
@@ -1487,6 +1560,27 @@ export function buildKokobangoClub(scene) {
       return iy;
     },
 
+    getInteractable(px, pz) {
+      if (Math.hypot(px - (cx - 16.5), pz - (cz + 1.0)) < 3.6) {
+        return { id: 'bar', label: '[E] KOKOBANGO BAR — Kokteyl buyurtma berish' };
+      }
+      if (Math.hypot(px - cx, pz - (cz - 10.8)) < 3.4) {
+        return { id: 'dj', label: '[E] DJ SAHNASI — Lazer shou / Beat Drop' };
+      }
+      if (Math.hypot(px - (cx + 23.8), pz - (cz + 3.5)) < 2.8) {
+        return { id: 'vip_sofa_1', label: "[E] VIP Divanga o'tirish", seat: { x: cx + 24.5, y: VIP_Y + 0.18, z: cz + 3.5, h: -Math.PI / 2 } };
+      }
+      if (Math.hypot(px - (cx + 23.8), pz - (cz + 17.5)) < 2.8) {
+        return { id: 'vip_sofa_2', label: "[E] VIP Divanga o'tirish", seat: { x: cx + 24.5, y: VIP_Y + 0.18, z: cz + 17.5, h: -Math.PI / 2 } };
+      }
+      return null;
+    },
+
+    beatDropBoost: 0,
+    triggerBeatDrop() {
+      this.beatDropBoost = 3.5;
+    },
+
     update(dt, t, isInside, playerDistSq = 0) {
       const beat = music.getBeatPulse();
       if (!isInside) {
@@ -1651,22 +1745,54 @@ export function buildKokobangoClub(scene) {
         }
       }
 
-      // Ichki NPC animatsiyalari va yurish
-      for (const npc of interiorNpcs) {
+      // Ichki NPC xulq-atvor holatlari (WALKING / TALKING / DANCING / IDLE) va kolliziya fizikasi
+      if (this.beatDropBoost > 0) this.beatDropBoost = Math.max(0, this.beatDropBoost - dt);
+      const effectiveBeat = Math.min(1.0, beat + (this.beatDropBoost > 0 ? 0.35 : 0));
+      for (let ni = 0; ni < interiorNpcs.length; ni++) {
+        const npc = interiorNpcs[ni];
         if (npc.role === 'walker') {
-          const wp = walkLoop[npc.wpIdx];
-          const dx = wp[0] - npc.root.position.x;
-          const dz = wp[1] - npc.root.position.z;
-          const d = Math.hypot(dx, dz);
-          if (d < 0.6) {
-            npc.wpIdx = (npc.wpIdx + 1) % walkLoop.length;
-          } else {
-            npc.root.position.x += (dx / d) * npc.walkSpeed * dt;
-            npc.root.position.z += (dz / d) * npc.walkSpeed * dt;
-            npc.root.rotation.y = Math.atan2(dx, dz);
+          npc.stateTimer = (npc.stateTimer || 0) - dt;
+          if (!npc.aiState) npc.aiState = 'WALKING';
+
+          if (npc.aiState === 'WALKING') {
+            const wp = walkLoop[npc.wpIdx];
+            const dx = wp[0] - npc.root.position.x;
+            const dz = wp[1] - npc.root.position.z;
+            const d = Math.hypot(dx, dz);
+            if (d < 0.65) {
+              npc.wpIdx = (npc.wpIdx + 1) % walkLoop.length;
+              npc.aiState = (npc.wpIdx % 2 === 0) ? 'DANCING' : 'TALKING';
+              npc.stateTimer = 2.5 + (ni % 3) * 1.1;
+            } else {
+              let nx = npc.root.position.x + (dx / d) * npc.walkSpeed * dt;
+              let nz = npc.root.position.z + (dz / d) * npc.walkSpeed * dt;
+              // Devor va mebel kolliziyasi
+              const nr = 0.38;
+              for (const c of interiorColliders) {
+                if (nx + nr > c.minX && nx - nr < c.maxX && nz + nr > c.minZ && nz - nr < c.maxZ) {
+                  const cxB = Math.max(c.minX, Math.min(nx, c.maxX));
+                  const czB = Math.max(c.minZ, Math.min(nz, c.maxZ));
+                  const pdx = nx - cxB;
+                  const pdz = nz - czB;
+                  const pd = Math.hypot(pdx, pdz);
+                  if (pd > 0.001 && pd < nr) {
+                    nx += (pdx / pd) * (nr - pd);
+                    nz += (pdz / pd) * (nr - pd);
+                  }
+                }
+              }
+              npc.root.position.x = nx;
+              npc.root.position.z = nz;
+              const targetH = Math.atan2(dx, dz);
+              let dh = targetH - npc.root.rotation.y;
+              dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+              npc.root.rotation.y += dh * Math.min(1, dt * 6);
+            }
+          } else if (npc.stateTimer <= 0) {
+            npc.aiState = 'WALKING';
           }
         }
-        npc.update(dt, t, beat);
+        npc.update(dt, t, effectiveBeat);
       }
     },
   };
