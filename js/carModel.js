@@ -299,7 +299,28 @@ function radialTex(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)',
   return new THREE.CanvasTexture(c);
 }
 export const GLOW_TEX = radialTex();
+GLOW_TEX.userData.shared = true;
 const SHADOW_TEX = radialTex('rgba(0,0,0,0.75)', 'rgba(0,0,0,0)');
+SHADOW_TEX.userData.shared = true;
+
+export function disposeCarGroup(group) {
+  if (!group) return;
+  const disposeMat = (m) => {
+    if (!m || m.userData?.cachedLabel) return;
+    if (m.map && !m.map.userData?.shared) m.map.dispose?.();
+    m.dispose?.();
+  };
+  group.traverse((o) => {
+    if (o.geometry && !o.geometry.userData?.glbShared) {
+      o.geometry.dispose?.();
+    }
+    if (Array.isArray(o.material)) {
+      o.material.forEach(disposeMat);
+    } else if (o.material) {
+      disposeMat(o.material);
+    }
+  });
+}
 
 const RIM_COLORS = {
   std: 0x9a9a9a,
@@ -471,6 +492,7 @@ function prepareGlbTemplate(origScene, cfg, spec) {
   const isWheelMesh = (name) => /wheel|tire|rim|tyre|disk|disc/i.test(name || '');
   origScene.traverse((o) => {
     if (!o.isMesh || !o.material) return;
+    if (o.geometry) o.geometry.userData.glbShared = true;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     const isWheel = isWheelMesh(o.name) || (o.parent && isWheelMesh(o.parent.name));
     for (const m of mats) {

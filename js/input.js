@@ -77,6 +77,7 @@ export function initInput(canvas) {
     keys.delete(e.code);
     if (e.key) keys.delete(e.key.toLowerCase());
   });
+  const activePointers = new Map(); // pointerId -> { k, el }
   const clearAllInputs = () => {
     keys.clear();
     for (const k of Object.keys(touch)) touch[k] = 0;
@@ -142,7 +143,6 @@ export function initInput(canvas) {
   canvas.addEventListener('wheel', (e) => { cam.dist = Math.max(5, Math.min(22, cam.dist + e.deltaY * 0.01)); }, { passive: true });
 
   // Sensorli pedallar va tugmalar (Gaz, Tormoz, Drift) — multi-touch qo'llab-quvvatlanadi
-  const activePointers = new Map(); // pointerId -> { k, el }
   document.querySelectorAll('[data-touch]').forEach((b) => {
     const k = b.dataset.touch;
     if (k === 'left' || k === 'right') return; // Rul tugmalari steerPad orqali mustaqil boshqariladi

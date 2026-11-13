@@ -226,6 +226,17 @@ function connectWebSocket() {
           return;
         }
 
+        if (m.type === 'player_joined' && m.playerId) {
+          emit({ playerJoined: m });
+          return;
+        }
+
+        if (m.type === 'player_left' && m.playerId) {
+          players.delete(m.playerId);
+          emit({ players: [...players.values()], playerLeft: m });
+          return;
+        }
+
         if (m.t === 'sync_ack' || m.t === 'state' || m.t === 'room_joined' || m.t === 'room_created') {
           if (status !== 'connected') status = 'connected';
           role = 'room';

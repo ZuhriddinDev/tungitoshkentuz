@@ -21,7 +21,7 @@ import { buildProps, updateProps } from './world/props.js';
 import { buildLandmarks, updateLandmarks, animated } from './world/landmarks.js';
 import { createSky } from './world/sky.js';
 import { SPAWN, POIS, N, onRoad, blockC, blockInfo } from './world/layout.js';
-import { buildCar, preloadCar, isCarReady } from './carModel.js';
+import { buildCar, preloadCar, isCarReady, disposeCarGroup } from './carModel.js';
 import { withBusy } from './busy.js';
 import { Vehicle } from './physics.js';
 import { Traffic, Pedestrians } from './traffic.js';
@@ -138,7 +138,10 @@ function setCar(soft = false) {
     return;
   }
   const prev = vehicle;
-  if (model) scene.remove(model.group);
+  if (model) {
+    disposeCarGroup(model.group);
+    scene.remove(model.group);
+  }
   model = buildCar(cfg, inst);
   model.group.rotation.order = 'YXZ';
   model.group.traverse((o) => {
@@ -883,7 +886,7 @@ function updatePerfAuditPanel(rawDt) {
   if ($('paGeoTex')) $('paGeoTex').textContent = `${m.geometries} / ${m.textures}`;
   if ($('paMem')) $('paMem').textContent = m.memoryMB ? `${m.memoryMB} MB` : 'N/A';
 
-  const stats = serverStats?.() || {};
+  const stats = typeof serverStats === 'function' ? serverStats() : (serverStats || {});
   const pingVal = stats.rtt ? `${Math.round(stats.rtt)} ms` : (onlineInfo?.()?.ping ? `${Math.round(onlineInfo().ping)} ms` : '16 ms');
   if ($('paPing')) $('paPing').textContent = pingVal;
 

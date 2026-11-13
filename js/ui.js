@@ -1226,7 +1226,11 @@ function online() {
       const tVal = body.querySelector('#depTargetSelect')?.value || `Tashkent City|${blockC(5)}|${blockC(7)}`;
       const [tName, tx, tz] = tVal.split('|');
       const dep = Number(body.querySelector('#depAmountSelect')?.value) || 10_000_000;
-      if (!spend(dep, `Depozit Poyga garovi (${tName})`)) {
+      if (!onlineStatus().connected) {
+        beep('err');
+        return toast("Depozit poyga uchun avval online xonaga ulaning!", 'err');
+      }
+      if ((state.money || 0) < dep) {
         beep('err');
         return toast("Garov uchun mablag' yetarli emas!", 'err');
       }
@@ -1246,7 +1250,11 @@ function online() {
     acceptDepBtn.onclick = () => {
       const rid = acceptDepBtn.dataset.rid;
       const dep = Number(body.querySelector('#guestDepSelect')?.value) || 10_000_000;
-      if (!spend(dep, 'Depozit Poyga garovi (Qabul qilish)')) {
+      if (!onlineStatus().connected) {
+        beep('err');
+        return toast("Depozit poyga uchun avval online xonaga ulaning!", 'err');
+      }
+      if ((state.money || 0) < dep) {
         beep('err');
         return toast("Garov uchun mablag' yetarli emas!", 'err');
       }

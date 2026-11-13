@@ -1,7 +1,7 @@
 // Garaj va avtosalon uchun aylanuvchi 3D ko'rgazma podiumi (GLB modelli, mobil va kompyuterga mos)
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { buildCar, preloadCar, isCarReady } from './carModel.js';
+import { buildCar, preloadCar, isCarReady, disposeCarGroup } from './carModel.js';
 import { showBusy, hideBusy, setBusyProgress } from './busy.js';
 
 let renderer, scene, camera, carGroup, raf = 0, angle = 0.55, drag = null;
@@ -82,6 +82,7 @@ export function showCar(canvas, cfg, look) {
   bindDrag(canvas);
 
   if (carGroup) {
+    disposeCarGroup(carGroup);
     scene.remove(carGroup);
     carGroup = null;
   }

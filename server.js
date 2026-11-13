@@ -29,6 +29,7 @@ const MIME_TYPES = {
   '.jpg':  'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
+  '.avif': 'image/avif',
   '.svg':  'image/svg+xml',
   '.ico':  'image/x-icon',
   '.mp3':  'audio/mpeg',
@@ -174,7 +175,7 @@ function checkAndClaimUsername(pid, rawName) {
   if (acc) {
     acc.name = clean;
     acc.updatedAt = Date.now();
-    scheduleSaveEconomy();
+    scheduleSaveEconomy(pid);
   }
   // Aktiv xonadagi nomini ham darhol yangilaymiz
   const rId = playerRoom.get(pid);
@@ -494,7 +495,6 @@ function cancelPlayerDepositRaces(room, pid, reasonText = "O'yinchi uzildi") {
       if (r.escrowP1 > 0 && r.p1Id) {
         const acc1 = getOrCreateAccount(r.p1Id, r.p1Name);
         acc1.money = Math.max(0, (acc1.money || 0) + r.escrowP1);
-        markEconomyDirty(r.p1Id);
         scheduleSaveEconomy(r.p1Id);
         pushToPlayerWs(r.p1Id, {
           t: 'economy_update',
@@ -508,7 +508,6 @@ function cancelPlayerDepositRaces(room, pid, reasonText = "O'yinchi uzildi") {
       if (r.escrowP2 > 0 && r.p2Id) {
         const acc2 = getOrCreateAccount(r.p2Id, r.p2Name);
         acc2.money = Math.max(0, (acc2.money || 0) + r.escrowP2);
-        markEconomyDirty(r.p2Id);
         scheduleSaveEconomy(r.p2Id);
         pushToPlayerWs(r.p2Id, {
           t: 'economy_update',
@@ -737,7 +736,6 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
 
     // Server-authoritative escrow deduction
     acc1.money -= deposit;
-    markEconomyDirty(pid);
     scheduleSaveEconomy(pid);
     pushToPlayerWs(pid, {
       t: 'economy_update',
@@ -812,7 +810,6 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
 
     // Server-authoritative escrow deduction for player 2
     acc2.money -= p2Deposit;
-    markEconomyDirty(pid);
     scheduleSaveEconomy(pid);
     pushToPlayerWs(pid, {
       t: 'economy_update',
@@ -849,7 +846,6 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
     if (race.escrowP1 > 0 && race.p1Id) {
       const acc1 = getOrCreateAccount(race.p1Id, race.p1Name);
       acc1.money = Math.max(0, (acc1.money || 0) + race.escrowP1);
-      markEconomyDirty(race.p1Id);
       scheduleSaveEconomy(race.p1Id);
       pushToPlayerWs(race.p1Id, {
         t: 'economy_update',
@@ -863,7 +859,6 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
     if (race.escrowP2 > 0 && race.p2Id) {
       const acc2 = getOrCreateAccount(race.p2Id, race.p2Name);
       acc2.money = Math.max(0, (acc2.money || 0) + race.escrowP2);
-      markEconomyDirty(race.p2Id);
       scheduleSaveEconomy(race.p2Id);
       pushToPlayerWs(race.p2Id, {
         t: 'economy_update',
@@ -904,7 +899,6 @@ function handleDepositRaceEvent(room, pid, pName, rawEvent) {
     const winnerAcc = getOrCreateAccount(pid, pName);
     const prize = race.totalPrize;
     winnerAcc.money = (winnerAcc.money || 0) + prize;
-    markEconomyDirty(pid);
     scheduleSaveEconomy(pid);
 
     if (typeof persistTransaction === 'function') {
@@ -1473,12 +1467,12 @@ async function handleApi(req, res, urlPath) {
           acc.money += delta;
           acc.processedOps.push(opId);
           if (acc.processedOps.length > 150) acc.processedOps.shift();
-          scheduleSaveEconomy();
+          scheduleSaveEconomy(acc.id);
         } else if (delta > 0 && delta <= 500_000_000) {
           acc.money += delta;
           acc.processedOps.push(opId);
           if (acc.processedOps.length > 150) acc.processedOps.shift();
-          scheduleSaveEconomy();
+          scheduleSaveEconomy(acc.id);
         }
       }
     }
@@ -1582,7 +1576,17 @@ async function handleApi(req, res, urlPath) {
     }
 
     transferRateLimit.set(fromId, Date.now());
-    if (clientTxId) processedTxIds.add(clientTxId);
+    if (transferRateLimit.size > 5000) {
+      const oldestKey = transferRateLimit.keys().next().value;
+      transferRateLimit.delete(oldestKey);
+    }
+    if (clientTxId) {
+      processedTxIds.add(clientTxId);
+      if (processedTxIds.size > 10000) {
+        const oldestTx = processedTxIds.values().next().value;
+        processedTxIds.delete(oldestTx);
+      }
+    }
 
     const txId = `TX-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
     const note = String(body.note || '').trim().slice(0, 48);
@@ -1611,7 +1615,8 @@ async function handleApi(req, res, urlPath) {
     target.transfers.unshift({ ...txRecord, dir: 'in' });
     if (target.transfers.length > 40) target.transfers.pop();
 
-    scheduleSaveEconomy();
+    scheduleSaveEconomy(sender.id);
+    scheduleSaveEconomy(target.id);
     if (typeof persistTransaction === 'function') {
       persistTransaction(txRecord).catch(() => {});
     }
@@ -1681,7 +1686,7 @@ async function handleApi(req, res, urlPath) {
     }
     acc.money += moneyGranted;
     acc.updatedAt = Date.now();
-    scheduleSaveEconomy();
+    scheduleSaveEconomy(acc.id);
 
     sendJson(res, 200, {
       ok: true,
@@ -1730,7 +1735,7 @@ async function handleApi(req, res, urlPath) {
     const moneyReward = Math.max(0, Number(promo.money) || 0);
     acc.money += moneyReward;
     acc.updatedAt = Date.now();
-    scheduleSaveEconomy();
+    scheduleSaveEconomy(acc.id);
 
     sendJson(res, 200, {
       ok: true,
@@ -1767,7 +1772,7 @@ async function handleApi(req, res, urlPath) {
 
     acc.money -= cost;
     acc.updatedAt = Date.now();
-    scheduleSaveEconomy();
+    scheduleSaveEconomy(acc.id);
     sendJson(res, 200, { ok: true, fuelType, liters, unitPrice, cost, money: acc.money });
     return;
   }
@@ -1831,7 +1836,7 @@ const server = http.createServer((req, res) => {
         'Access-Control-Allow-Origin': '*',
       };
 
-      if (ext === '.glb' || ext === '.png' || ext === '.jpg' || ext === '.webp') {
+      if (ext === '.glb' || ext === '.png' || ext === '.jpg' || ext === '.webp' || ext === '.avif' || ext === '.mp3' || ext === '.wav' || ext === '.ogg' || ext === '.m4a') {
         headers['Cache-Control'] = 'public, max-age=86400';
         headers['Content-Length'] = stats.size;
       } else {

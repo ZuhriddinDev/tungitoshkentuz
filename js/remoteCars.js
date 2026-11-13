@@ -8,7 +8,7 @@
 
 import * as THREE from 'three';
 import { CARS } from './config.js';
-import { buildCar } from './carModel.js';
+import { buildCar, disposeCarGroup } from './carModel.js';
 import { buildCharacterModel } from './character.js';
 import { sendOnlineEvent } from './online.js';
 
@@ -79,7 +79,17 @@ function getOrCreateLabelSprite(name, id, chat = '', subBadge = '') {
     depthTest: false,
     fog: false,
   });
+  mat.userData.cachedLabel = true;
 
+  if (labelCache.size >= 120) {
+    const oldestKey = labelCache.keys().next().value;
+    const oldest = labelCache.get(oldestKey);
+    if (oldest) {
+      oldest.texture?.dispose?.();
+      oldest.material?.dispose?.();
+    }
+    labelCache.delete(oldestKey);
+  }
   labelCache.set(key, { texture: tex, material: mat });
   const s = new THREE.Sprite(mat);
   s.scale.set(4.3, chat ? 1.66 : 1.16, 1);
@@ -381,7 +391,11 @@ export class RemoteCars {
 
   dispose(r) {
     if (!r) return;
+    disposeCarGroup(r.model.group);
     this.scene.remove(r.model.group);
-    if (r.charModel) this.scene.remove(r.charModel.group);
+    if (r.charModel) {
+      disposeCarGroup(r.charModel.group);
+      this.scene.remove(r.charModel.group);
+    }
   }
 }

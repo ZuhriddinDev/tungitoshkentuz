@@ -1,7 +1,7 @@
 // Missiyalar: ko'cha poygasi, 1v1 tungi poyga, yetkazib berish, taksi, drift musobaqasi
 import * as THREE from 'three';
 import { CARS, fmt } from './config.js';
-import { buildCar } from './carModel.js';
+import { buildCar, disposeCarGroup } from './carModel.js';
 import { N, ROAD, roadC, nearestRoad } from './world/layout.js';
 import { addMoney, spend, bumpStat } from './state.js';
 import { beep } from './audio.js';
@@ -100,7 +100,10 @@ function makeRivals(n, p) {
 
 export function cancelMission(silent) {
   const m = mission.active; if (!m) return;
-  m.rivals?.forEach((r) => ctx.scene.remove(r.model.group));
+  m.rivals?.forEach((r) => {
+    disposeCarGroup(r.model.group);
+    ctx.scene.remove(r.model.group);
+  });
   mission.active = null; mission.target = null; showMarker(null); ctx.hud('');
   ctx.player.locked = false;
   if (!silent) ctx.toast('Missiya bekor qilindi', 'err');
