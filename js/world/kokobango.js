@@ -1021,6 +1021,49 @@ export function buildKokobangoClub(scene) {
   mixer.position.set(cx, iy + 2.48, cz - 13.8);
   interiorGroup.add(mixer);
 
+  // 2.2b SAHNA PODIUMLARI VA XROM RAQS USTUNLARI (Athletic Stage Performers)
+  const stagePoleMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.92, roughness: 0.14 });
+  for (const sx of [-7.8, 7.8]) {
+    const pod = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.65, 0.28, 24), mObsidian);
+    pod.position.set(cx + sx, iy + 1.44, cz - 13.5);
+    const podRing = new THREE.Mesh(new THREE.TorusGeometry(1.52, 0.045, 8, 28), mNeonPink);
+    podRing.rotation.x = Math.PI / 2;
+    podRing.position.set(cx + sx, iy + 1.59, cz - 13.5);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 5.2, 12), stagePoleMat);
+    pole.position.set(cx + sx, iy + 4.15, cz - 13.5);
+    interiorGroup.add(pod, podRing, pole);
+  }
+
+  // Raqs maydoni uchun atmosfera tutuni (Haze / Smoke qatlami — yengil 4 ta tekislik)
+  const hazeTex = new THREE.CanvasTexture((() => {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 128;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+    grd.addColorStop(0, 'rgba(216, 180, 254, 0.35)');
+    grd.addColorStop(0.5, 'rgba(34, 211, 238, 0.16)');
+    grd.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 128, 128);
+    return c;
+  })());
+  const stageHazeMats = [];
+  for (let hi = 0; hi < 4; hi++) {
+    const hm = new THREE.MeshBasicMaterial({
+      map: hazeTex,
+      transparent: true,
+      opacity: 0.22,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const hp = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), hm);
+    hp.rotation.x = -Math.PI / 2;
+    hp.position.set(cx + (hi % 2 === 0 ? -4 : 4), iy + 0.18 + hi * 0.06, cz - 4 + Math.floor(hi / 2) * 7);
+    interiorGroup.add(hp);
+    stageHazeMats.push(hm);
+  }
+
   // 2.3 ULKAN ANIMATSIYALI LED VIDEO DEVOR (DJ orqasida)
   const ledCanvas = document.createElement('canvas');
   ledCanvas.width = 512;
@@ -1693,8 +1736,8 @@ export function buildKokobangoClub(scene) {
     { x: cx + 3.6, y: iy + 0.02, z: cz - 3.2, shirt: '#7c3aed', hair: '#facc15', h: 0, hs: 'ponytail', ds: 1 },
     { x: cx - 5.2, y: iy + 0.02, z: cz + 1.8, shirt: '#06b6d4', hair: '#78350f', h: 0.4, hs: 'bob', ds: 2 },
     { x: cx + 5.2, y: iy + 0.02, z: cz + 1.8, shirt: '#e11d48', hair: '#09090b', h: -0.4, hs: 'updo', ds: 0 },
-    { x: cx - 7.8, y: iy + 1.32, z: cz - 13.5, shirt: '#c026d3', hair: '#18181b', h: 0.2, hs: 'long', ds: 1 }, // Sahnada
-    { x: cx + 7.8, y: iy + 1.32, z: cz - 13.5, shirt: '#2563eb', hair: '#f59e0b', h: -0.2, hs: 'ponytail', ds: 2 }, // Sahnada
+    { x: cx - 7.8, y: iy + 1.58, z: cz - 13.0, shirt: '#c026d3', hair: '#18181b', h: 0.2, hs: 'long', ds: 1 }, // Sahnada
+    { x: cx + 7.8, y: iy + 1.58, z: cz - 13.0, shirt: '#2563eb', hair: '#f59e0b', h: -0.2, hs: 'ponytail', ds: 2 }, // Sahnada
   ];
   dancerConfigs.forEach((dc, idx) => {
     const npc = createClubNpc({
@@ -2030,6 +2073,15 @@ export function buildKokobangoClub(scene) {
   const insideSpawn = { x: cx, y: iy, z: cz + 19.0, heading: Math.PI };
   const exitPos = { x: cx, y: iy, z: cz + 21.5, r: 3.8 };
 
+  let vipUnlocked = false;
+  const NPC_DIALOGUES = [
+    '💬 Mehmon (21+): "KOKOBANGO CLUB muhiti va musiqasi bugun juda zo‘r!"',
+    '💬 Mehmon (21+): "DJ sahnadagi lazer shou haqiqiy Toshkent tungi hayoti!"',
+    '💬 VIP Styuardessa (21+): "VIP Lounge zonasida maxsus alkogolsiz kokteyllar va qulay divanlar bor."',
+    '💬 Mehmon (21+): "Sahnadagi raqs ijrolari juda professional chiqibdi!"',
+    '💬 Mehmon (21+): "Rooftop terrasadan tungi shahar manzarasi ajoyib ko‘rinadi."',
+  ];
+
   return {
     cx,
     cz,
@@ -2044,6 +2096,14 @@ export function buildKokobangoClub(scene) {
     exteriorGroup,
     interiorGroup,
     music,
+
+    setVipUnlocked(v) {
+      vipUnlocked = !!v;
+    },
+
+    isVipUnlocked() {
+      return vipUnlocked;
+    },
 
     setInside(inside) {
       interiorGroup.visible = inside;
@@ -2137,8 +2197,42 @@ export function buildKokobangoClub(scene) {
       if (Math.hypot(px - (cx + 23.8), pz - (cz + 17.5)) < 2.8) {
         return { id: 'vip_sofa_2', label: "[E] VIP Divanga o'tirish", seat: { x: cx + 24.5, y: VIP_Y + 0.18, z: cz + 17.5, h: -Math.PI / 2 } };
       }
-      if (Math.hypot(px - (cx + 13.8), pz - (cz + 12.0)) < 2.4) {
+      if (Math.hypot(px - (cx + 13.8), pz - (cz + 12.0)) < 2.6) {
+        if (!vipUnlocked) {
+          return {
+            id: 'vip_unlock',
+            cost: 5_000_000,
+            label: '[E] 👑 VIP LOUNGE (21+) — Kirish chiptasi: 5 000 000 so‘m',
+          };
+        }
         return { id: 'vip_door', label: '👑 VIP LOUNGE (21+) — Kirish ochiq' };
+      }
+      // Yaqin atrofdagi katta yoshli NPC mehmonlar / raqqosalar bilan suhbat
+      let nearNpcIdx = -1;
+      let nearNpcDist = 2.6;
+      for (let i = 0; i < glbAgents.length; i++) {
+        const ag = glbAgents[i];
+        const d = Math.hypot(px - ag.root.position.x, pz - ag.root.position.z);
+        if (d < nearNpcDist) { nearNpcDist = d; nearNpcIdx = i; }
+      }
+      if (nearNpcIdx >= 0) {
+        return {
+          id: 'npc',
+          label: '[E] 💬 Mehmon bilan suhbatlashish',
+          reply: NPC_DIALOGUES[nearNpcIdx % NPC_DIALOGUES.length],
+        };
+      }
+      for (let i = 0; i < interiorNpcs.length; i++) {
+        const n = interiorNpcs[i];
+        if (n.role === 'guard' || n.role === 'dj' || n.role === 'bartender') continue;
+        const d = Math.hypot(px - n.root.position.x, pz - n.root.position.z);
+        if (d < 2.4) {
+          return {
+            id: 'npc',
+            label: '[E] 💬 Suhbatlashish',
+            reply: NPC_DIALOGUES[i % NPC_DIALOGUES.length],
+          };
+        }
       }
       return null;
     },
@@ -2186,6 +2280,9 @@ export function buildKokobangoClub(scene) {
         sp.head.rotation.x = Math.sin(t * 1.4 + sp.phase) * 0.52;
         sp.head.rotation.z = Math.cos(t * 1.1 + sp.phase) * 0.58;
         sp.mat.opacity = 0.09 + beat * 0.14;
+      }
+      for (let hi = 0; hi < stageHazeMats.length; hi++) {
+        stageHazeMats[hi].opacity = 0.06 + beat * 0.09 + Math.sin(t * 1.2 + hi) * 0.02;
       }
       for (const ls of lasers) {
         ls.pivot.rotation.y = Math.sin(t * 2.2 + ls.phase) * 0.45;

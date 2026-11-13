@@ -5,6 +5,7 @@ import {
   state,
   activeCar,
   addMoney,
+  spend,
   bumpStat,
   touch,
   save,
@@ -198,9 +199,27 @@ onKey('KeyE', keyGuard(() => {
     }
     const act = kokobango.getInteractable?.(playerChar.x, playerChar.z, playerChar.y);
     if (!act) return;
-    if (act.id === 'bar' || act.id === 'rooftop_bar') {
+    if (act.id === 'vip_unlock') {
+      const cost = act.cost || 5_000_000;
+      if (!spend(cost, 'KOKOBANGO VIP Lounge (21+)')) {
+        beep(220, 0.12);
+        toast(`💸 VIP Lounge uchun mablag‘ yetarli emas (${fmt(cost)})!`, 'err');
+        return;
+      }
+      state.vipClubPass = true;
+      save();
+      kokobango.setVipUnlocked?.(true);
+      beep(880, 0.14);
+      toast('👑 VIP Lounge (21+) ochildi! Endi VIP hududga kirishingiz mumkin.', 'ok');
+    } else if (act.id === 'bar' || act.id === 'rooftop_bar') {
+      const drinkCost = 500_000;
+      if (!spend(drinkCost, 'KOKOBANGO BAR: Alkogolsiz kokteyl')) {
+        beep(220, 0.12);
+        toast(`💸 Kokteyl uchun mablag‘ yetarli emas (${fmt(drinkCost)})!`, 'err');
+        return;
+      }
       beep(660, 0.09);
-      toast('🍹 KOKOBANGO BAR: Maxsus alkogolsiz kokteyl tayyorlandi!', 'ok');
+      toast('🍹 KOKOBANGO BAR: Maxsus alkogolsiz kokteyl tayyorlandi (-500 000 so‘m)!', 'ok');
     } else if (act.id === 'dj') {
       kokobango.triggerBeatDrop();
       beep(880, 0.12);
@@ -348,6 +367,7 @@ async function enterKokobangoClub() {
     $('clubUi')?.classList.remove('hidden');
     engineOff();
     if (model) model.group.visible = false;
+    if (state.vipClubPass) kokobango.setVipUnlocked?.(true);
     kokobango.setInside(true);
     playerChar.spawnAt(kokobango.insideSpawn.x, kokobango.insideSpawn.z, spawnH, kokobango.interiorY);
     resetCharCamera(spawnH);
