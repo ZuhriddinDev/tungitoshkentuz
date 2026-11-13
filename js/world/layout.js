@@ -12,9 +12,10 @@ export const roadC = (i) => -HALF + ROAD / 2 + i * CELL;            // i = 0..N
 export const blockC = (j) => -HALF + ROAD + BLOCK / 2 + j * CELL;     // j = 0..N-1
 export const nearestRoad = (v) => Math.max(0, Math.min(N, Math.round((v + HALF - ROAD / 2) / CELL)));
 
-// Haqiqiy Toshkent ko'chalari: G'arbdan-Sharqqa (Z o'zgarmas, X bo'ylab) — Shimoldan Janubga tartibda
+// Haqiqiy Toshkent ko'chalari: G'arbdan-Sharqqa (Z o'zgarmas, X bo'ylab) — Shimoldan Janubga tartibda (0..20)
 export const STREETS_X = [
-  "Katta halqa yo'li (Shimol)",
+  "Toshkent halqa yo'li (Shimol)",
+  "Ahmad Donish ko'chasi",
   "Bog'ishamol ko'chasi",
   "Kichik halqa yo'li (Shimol)",
   "Osiyo ko'chasi",
@@ -28,11 +29,17 @@ export const STREETS_X = [
   "Oybek ko'chasi",
   "Bobur shoh ko'chasi",
   "Muqimiy ko'chasi",
+  "Chilonzor ko'chasi",
+  "Bunyodkor halqasi",
+  "Gavhar ko'chasi",
+  "Farg'ona yo'li (Janub)",
   "Kichik halqa yo'li (Janub)",
+  "Toshkent halqa yo'li (Janub)",
 ];
 
-// Shimoldan-Janubga (X o'zgarmas, Z bo'ylab) — G'arbdan Sharqqa tartibda
+// Shimoldan-Janubga (X o'zgarmas, Z bo'ylab) — G'arbdan Sharqqa tartibda (0..20)
 export const STREETS_Z = [
+  "Toshkent halqa yo'li (G'arb)",
   "Kichik halqa yo'li (G'arb)",
   "Beruniy shoh ko'chasi",
   "Qoratosh ko'chasi",
@@ -45,9 +52,14 @@ export const STREETS_Z = [
   "Shota Rustaveli ko'chasi",
   "Nukus ko'chasi",
   "Movarounnahr ko'chasi",
-  "Farg'ona yo'li",
+  "Mirzo Ulug'bek shoh ko'chasi",
+  "Buyuk Ipak Yo'li",
   "Parkent ko'chasi",
+  "Farg'ona yo'li",
+  "Temur Malik ko'chasi",
   "Ohangaron shoh ko'chasi",
+  "Kichik halqa yo'li (Sharq)",
+  "Toshkent halqa yo'li (Sharq)",
 ];
 
 // Magistral shoh ko'chalar indekslari (kengroq chiziqlar va ko'proq yoritish uchun)

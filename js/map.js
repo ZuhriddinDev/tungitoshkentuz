@@ -743,12 +743,23 @@ export function drawBigMap(canvas, player, extra = {}) {
     g.restore();
 
     const [dx, dy] = toMap(d.cx, d.cz, S, cx, cz, scale);
-    if (dx >= 18 && dx <= S - 18 && dy >= 18 && dy <= S - 18) {
-      g.font = `900 ${Math.round((isSel ? 13.5 : 11.5) * Math.sqrt(zoom))}px "Segoe UI", sans-serif`;
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.fillStyle = isSel ? '#ffffff' : 'rgba(226, 232, 240, 0.72)';
-      g.fillText(d.uz.toUpperCase(), dx, dy);
+    if (dx >= 24 && dx <= S - 24 && dy >= 24 && dy <= S - 36) {
+      const label = d.uz.toUpperCase();
+      g.font = `900 ${Math.round((isSel ? 13 : 11) * Math.sqrt(zoom))}px "Segoe UI", sans-serif`;
+      const tw = g.measureText(label).width;
+      if (canPlaceLabel(dx, dy, tw + 14, 20)) {
+        g.fillStyle = isSel ? 'rgba(15, 23, 42, 0.88)' : 'rgba(9, 14, 26, 0.68)';
+        g.beginPath();
+        g.roundRect(dx - tw / 2 - 7, dy - 10, tw + 14, 20, 6);
+        g.fill();
+        g.strokeStyle = isSel ? d.color : `${d.color}88`;
+        g.lineWidth = isSel ? 1.5 : 1;
+        g.stroke();
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillStyle = isSel ? '#ffffff' : '#e2e8f0';
+        g.fillText(label, dx, dy);
+      }
     }
   }
 
