@@ -860,7 +860,7 @@ function races() {
 }
 
 // ---------- Ishlar (T): yetkazib berish, taksi, ijara ----------
-const RENTALS = ['kia_k5', 'malibu', 'e55', 'challenger', 'supra', 'm4comp', 'bmw', 'mercedes', 'maybach', 'porsche911', 'lambo', 'sf90', 'roadster'];
+const RENTALS = ['nexia2', 'kia_k5', 'malibu', 'e55', 'byd_han', 'challenger', 'supra', 'm4comp', 'bmw', 'lc300', 'mercedes', 'escalade', 'maybach', 'porsche911', 'lambo', 'sf90', 'roadster', 'revuelto', 'sian'];
 function jobs() {
   const body = showModal('jobs', '📦 Ishlar va xizmatlar', `
     ${mission.active ? `<div class="card" style="margin-bottom:12px"><h3>Faol: ${mission.active.name}</h3><button class="btn danger" id="cancelM">Bekor qilish</button></div>` : ''}

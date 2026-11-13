@@ -177,6 +177,82 @@ export const GLB_SPECS = {
     headMats: ['headlights_main', 'headlights_AHO'],
     tailMats: ['Glass_rear_lights_main', 'Glass_rear_lights_DHO'],
   },
+  nexia2: {
+    file: 'opt/nexia_2.glb',
+    rotY: 0,
+    paintMats: ['carpaint'],
+    rimMats: ['material'],
+    headMats: ['clearglass'],
+    tailMats: ['redglass'],
+  },
+  byd_han: {
+    file: 'opt/2023_byd_han_dm-p.glb',
+    rotY: 0,
+    paintMats: ['BYD_CARP'],
+    rimMats: ['BYDobjdummy_material_0_402'],
+    tireMats: ['BYDobjdummy_material_0_430'],
+    headMats: ['BYDobjdummy_material_0_398'],
+    tailMats: ['red_glass'],
+  },
+  lc300: {
+    file: 'opt/2022_toyota_land_cruiser_300_vx.r.glb',
+    rotY: 0,
+    paintMats: ['TMI_1350010001_044'],
+    rimMats: ['rimMI_ChangeA_Rim_002'],
+    tireMats: ['TMI_Suspension_B1'],
+    headMats: ['TMI_Light_011', 'TMI_Glass_Light_005'],
+    tailMats: ['phong1'],
+  },
+  escalade: {
+    file: 'opt/cadillac_escalade_premium.glb',
+    rotY: 0,
+    paintMats: ['EPaint_Body_swb1'],
+    rimMats: ['Wheelspolish_cast_aluminum_inner1', 'WheelsPaint_Black_Gloss_008'],
+    tireMats: ['Wheelscombined_texture_maps_005'],
+    headMats: ['ELED_Light_Pipe_002'],
+    tailMats: ['EGlass_Red_Tint_002'],
+  },
+  yangwang_u9: {
+    file: 'opt/2024_byd_yangwang_u9.glb',
+    rotY: 0,
+    paintMats: ['MAT_BYD_YangWang_U9_Carpaint'],
+    rimMats: ['MAT_Tire_Hub'],
+    headMats: ['MAT_Lights'],
+    tailMats: ['MAT_Lights'],
+  },
+  mclaren_720s: {
+    file: 'opt/maclaren_720_s.glb',
+    rotY: 0,
+    paintMats: ['Carpaint_High_quality'],
+    rimMats: ['Material.007'],
+    tireMats: ['Material.020'],
+    headMats: ['Material.002'],
+    tailMats: ['Carlight_shingle_chrome_red'],
+  },
+  revuelto: {
+    file: 'opt/free_lamborghini_revuelto.glb',
+    rotY: 0,
+    paintMats: ['Body'],
+    rimMats: ['material'],
+    headMats: ['Headlight_light', 'Light'],
+    tailMats: ['Tail_light', 'Tail_light_brake', 'Taillight_rear'],
+  },
+  laferrari: {
+    file: 'opt/ferrari_laferrari__www.vecarz.com.glb',
+    rotY: 0,
+    paintMats: ['Body'],
+    rimMats: ['rim.001', 'rim.002', 'rim.003', 'rim.004'],
+    headMats: ['Front_headlights.001', 'head_lights_glasses.002'],
+    tailMats: ['Rear_headlights', 'tail_lights', 'break_lights.001', 'red_light'],
+  },
+  sian: {
+    file: 'opt/2021_lamborghini_sian_roadster.glb',
+    rotY: 0,
+    paintMats: ['LLamborghini_SianRoadster_2021Paint_Material1', 'LLamborghini_SianRoadster_2021Coloured_Material1'],
+    rimMats: ['LLamborghini_SianRoadster_2021_Wheel1A_3D_3DWheel1A_Material1'],
+    headMats: ['LLamborghini_SianRoadster_2021LightA_Material1'],
+    tailMats: ['red_glass'],
+  },
 };
 
 for (const [k, v] of Object.entries(GLB_SPECS)) v.id = k;
@@ -236,7 +312,7 @@ const RIM_COLORS = {
 const box = new THREE.BoxGeometry(1, 1, 1);
 
 // Ichki salon (SteeringWheel, BrakePedal, HandBrake, DoorPanel) va kuzov qismlarini g'ildirakdan 100% ajratish
-const NON_WHEEL_PART_RE = /steering|steer|swheel|volan|pedal|handbrake|doorpanel|door_l|door_r|bumper|fender|hood|trunk|wing|spoiler|exhaust|light|glass|window|windshield|interior|cockpit|dashboard|seat|carpet|fgrll|license|chassis|lip|spare|zapas|grill|badge|emblem|wiper|antenna|roof|sideskirt|skirt|side_skirt|engine|dvig|motor|diffuser|splitter/i;
+const NON_WHEEL_PART_RE = /steering|steer|swheel|volan|pedal|handbrake|doorpanel|door_l|door_r|bumper|fender|hood|trunk|wing|spoiler|exhaust|light|glass|window|windshield|interior|cockpit|dashboard|seat|carpet|fgrll|license|chassis|lip|spare|zapas|grill|badge|emblem|wiper|antenna|roof|sideskirt|skirt|side_skirt|engine|dvig|motor|diffuser|splitter|sk_suspension/i;
 const WHEEL_MAT_OR_NAME_RE = /tire|tyre|wheel|rim|felge|reifen|caliper|calliper|brakedisk|brake|tormoz|koleso|disc|disk|ssr|bremse|chrome_r|metal_r/i;
 const CALIPER_RE = /caliper|calliper|brakedisk|brake|tormoz|bremse|koleso_support/i;
 const SPIN_WHEEL_RE = /tire|tyre|wheel|rim|felge|reifen|koleso|ssr|disc|disk|chrome_r|metal_r/i;
@@ -294,6 +370,7 @@ function extractSubGeometry(geom, triIndices) {
 function splitMergedWheelMeshes(templateGroup, spec) {
   templateGroup.updateMatrixWorld(true);
   const rimMats = new Set(spec?.rimMats || []);
+  const tireMats = new Set(spec?.tireMats || []);
 
   const toSplit = [];
   templateGroup.traverse((o) => {
@@ -301,7 +378,7 @@ function splitMergedWheelMeshes(templateGroup, spec) {
     const matName = o.material ? (Array.isArray(o.material) ? o.material.map((m) => m.name).join(' ') : o.material.name) : '';
     const full = getObjectFullPath(o);
     if (NON_WHEEL_PART_RE.test(full)) return;
-    if (!WHEEL_MAT_OR_NAME_RE.test(full) && !rimMats.has(matName)) return;
+    if (!WHEEL_MAT_OR_NAME_RE.test(full) && !rimMats.has(matName) && !tireMats.has(matName)) return;
 
     const b = new THREE.Box3().setFromObject(o);
     const size = b.getSize(new THREE.Vector3());
@@ -525,6 +602,7 @@ function setupGlbWheels(root, spec, cfg, wheelRig = null) {
   const caliperMeshes = [];
 
   const rimMats = new Set(spec?.rimMats || []);
+  const tireMats = new Set(spec?.tireMats || []);
   const carId = spec?.id || cfg?.id || '';
   const minTrackX = Math.max(0.42, (cfg?.wid || 1.8) * 0.27);
   const minAxleZ = Math.max(0.72, (cfg?.len || 4.5) * 0.18);
@@ -541,7 +619,7 @@ function setupGlbWheels(root, spec, cfg, wheelRig = null) {
     // G63 Gelik, Challenger, Supra va boshqalardagi ota-ona tugunlari tekshiruvi
     const hasWheelParent = /3DWheel (Front|Rear)|WHEEL_(FL|FR|RL|RR)|wheel(FL|FR|BL|BR)/i.test(full);
     const isCaliper = (CALIPER_RE.test(full) || /bremse/i.test(matName)) && !/disk|disc|rotor/i.test(o.name || '');
-    const isSpin = (SPIN_WHEEL_RE.test(full) || rimMats.has(matName) || hasWheelParent || /felge|reifen/i.test(matName) || (carId === 'kia_k5' && /wheels/i.test(matName))) && !isCaliper;
+    const isSpin = (SPIN_WHEEL_RE.test(full) || rimMats.has(matName) || tireMats.has(matName) || hasWheelParent || /felge|reifen/i.test(matName) || (carId === 'kia_k5' && /wheels/i.test(matName))) && !isCaliper;
     const isGentraCap = carId === 'gentra' && /chrome|brakedisk/i.test(matName);
 
     if (!isCaliper && !isSpin && !isGentraCap) return;
