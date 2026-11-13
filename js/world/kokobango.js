@@ -1395,12 +1395,20 @@ export function buildKokobangoClub(scene) {
 
   const _animEuler = new THREE.Euler();
   const _animQuat = new THREE.Quaternion();
-  function poseBone(entry, rx, ry, rz) {
+  const _targetQuat = new THREE.Quaternion();
+  function poseBone(entry, rx, ry, rz, blend = 1.0) {
     if (!entry) return;
     _animEuler.set(rx, ry, rz, 'XYZ');
     _animQuat.setFromEuler(_animEuler);
-    entry.bone.quaternion.copy(entry.base).multiply(_animQuat);
+    _targetQuat.copy(entry.base).multiply(_animQuat);
+    if (blend >= 0.99) entry.bone.quaternion.copy(_targetQuat);
+    else entry.bone.quaternion.slerp(_targetQuat, blend);
   }
+
+  const vipSeats = [
+    { x: cx + 24.4, z: cz + 2.4, yaw: -Math.PI / 2, occupiedBy: -1 },
+    { x: cx + 24.4, z: cz + 18.4, yaw: -Math.PI / 2, occupiedBy: -1 },
+  ];
 
   const glbAgents = SKELETAL_GLB_SPECS.map((cfg, idx) => {
     const baseY = cfg.zone === 'vip' ? VIP_Y : iy;
@@ -1420,6 +1428,7 @@ export function buildKokobangoClub(scene) {
       idx,
       cfg,
       baseY,
+      curY: baseY,
       root,
       auraRing,
       inner: null,
@@ -1429,7 +1438,9 @@ export function buildKokobangoClub(scene) {
       vz: 0,
       yaw: (idx * Math.PI) / 3,
       wpIdx: 0,
-      pauseTimer: 0.8 + idx * 0.55,
+      aiState: 'DANCING', // 'IDLE' | 'WALKING' | 'DANCING' | 'TALKING' | 'SITTING' | 'STANDING_UP'
+      stateTimer: 1.5 + idx * 0.65,
+      seatIdx: -1,
       speed: cfg.speed,
       wps: cfg.wps.map(([wx, wz]) => [cx + wx, cz + wz]),
       phase: idx * 1.25,
@@ -1860,49 +1871,85 @@ export function buildKokobangoClub(scene) {
         vipPodiums[pi].holder.rotation.y = vipPodiums[pi].baseRot + Math.sin(t * 0.55 + pi * 1.5) * 0.35;
       }
 
-      // 7 ta Bip01 skeletli GLB modellar — haqiqiy oyoq/qo'l/bel animatsiyasi + fizika
+      // 7 ta Bip01 skeletli GLB modellar — haqiqiy oyoq/qo'l/bel animatsiyasi, blending va AI holatlari
       glbSpotA.intensity = 24 + beat * 14;
       glbSpotB.intensity = 22 + beat * 12;
-      const radius = 0.48;
+      const radius = 0.44;
+      const animBlend = Math.min(1, dt * 8.5);
       for (let i = 0; i < glbAgents.length; i++) {
         const ag = glbAgents[i];
         if (!ag.loaded) continue;
         ag.auraRing.scale.setScalar(1 + beat * 0.20);
+        ag.stateTimer -= dt;
 
         let wantVx = 0;
         let wantVz = 0;
-        if (ag.pauseTimer > 0) {
-          ag.pauseTimer -= dt;
-        } else {
-          const wp = ag.wps[ag.wpIdx];
-          const dx = wp[0] - ag.root.position.x;
-          const dz = wp[1] - ag.root.position.z;
-          const dist = Math.hypot(dx, dz);
-          if (dist < 0.72) {
+
+        if (ag.aiState === 'SITTING') {
+          if (ag.stateTimer <= 0) {
+            ag.aiState = 'STANDING_UP';
+            ag.stateTimer = 0.65;
+          }
+        } else if (ag.aiState === 'STANDING_UP') {
+          if (ag.stateTimer <= 0) {
+            if (ag.seatIdx >= 0 && vipSeats[ag.seatIdx]) {
+              vipSeats[ag.seatIdx].occupiedBy = -1;
+              ag.seatIdx = -1;
+            }
+            ag.aiState = 'WALKING';
             ag.wpIdx = (ag.wpIdx + 1) % ag.wps.length;
-            ag.pauseTimer = 2.4 + (i % 3) * 0.9;
+            ag.stateTimer = 5.0;
+          }
+        } else if (ag.aiState === 'WALKING') {
+          const targetPt = ag.seatIdx >= 0 ? [vipSeats[ag.seatIdx].x - 0.65, vipSeats[ag.seatIdx].z] : ag.wps[ag.wpIdx];
+          const dx = targetPt[0] - ag.root.position.x;
+          const dz = targetPt[1] - ag.root.position.z;
+          const dist = Math.hypot(dx, dz);
+          if (dist < 0.65 || ag.stateTimer <= 0) {
+            if (ag.seatIdx >= 0) {
+              ag.aiState = 'SITTING';
+              ag.stateTimer = 5.5 + (i % 2) * 2.5;
+            } else {
+              ag.wpIdx = (ag.wpIdx + 1) % ag.wps.length;
+              const roll = (i + ag.wpIdx) % 4;
+              ag.aiState = roll === 0 ? 'IDLE' : roll === 1 ? 'TALKING' : 'DANCING';
+              ag.stateTimer = 3.2 + (i % 3) * 1.1;
+            }
           } else {
-            const slowFactor = dist < 1.6 ? Math.max(0.45, dist / 1.6) : 1.0;
+            const slowFactor = dist < 1.5 ? Math.max(0.45, dist / 1.5) : 1.0;
             wantVx = (dx / dist) * ag.speed * slowFactor;
             wantVz = (dz / dist) * ag.speed * slowFactor;
           }
+        } else if (ag.stateTimer <= 0) {
+          // IDLE, DANCING yoki TALKING dan keyin yurishga yoki VIP divanga o'tish
+          if (ag.cfg.zone === 'vip' && (i + Math.floor(t)) % 3 === 0) {
+            const freeIdx = vipSeats.findIndex((s) => s.occupiedBy === -1);
+            if (freeIdx >= 0) {
+              vipSeats[freeIdx].occupiedBy = i;
+              ag.seatIdx = freeIdx;
+            }
+          }
+          ag.aiState = 'WALKING';
+          ag.stateTimer = 8.0;
         }
 
-        // Boshqa GLB modellardan masofa saqlash
-        for (let j = 0; j < glbAgents.length; j++) {
-          if (i === j || !glbAgents[j].loaded) continue;
-          const other = glbAgents[j];
-          const sx = ag.root.position.x - other.root.position.x;
-          const sz = ag.root.position.z - other.root.position.z;
-          const sd = Math.hypot(sx, sz);
-          if (sd > 0.001 && sd < 1.35) {
-            const push = ((1.35 - sd) / 1.35) * 2.2;
-            wantVx += (sx / sd) * push;
-            wantVz += (sz / sd) * push;
+        // Boshqa GLB modellardan masofa saqlash (SITTING holatidan tashqari)
+        if (ag.aiState !== 'SITTING' && ag.aiState !== 'STANDING_UP') {
+          for (let j = 0; j < glbAgents.length; j++) {
+            if (i === j || !glbAgents[j].loaded) continue;
+            const other = glbAgents[j];
+            const sx = ag.root.position.x - other.root.position.x;
+            const sz = ag.root.position.z - other.root.position.z;
+            const sd = Math.hypot(sx, sz);
+            if (sd > 0.001 && sd < 1.32) {
+              const push = ((1.32 - sd) / 1.32) * 2.3;
+              wantVx += (sx / sd) * push;
+              wantVz += (sz / sd) * push;
+            }
           }
         }
 
-        const accel = Math.min(1, dt * 7.0);
+        const accel = Math.min(1, dt * 7.5);
         ag.vx += (wantVx - ag.vx) * accel;
         ag.vz += (wantVz - ag.vz) * accel;
 
@@ -1915,49 +1962,107 @@ export function buildKokobangoClub(scene) {
         let nx = Math.max(minX, Math.min(maxX, ag.root.position.x + ag.vx * dt));
         let nz = Math.max(minZ, Math.min(maxZ, ag.root.position.z + ag.vz * dt));
 
-        for (const c of interiorColliders) {
-          if (nx > c.minX - radius && nx < c.maxX + radius && nz > c.minZ - radius && nz < c.maxZ + radius) {
-            const dl = Math.abs(nx - (c.minX - radius));
-            const dr = Math.abs((c.maxX + radius) - nx);
-            const dtMin = Math.abs(nz - (c.minZ - radius));
-            const db = Math.abs((c.maxZ + radius) - nz);
-            const m = Math.min(dl, dr, dtMin, db);
-            if (m === dl) { nx = c.minX - radius; ag.vx = Math.min(0, ag.vx); }
-            else if (m === dr) { nx = c.maxX + radius; ag.vx = Math.max(0, ag.vx); }
-            else if (m === dtMin) { nz = c.minZ - radius; ag.vz = Math.min(0, ag.vz); }
-            else { nz = c.maxZ + radius; ag.vz = Math.max(0, ag.vz); }
+        if (ag.aiState !== 'SITTING') {
+          for (const c of interiorColliders) {
+            if (nx > c.minX - radius && nx < c.maxX + radius && nz > c.minZ - radius && nz < c.maxZ + radius) {
+              const dl = Math.abs(nx - (c.minX - radius));
+              const dr = Math.abs((c.maxX + radius) - nx);
+              const dtMin = Math.abs(nz - (c.minZ - radius));
+              const db = Math.abs((c.maxZ + radius) - nz);
+              const m = Math.min(dl, dr, dtMin, db);
+              if (m === dl) { nx = c.minX - radius; ag.vx = Math.min(0, ag.vx); }
+              else if (m === dr) { nx = c.maxX + radius; ag.vx = Math.max(0, ag.vx); }
+              else if (m === dtMin) { nz = c.minZ - radius; ag.vz = Math.min(0, ag.vz); }
+              else { nz = c.maxZ + radius; ag.vz = Math.max(0, ag.vz); }
+            }
           }
+        }
+
+        if (ag.aiState === 'SITTING' && ag.seatIdx >= 0) {
+          const seat = vipSeats[ag.seatIdx];
+          nx += (seat.x - nx) * Math.min(1, dt * 6);
+          nz += (seat.z - nz) * Math.min(1, dt * 6);
         }
 
         ag.root.position.x = nx;
         ag.root.position.z = nz;
-        ag.root.position.y = ag.baseY;
+        const targetY = ag.aiState === 'SITTING' ? ag.baseY - 0.36 : ag.baseY;
+        ag.curY += (targetY - ag.curY) * Math.min(1, dt * 7);
+        ag.root.position.y = ag.curY;
 
-        if (curSpd > 0.18) {
+        if (ag.aiState === 'SITTING' && ag.seatIdx >= 0) {
+          const seatYaw = vipSeats[ag.seatIdx].yaw;
+          let dy = seatYaw - ag.yaw;
+          dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+          ag.yaw += dy * Math.min(1, dt * 6);
+          ag.root.rotation.y = ag.yaw;
+          if (ag.rig) {
+            poseBone(ag.rig.pelvis, 0, 0, 0, animBlend);
+            poseBone(ag.rig.spine, -0.05, Math.sin(t * 1.2 + ag.phase) * 0.06, 0, animBlend);
+            poseBone(ag.rig.head, Math.sin(t * 1.8 + ag.phase) * 0.06, Math.sin(t * 0.9 + ag.phase) * 0.16, 0, animBlend);
+            poseBone(ag.rig.lThigh, 0, 0, 1.35, animBlend);
+            poseBone(ag.rig.rThigh, 0, 0, 1.35, animBlend);
+            poseBone(ag.rig.lCalf, 0, 0, -1.35, animBlend);
+            poseBone(ag.rig.rCalf, 0, 0, -1.35, animBlend);
+            poseBone(ag.rig.lArm, 0.1, 0, 0.2, animBlend);
+            poseBone(ag.rig.rArm, -0.1, 0, -0.25 + Math.sin(t * 2.1 + ag.phase) * 0.08, animBlend);
+            poseBone(ag.rig.lFore, 0, 0.35, 0, animBlend);
+            poseBone(ag.rig.rFore, 0, -0.55, 0, animBlend);
+          }
+        } else if (curSpd > 0.18 && ag.aiState === 'WALKING') {
           const targetYaw = Math.atan2(ag.vx, ag.vz);
           let dy = targetYaw - ag.yaw;
           dy = Math.atan2(Math.sin(dy), Math.cos(dy));
           ag.yaw += dy * Math.min(1, dt * 8.0);
           ag.root.rotation.y = ag.yaw;
 
-          // Haqiqiy Bip01 skelet yurish animatsiyasi
           const w = t * 5.8 + ag.phase;
           const amp = Math.min(1, curSpd / ag.speed);
           if (ag.rig) {
-            poseBone(ag.rig.pelvis, 0, Math.sin(w) * 0.06 * amp, 0);
-            poseBone(ag.rig.spine, 0.04 * amp, -Math.sin(w) * 0.06 * amp, 0);
-            poseBone(ag.rig.head, 0, Math.sin(w * 0.5) * 0.06, 0);
-            poseBone(ag.rig.lThigh, 0, 0, Math.sin(w) * 0.36 * amp);
-            poseBone(ag.rig.rThigh, 0, 0, -Math.sin(w) * 0.36 * amp);
-            poseBone(ag.rig.lCalf, 0, 0, Math.max(0, -Math.cos(w)) * 0.42 * amp);
-            poseBone(ag.rig.rCalf, 0, 0, Math.max(0, Math.cos(w)) * 0.42 * amp);
-            poseBone(ag.rig.lArm, 0, 0, -Math.sin(w) * 0.24 * amp);
-            poseBone(ag.rig.rArm, 0, 0, Math.sin(w) * 0.24 * amp);
-            poseBone(ag.rig.lFore, 0, 0.25, 0);
-            poseBone(ag.rig.rFore, 0, -0.25, 0);
+            poseBone(ag.rig.pelvis, 0, Math.sin(w) * 0.06 * amp, 0, animBlend);
+            poseBone(ag.rig.spine, 0.04 * amp, -Math.sin(w) * 0.06 * amp, 0, animBlend);
+            poseBone(ag.rig.head, 0, Math.sin(w * 0.5) * 0.06, 0, animBlend);
+            poseBone(ag.rig.lThigh, 0, 0, Math.sin(w) * 0.36 * amp, animBlend);
+            poseBone(ag.rig.rThigh, 0, 0, -Math.sin(w) * 0.36 * amp, animBlend);
+            poseBone(ag.rig.lCalf, 0, 0, Math.max(0, -Math.cos(w)) * 0.42 * amp, animBlend);
+            poseBone(ag.rig.rCalf, 0, 0, Math.max(0, Math.cos(w)) * 0.42 * amp, animBlend);
+            poseBone(ag.rig.lArm, 0, 0, -Math.sin(w) * 0.24 * amp, animBlend);
+            poseBone(ag.rig.rArm, 0, 0, Math.sin(w) * 0.24 * amp, animBlend);
+            poseBone(ag.rig.lFore, 0, 0.25, 0, animBlend);
+            poseBone(ag.rig.rFore, 0, -0.25, 0, animBlend);
+          }
+        } else if (ag.aiState === 'IDLE' || ag.aiState === 'STANDING_UP') {
+          const breath = Math.sin(t * 2.1 + ag.phase);
+          if (ag.rig) {
+            poseBone(ag.rig.pelvis, 0, 0, 0, animBlend);
+            poseBone(ag.rig.spine, breath * 0.025, Math.sin(t * 0.7 + ag.phase) * 0.04, 0, animBlend);
+            poseBone(ag.rig.head, breath * 0.03, Math.sin(t * 0.9 + ag.phase) * 0.14, 0, animBlend);
+            poseBone(ag.rig.lThigh, 0, 0, 0, animBlend);
+            poseBone(ag.rig.rThigh, 0, 0, 0, animBlend);
+            poseBone(ag.rig.lCalf, 0, 0, 0, animBlend);
+            poseBone(ag.rig.rCalf, 0, 0, 0, animBlend);
+            poseBone(ag.rig.lArm, 0, 0, 0.06, animBlend);
+            poseBone(ag.rig.rArm, 0, 0, -0.06, animBlend);
+            poseBone(ag.rig.lFore, 0, 0.15, 0, animBlend);
+            poseBone(ag.rig.rFore, 0, -0.15, 0, animBlend);
+          }
+        } else if (ag.aiState === 'TALKING') {
+          const talk = Math.sin(t * 3.4 + ag.phase);
+          if (ag.rig) {
+            poseBone(ag.rig.pelvis, 0, Math.sin(t * 1.1 + ag.phase) * 0.05, 0, animBlend);
+            poseBone(ag.rig.spine, talk * 0.03, Math.cos(t * 1.5 + ag.phase) * 0.06, 0, animBlend);
+            poseBone(ag.rig.head, talk * 0.08, Math.sin(t * 1.9 + ag.phase) * 0.22, 0, animBlend);
+            poseBone(ag.rig.lThigh, 0, 0, 0, animBlend);
+            poseBone(ag.rig.rThigh, 0, 0, 0, animBlend);
+            poseBone(ag.rig.lCalf, 0, 0, 0, animBlend);
+            poseBone(ag.rig.rCalf, 0, 0, 0, animBlend);
+            poseBone(ag.rig.lArm, 0.1, 0, 0.18 + talk * 0.12, animBlend);
+            poseBone(ag.rig.rArm, 0.2, 0, -0.32 - talk * 0.18, animBlend);
+            poseBone(ag.rig.lFore, 0, 0.45, 0, animBlend);
+            poseBone(ag.rig.rFore, 0, -0.75 + talk * 0.2, 0, animBlend);
           }
         } else {
-          // Raqs / ijtimoiy suhbat holati
+          // DANCING
           const lookYaw = ag.cfg.zone === 'vip'
             ? Math.atan2(cx + 18.0 - nx, cz + 10.5 - nz)
             : Math.atan2(cx - nx, cz - 14.0 - nz);
@@ -1968,17 +2073,17 @@ export function buildKokobangoClub(scene) {
 
           const d = t * 6.4 + ag.phase;
           if (ag.rig) {
-            poseBone(ag.rig.pelvis, 0, Math.sin(d * 0.5) * 0.14, Math.sin(d) * 0.06);
-            poseBone(ag.rig.spine, Math.sin(d) * 0.05, Math.cos(d * 0.5) * 0.10, 0);
-            poseBone(ag.rig.head, Math.sin(d) * 0.10, Math.sin(d * 0.25) * 0.18, 0);
-            poseBone(ag.rig.lThigh, 0, 0, Math.sin(d) * 0.08);
-            poseBone(ag.rig.rThigh, 0, 0, -Math.sin(d) * 0.08);
-            poseBone(ag.rig.lCalf, 0, 0, Math.abs(Math.sin(d)) * 0.12);
-            poseBone(ag.rig.rCalf, 0, 0, Math.abs(Math.cos(d)) * 0.12);
-            poseBone(ag.rig.lArm, Math.sin(d) * 0.28, 0.2, 0.35 + Math.cos(d) * 0.25);
-            poseBone(ag.rig.rArm, Math.cos(d) * 0.28, -0.2, -0.35 - Math.sin(d) * 0.25);
-            poseBone(ag.rig.lFore, 0, 0.55 + Math.sin(d) * 0.2, 0);
-            poseBone(ag.rig.rFore, 0, -0.55 - Math.cos(d) * 0.2, 0);
+            poseBone(ag.rig.pelvis, 0, Math.sin(d * 0.5) * 0.14, Math.sin(d) * 0.06, animBlend);
+            poseBone(ag.rig.spine, Math.sin(d) * 0.05, Math.cos(d * 0.5) * 0.10, 0, animBlend);
+            poseBone(ag.rig.head, Math.sin(d) * 0.10, Math.sin(d * 0.25) * 0.18, 0, animBlend);
+            poseBone(ag.rig.lThigh, 0, 0, Math.sin(d) * 0.08, animBlend);
+            poseBone(ag.rig.rThigh, 0, 0, -Math.sin(d) * 0.08, animBlend);
+            poseBone(ag.rig.lCalf, 0, 0, Math.abs(Math.sin(d)) * 0.12, animBlend);
+            poseBone(ag.rig.rCalf, 0, 0, Math.abs(Math.cos(d)) * 0.12, animBlend);
+            poseBone(ag.rig.lArm, Math.sin(d) * 0.28, 0.2, 0.35 + Math.cos(d) * 0.25, animBlend);
+            poseBone(ag.rig.rArm, Math.cos(d) * 0.28, -0.2, -0.35 - Math.sin(d) * 0.25, animBlend);
+            poseBone(ag.rig.lFore, 0, 0.55 + Math.sin(d) * 0.2, 0, animBlend);
+            poseBone(ag.rig.rFore, 0, -0.55 - Math.cos(d) * 0.2, 0, animBlend);
           }
         }
       }
