@@ -1225,6 +1225,11 @@ export function buildKokobangoClub(scene) {
     './Kokobango/images%20(4).jpg',
     './Kokobango/images%20(5).jpg',
     './Kokobango/images%20(6).jpg',
+    './Kokobango/istockphoto-2149007404-640x640.jpg',
+    './Kokobango/images%20(7).jpg',
+    './Kokobango/images%20(8).jpg',
+    './Kokobango/b201cc79fa915d85d8dee700cb9955dd.jpg',
+    './Kokobango/519O45dMQoL.jpg',
   ];
 
   function addFramedGlamourArt(x, y, z, ry, w, h, variant) {
@@ -1270,11 +1275,13 @@ export function buildKokobangoClub(scene) {
     }
   }
 
-  // Asosiy zal devorlaridagi Glamour 21+ posterlar
+  // Asosiy zal devorlaridagi Glamour 21+ posterlar (6 ta oltin ramka)
   addFramedGlamourArt(cx - iW / 2 + 0.56, iy + 3.6, cz - 4.0, Math.PI / 2, 2.2, 3.3, 0);
   addFramedGlamourArt(cx - iW / 2 + 0.56, iy + 3.6, cz + 6.0, Math.PI / 2, 2.2, 3.3, 1);
   addFramedGlamourArt(cx - 10.5, iy + 3.6, cz + iD / 2 - 0.56, Math.PI, 2.2, 3.3, 2);
   addFramedGlamourArt(cx + 10.5, iy + 3.6, cz + iD / 2 - 0.56, Math.PI, 2.2, 3.3, 3);
+  addFramedGlamourArt(cx + iW / 2 - 0.56, iy + 3.6, cz - 14.5, -Math.PI / 2, 2.2, 3.3, 8);
+  addFramedGlamourArt(cx - 15.5, iy + 4.2, cz - iD / 2 + 0.56, 0, 2.2, 3.3, 9);
 
   // Dekorativ oltin geometrik devor installyatsiyalari
   for (const [rx, ryPos, rz, rRot] of [
@@ -1482,11 +1489,23 @@ export function buildKokobangoClub(scene) {
   interiorGroup.add(vipMiniBar, vipMiniBarTop);
   addIntCol(cx + 18.1, cz - 1.25, cx + 23.9, cz + 0.05);
 
-  // VIP Lounge ichidagi eksklyuziv 21+ Glamour fotografiyalar (sharqiy va janubiy VIP devorlar)
+  // VIP Lounge ichidagi eksklyuziv 21+ Glamour fotografiyalar (6 ta hashamatli oltin ramka)
   addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 3.5, -Math.PI / 2, 2.1, 3.15, 4);
   addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 10.5, -Math.PI / 2, 2.1, 3.15, 5);
   addFramedGlamourArt(cx + iW / 2 - 0.56, VIP_Y + 3.4, cz + 17.5, -Math.PI / 2, 2.1, 3.15, 6);
-  addFramedGlamourArt(cx + 21.0, VIP_Y + 3.4, cz + iD / 2 - 0.56, Math.PI, 2.1, 3.15, 7);
+  addFramedGlamourArt(cx + 18.2, VIP_Y + 3.4, cz + iD / 2 - 0.56, Math.PI, 2.0, 3.0, 7);
+  addFramedGlamourArt(cx + 23.8, VIP_Y + 3.4, cz + iD / 2 - 0.56, Math.PI, 2.0, 3.0, 10);
+  addFramedGlamourArt(cx + 21.0, VIP_Y + 3.5, cz - 1.75, 0, 2.4, 3.2, 11);
+
+  // VIP Lounge ichidagi shaxsiy VIP Podium va xrom ustun
+  const vipStagePod = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.5, 0.22, 24), mObsidian);
+  vipStagePod.position.set(cx + 18.0, VIP_Y + 0.11, cz + 10.5);
+  const vipStageRing = new THREE.Mesh(new THREE.TorusGeometry(1.42, 0.04, 8, 28), mGold);
+  vipStageRing.rotation.x = Math.PI / 2;
+  vipStageRing.position.set(cx + 18.0, VIP_Y + 0.23, cz + 10.5);
+  const vipStagePole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 4.8, 12), stagePoleMat);
+  vipStagePole.position.set(cx + 18.0, VIP_Y + 2.6, cz + 10.5);
+  interiorGroup.add(vipStagePod, vipStageRing, vipStagePole);
 
   // 2.7 HOJATXONA VA KORIDOR (WC / RESTROOMS — Shimoli-Sharqiy burchak)
   const wcWallFront = new THREE.Mesh(new THREE.BoxGeometry(10, 5.5, 0.4), wallMat);
