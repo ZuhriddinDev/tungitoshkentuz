@@ -18,7 +18,7 @@ import {
   applyServerTransferPush,
 } from './state.js';
 import { MISSIONS, mission, startMission, cancelMission } from './missions.js';
-import { drawBigMap, bigMapToWorld, mapState, MAP_CATEGORIES, findNearestPOI, findMapItemAt } from './map.js';
+import { drawBigMap, bigMapToWorld, mapState, MAP_CATEGORIES, findNearestPOI, findMapItemAt, TASHKENT_DISTRICTS_OSM, selectDistrictAt, selectDistrictById } from './map.js';
 import { beep, setVolume } from './audio.js';
 import { openGarage } from './ui-garage.js';
 import { stopGarage } from './garage3d.js';
@@ -561,6 +561,11 @@ function bigMap() {
         `).join('')}
       </div>
       <div class="gps-quick-row">
+        ${TASHKENT_DISTRICTS_OSM.map((d) => `
+          <button type="button" class="btn sm-btn ${mapState.selectedDistrict === d.id ? 'primary' : ''}" data-dist-id="${d.id}" style="border-color:${d.color}88">${d.name}</button>
+        `).join('')}
+      </div>
+      <div class="gps-quick-row">
         <button type="button" class="btn sm-btn primary" id="gpsNearGas">⛽ Eng yaqin Zapravka</button>
         <button type="button" class="btn sm-btn gold" id="gpsNearGarage">🚘 Eng yaqin Garaj</button>
         <button type="button" class="btn sm-btn" id="gpsCenterMe">🎯 Mening joyim</button>
@@ -641,6 +646,21 @@ function bigMap() {
     b.onclick = () => {
       mapState.filter = b.dataset.mcat;
       body.querySelectorAll('[data-mcat]').forEach((x) => x.classList.toggle('on', x === b));
+      beep('ok');
+      draw();
+    };
+  });
+
+  const syncDistBtns = () => {
+    body.querySelectorAll('[data-dist-id]').forEach((x) => {
+      x.classList.toggle('primary', x.dataset.distId === mapState.selectedDistrict);
+    });
+  };
+  body.querySelectorAll('[data-dist-id]').forEach((b) => {
+    b.onclick = () => {
+      const d = selectDistrictById(b.dataset.distId);
+      syncDistBtns();
+      if (d) toast(`📍 ${d.uz}`, 'ok');
       beep('ok');
       draw();
     };
@@ -762,16 +782,18 @@ function bigMap() {
       draw();
     } else {
       mapState.selectedPoi = null;
+      const dist = selectDistrictAt(wx, wz);
+      syncDistBtns();
       renderInspector();
       const curWp = game.waypoint();
       if (curWp && Math.hypot(curWp.x - wx, curWp.z - wz) < 38) {
         game.setWaypoint(null);
         toast("GPS nuqtasi o'chirildi", 'ok');
       } else {
-        game.setWaypoint({ x: wx, z: wz });
+        game.setWaypoint({ x: wx, z: wz, label: dist ? dist.uz : undefined });
         const pNow = game.player();
         const km = (Math.hypot(wx - pNow.x, wz - pNow.z) / 1000).toFixed(2);
-        toast(`📍 GPS nuqta qo'yildi (${km} km)`, 'ok');
+        toast(`📍 ${dist ? dist.uz + ' · ' : ''}GPS nuqta qo'yildi (${km} km)`, 'ok');
       }
       beep('ok');
       draw();

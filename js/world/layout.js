@@ -2,6 +2,9 @@
 // Shimol = -Z (Yunusobod / Teleminora), Janub = +Z (Chilonzor / Yakkasaroy),
 // G'arb = -X (Eski shahar / Chorsu / Shayxontohur), Sharq = +X (Amir Temur xiyoboni / Yashnobod)
 import { CITY } from '../config.js';
+import { TASHKENT_DISTRICTS_OSM, OSM_ATTRIBUTION, districtAt, pointInPolygon } from './tashkentOsmData.js';
+
+export { TASHKENT_DISTRICTS_OSM, OSM_ATTRIBUTION, districtAt, pointInPolygon };
 
 const { N, BLOCK, ROAD, CELL, HALF } = CITY;
 
@@ -51,18 +54,17 @@ export const STREETS_Z = [
 export const MAIN_ROADS_X = new Set([2, 4, 6, 7, 8, 11, 12]);
 export const MAIN_ROADS_Z = new Set([1, 3, 4, 6, 7, 8, 9, 10]);
 
-// Haqiqiy Toshkent tumanlari geografik joylashuvi bilan
-export const DISTRICTS = [
-  { name: 'Olmazor',       j: 2,  k: 2 },
-  { name: 'Yunusobod',     j: 8,  k: 2 },
-  { name: 'Shayxontohur',  j: 3,  k: 6 },
-  { name: 'Tashkent City', j: 5,  k: 7 },
-  { name: 'Markaz',        j: 8,  k: 7 },
-  { name: 'Mirzo Ulug\'bek', j: 12, k: 4 },
-  { name: 'Chilonzor',     j: 2,  k: 11 },
-  { name: 'Yakkasaroy',    j: 7,  k: 11 },
-  { name: 'Mirobod',       j: 11, k: 10 },
-];
+// Haqiqiy Toshkent 6 tumani (OpenStreetMap ODbL chegaralari asosida)
+export const DISTRICTS = TASHKENT_DISTRICTS_OSM.map((d) => ({
+  id: d.id,
+  name: d.name,
+  uz: d.uz,
+  color: d.color,
+  cx: d.cx,
+  cz: d.cz,
+  j: Math.max(0, Math.min(N - 1, Math.round((d.cx + HALF - ROAD - BLOCK / 2) / CELL))),
+  k: Math.max(0, Math.min(N - 1, Math.round((d.cz + HALF - ROAD - BLOCK / 2) / CELL))),
+}));
 
 export const CANAL_COL = 6; // Anhor kanali: Minor masjidi, Mustaqillik maydoni va Tashkent City orasidan oqib o'tadi
 

@@ -1,6 +1,8 @@
 // TUNGI TOSHKENT — OpenStreetMap & GTA Online uslubidagi Professional GPS Xarita Tizimi
 // HUD Minimap va Katta Interaktiv Xarita (Zoom, Pan, Kategoriya filtri, GPS marshrut va POI tanlash)
-import { N, BLOCK, ROAD, HALF, roadC, blockC, blockInfo, nearestRoad, POIS, LANDMARKS, DISTRICTS, STREETS_X, STREETS_Z, RACES } from './world/layout.js';
+import { N, BLOCK, ROAD, HALF, roadC, blockC, blockInfo, nearestRoad, POIS, LANDMARKS, DISTRICTS, TASHKENT_DISTRICTS_OSM, OSM_ATTRIBUTION, districtAt, STREETS_X, STREETS_Z, RACES } from './world/layout.js';
+
+export { TASHKENT_DISTRICTS_OSM, districtAt };
 
 const IS_MOB = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900));
 const BASE_SIZE = IS_MOB ? 1024 : 1536;
@@ -13,7 +15,25 @@ export const mapState = {
   panZ: 0,
   filter: 'all', // 'all' | 'gas' | 'garage' | 'service' | 'race' | 'job' | 'park' | 'landmark'
   selectedPoi: null,
+  selectedDistrict: null,
 };
+
+export function selectDistrictAt(wx, wz) {
+  const d = districtAt(wx, wz);
+  mapState.selectedDistrict = d ? d.id : null;
+  return d;
+}
+
+export function selectDistrictById(id) {
+  const d = TASHKENT_DISTRICTS_OSM.find((x) => x.id === id) || null;
+  mapState.selectedDistrict = d ? d.id : null;
+  if (d) {
+    mapState.panX = d.cx;
+    mapState.panZ = d.cz;
+    mapState.zoom = Math.max(1.35, mapState.zoom || 1.0);
+  }
+  return d;
+}
 
 export const MAP_CATEGORIES = [
   { id: 'all', label: 'Barchasi', icon: '🗺️' },
@@ -631,6 +651,21 @@ export function drawMinimap(canvas, player, extra = {}) {
   g.textBaseline = 'middle';
   g.fillText('N', nx, ny);
 
+  // Joriy tuman nomi (Minimap pastki qismida)
+  const curDist = districtAt(player.x, player.z);
+  if (curDist) {
+    g.fillStyle = 'rgba(8, 13, 26, 0.84)';
+    g.beginPath();
+    g.roundRect(S * 0.16, S - 24, S * 0.68, 17, 8);
+    g.fill();
+    g.strokeStyle = curDist.color || '#38bdf8';
+    g.lineWidth = 1;
+    g.stroke();
+    g.fillStyle = '#f8fafc';
+    g.font = '700 9.5px "Segoe UI", sans-serif';
+    g.fillText(curDist.uz, S / 2, S - 15.5);
+  }
+
   // Tashqi radar gardishi
   g.strokeStyle = 'rgba(0, 229, 255, 0.68)';
   g.lineWidth = 3;
@@ -688,15 +723,33 @@ export function drawBigMap(canvas, player, extra = {}) {
     return true;
   };
 
-  // 1. Tuman nomlari (Yirik, yarim shaffof fon yozuvlari)
-  g.font = `900 ${Math.round(13 * Math.sqrt(zoom))}px "Segoe UI", sans-serif`;
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  for (const d of DISTRICTS) {
-    const [dx, dy] = toMap(blockC(d.j), blockC(d.k), S, cx, cz, scale);
-    if (dx < 20 || dx > S - 20 || dy < 20 || dy > S - 20) continue;
-    g.fillStyle = 'rgba(148, 163, 184, 0.24)';
-    g.fillText(d.name.toUpperCase(), dx, dy);
+  // 1. 6 ta Toshkent tumanining haqiqiy OpenStreetMap chegaralari va nomlari
+  for (const d of TASHKENT_DISTRICTS_OSM) {
+    const isSel = mapState.selectedDistrict === d.id;
+    g.save();
+    g.beginPath();
+    d.polygon.forEach(([px, pz], idx) => {
+      const [mx, my] = toMap(px, pz, S, cx, cz, scale);
+      if (idx === 0) g.moveTo(mx, my);
+      else g.lineTo(mx, my);
+    });
+    g.closePath();
+    g.fillStyle = isSel ? `${d.color}36` : `${d.color}14`;
+    g.fill();
+    g.strokeStyle = d.color;
+    g.lineWidth = isSel ? 2.8 : 1.5;
+    if (!isSel) g.setLineDash([6, 4]);
+    g.stroke();
+    g.restore();
+
+    const [dx, dy] = toMap(d.cx, d.cz, S, cx, cz, scale);
+    if (dx >= 18 && dx <= S - 18 && dy >= 18 && dy <= S - 18) {
+      g.font = `900 ${Math.round((isSel ? 13.5 : 11.5) * Math.sqrt(zoom))}px "Segoe UI", sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = isSel ? '#ffffff' : 'rgba(226, 232, 240, 0.72)';
+      g.fillText(d.uz.toUpperCase(), dx, dy);
+    }
   }
 
   // 2. Asosiy ko'cha nomlari (Zoom darajasiga qarab toza ko'rinadi)
@@ -886,13 +939,13 @@ export function drawBigMap(canvas, player, extra = {}) {
   g.stroke();
   g.restore();
 
-  // 8. OpenStreetMap Attribution & Masshtab chizg'ichi
-  g.fillStyle = 'rgba(9, 14, 26, 0.78)';
-  g.fillRect(S - 275, S - 24, 268, 18);
-  g.fillStyle = 'rgba(148, 163, 184, 0.85)';
+  // 8. OpenStreetMap Attribution (ODbL)
+  g.fillStyle = 'rgba(9, 14, 26, 0.82)';
+  g.fillRect(S - 295, S - 24, 288, 18);
+  g.fillStyle = 'rgba(148, 163, 184, 0.9)';
   g.font = '600 10px "Segoe UI", sans-serif';
   g.textAlign = 'right';
-  g.fillText('© OpenStreetMap contributors · Toshkent GPS', S - 12, S - 11);
+  g.fillText(`${OSM_ATTRIBUTION} · 6 Tuman`, S - 12, S - 11);
 
   g.restore();
 }
@@ -908,10 +961,9 @@ export function bigMapToWorld(mx, mz, S) {
 export function streetAt(x, z) {
   const ix = nearestRoad(x), iz = nearestRoad(z);
   const dx = Math.abs(x - roadC(ix)), dz = Math.abs(z - roadC(iz));
-  if (dx < ROAD && dx <= dz) return STREETS_X[ix] || '';
-  if (dz < ROAD) return STREETS_Z[iz] || '';
-  const d = DISTRICTS.reduce((a, b) =>
-    Math.hypot(blockC(b.j) - x, blockC(b.k) - z) < Math.hypot(blockC(a.j) - x, blockC(a.k) - z) ? b : a
-  );
-  return d.name;
+  const dist = districtAt(x, z);
+  const dName = dist ? dist.name : 'Toshkent';
+  if (dx < ROAD && dx <= dz && STREETS_X[ix]) return `${STREETS_X[ix]} · ${dName}`;
+  if (dz < ROAD && STREETS_Z[iz]) return `${STREETS_Z[iz]} · ${dName}`;
+  return dist ? dist.uz : dName;
 }
