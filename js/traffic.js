@@ -3,8 +3,10 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CARS } from './config.js';
 import { buildCar } from './carModel.js';
-import { N, BLOCK, ROAD, roadC, blockC, blockInfo } from './world/layout.js';
+import { N, BLOCK, ROAD, roadC, blockC, blockInfo, POIS, nearestRoad } from './world/layout.js';
 import { signalFor } from './world/props.js';
+
+const GAS_STATIONS = POIS.filter((p) => p.type === 'gas');
 
 const LANE = 4.6;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -22,7 +24,7 @@ export class Traffic {
       const cfg = CARS.find((c) => c.id === TRAFFIC_POOL[n % TRAFFIC_POOL.length]) || CARS[0];
       const model = buildCar(cfg, { color: PALETTE[Math.floor(Math.random() * PALETTE.length)] }, { beam: false });
       scene.add(model.group);
-      const car = { model, cfg, len: cfg.len, mass: cfg.body === 'suv' ? 2350 : 1520, x: 0, z: 0, heading: 0, v: 0, cruise: 9 + Math.random() * 5, stun: 0, honk: 0 };
+      const car = { model, cfg, len: cfg.len, mass: cfg.body === 'suv' ? 2350 : 1520, x: 0, z: 0, heading: 0, v: 0, cruise: 9 + Math.random() * 5, stun: 0, honk: 0, fuel: 0.35 + Math.random() * 0.65, refuelStation: null, refuelTimer: 0 };
       car.onHit = (nx, nz, kmh) => {
         car.stun = 2.6;
         const pushSpd = Math.min(8, Math.max(1.5, (kmh || 20) * 0.12));
@@ -82,9 +84,45 @@ export class Traffic {
       }
 
       g.visible = true;
-      const tx = roadC(car.ni) - car.dz * LANE, tz = roadC(car.nk) + car.dx * LANE;
+      // AI yonilg'i sarfi va zapravkaga kirish tizimi
+      if (car.refuelTimer > 0) {
+        car.refuelTimer -= dt;
+        car.v = 0;
+        car.model.setLights(night > 0.4);
+        car.model.setBrake(true);
+        car.model.setBlinker?.('hazard', t);
+        if (car.refuelTimer <= 0) {
+          car.fuel = 1.0;
+          car.refuelStation = null;
+          car.ni = nearestRoad(car.x);
+          car.nk = nearestRoad(car.z);
+        }
+        continue;
+      }
+
+      if (!car.refuelStation && car.fuel < 0.14 && GAS_STATIONS.length > 0) {
+        const activeRefuelers = this.cars.reduce((acc, c) => acc + (c.refuelStation ? 1 : 0), 0);
+        if (activeRefuelers < 2) {
+          let bestSt = GAS_STATIONS[0], bestD = Infinity;
+          for (const st of GAS_STATIONS) {
+            const sd = Math.hypot(st.x - car.x, st.z - car.z);
+            if (sd < bestD) { bestD = sd; bestSt = st; }
+          }
+          if (bestD < 450) car.refuelStation = bestSt;
+        }
+      }
+
+      const tx = car.refuelStation ? car.refuelStation.x : (roadC(car.ni) - car.dz * LANE);
+      const tz = car.refuelStation ? (car.refuelStation.z - 2) : (roadC(car.nk) + car.dx * LANE);
       const toT = Math.hypot(tx - car.x, tz - car.z);
-      if (toT < 4) this.nextNode(car);
+      if (car.refuelStation) {
+        if (toT < 3.2) {
+          car.refuelTimer = 3.5;
+          continue;
+        }
+      } else if (toT < 4) {
+        this.nextNode(car);
+      }
 
       let want = car.cruise;
       const interior = car.ni > 0 && car.nk > 0 && car.ni < N && car.nk < N;
@@ -144,6 +182,7 @@ export class Traffic {
       car.heading += THREE.MathUtils.clamp(dh, -2.2 * dt, 2.2 * dt);
       const step = car.v * dt;
       car.x += Math.sin(car.heading) * step; car.z += Math.cos(car.heading) * step;
+      car.fuel = Math.max(0.05, car.fuel - Math.abs(step) * 0.00022);
 
       car.roll = (car.roll || 0) + ((-dh * car.v * 0.012) - (car.roll || 0)) * Math.min(1, dt * 5);
       car.pitch = (car.pitch || 0) + ((want < car.v - 0.5 ? 0.02 : 0) - (car.pitch || 0)) * Math.min(1, dt * 6);

@@ -495,9 +495,45 @@ function gasStation() {
   lit.value = Math.floor(cfg.tank - inst.fuelL) || 1;
   lit.oninput = sync;
   body.querySelectorAll('[data-fuel]').forEach((b) => (b.onclick = () => { type = b.dataset.fuel; sync(); lit.value = lit.max; sync(); }));
-  body.querySelector('#fillBtn').onclick = () => {
+  body.querySelector('#fillBtn').onclick = async () => {
+    const pNow = game.player();
+    if (pNow && pNow.kmh > 3) {
+      beep('err');
+      return toast("Benzin quyish uchun mashinani to'xtating!", 'err');
+    }
     const l = +lit.value, cost = Math.round(l * FUELS[type].price);
-    if (!spend(cost, `Benzin ${type}: ${l} l`)) { beep('err'); return toast("Mablag' yetarli emas", 'err'); }
+    const btn = body.querySelector('#fillBtn');
+    btn.disabled = true;
+    btn.textContent = '⛽ Quyilmoqda...';
+    let serverOk = false;
+    try {
+      const res = await fetch('/api/economy/refuel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: playerId(), name: state.name, fuelType: type, liters: l }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok) {
+          state.money = data.money;
+          serverOk = true;
+        } else {
+          beep('err');
+          btn.disabled = false;
+          btn.textContent = 'Benzin quyish';
+          return toast(data.error || "Mablag' yetarli emas", 'err');
+        }
+      }
+    } catch { /* Offline fallback */ }
+    if (!serverOk) {
+      if (!spend(cost, `Benzin ${type}: ${l} l`)) {
+        beep('err');
+        btn.disabled = false;
+        btn.textContent = 'Benzin quyish';
+        return toast("Mablag' yetarli emas", 'err');
+      }
+    }
+    await new Promise((r) => setTimeout(r, 900));
     if (type !== inst.fuelType) { inst.fuelL = 0; inst.fuelType = type; }
     inst.fuelL = Math.min(cfg.tank, inst.fuelL + l);
     touch();

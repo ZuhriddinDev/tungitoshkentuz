@@ -1723,6 +1723,30 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  if (urlPath === '/api/economy/refuel' && req.method === 'POST') {
+    const SERVER_FUEL_PRICES = { 'AI-92': 10500, 'AI-95': 12800, 'AI-100': 16500 };
+    const body = await parseBody(req);
+    const id = sanitizeId(body.id);
+    if (!id) return sendJson(res, 400, { ok: false, error: 'Player ID topilmadi' });
+
+    const fuelType = String(body.fuelType || 'AI-95');
+    const unitPrice = SERVER_FUEL_PRICES[fuelType];
+    if (!unitPrice) return sendJson(res, 400, { ok: false, error: 'Noto‘g‘ri yoqilg‘i turi' });
+
+    const liters = Math.max(1, Math.min(150, Math.round(Number(body.liters) || 0)));
+    const cost = liters * unitPrice;
+    const acc = getOrCreateAccount(id, body.name, body.secret);
+    if (acc.money < cost) {
+      return sendJson(res, 400, { ok: false, error: 'Mablag‘ yetarli emas', money: acc.money });
+    }
+
+    acc.money -= cost;
+    acc.updatedAt = Date.now();
+    scheduleSaveEconomy();
+    sendJson(res, 200, { ok: true, fuelType, liters, unitPrice, cost, money: acc.money });
+    return;
+  }
+
   sendJson(res, 404, { error: 'Not found' });
 }
 

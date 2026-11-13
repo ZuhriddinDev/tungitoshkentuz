@@ -44,7 +44,7 @@ export class Vehicle {
   get fwdZ() { return Math.cos(this.heading); }
 
   // input: { throttle 0..1, reverse 0..1, steer -1..1, boost bool, handbrake bool, drift bool }
-  step(dt, input, others = []) {
+  step(dt, input, others = [], weatherGrip = 1.0) {
     dt = Math.min(dt, 0.05);
     const c = this.cfg, inst = this.inst;
     inst.damage = 0; // Avariya va shikastlanish o'chirilgan
@@ -63,7 +63,7 @@ export class Vehicle {
     const vmaxRoad = (c.maxSpeed / 3.6) * (1.0 + topBoost) * (input.boost ? 1.10 : 1);
 
     this.offRoad = !onRoad(this.x, this.z);
-    const surfaceGrip = this.offRoad ? 0.96 : 1.0;
+    const surfaceGrip = (this.offRoad ? 0.96 : 1.0) * clamp(weatherGrip, 0.75, 1.0);
     const vmax = this.offRoad ? Math.min(vmaxRoad, 148 / 3.6) : vmaxRoad;
     const vrev = 38 / 3.6;
 

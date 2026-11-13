@@ -487,7 +487,7 @@ function step(dt, t) {
   let impact = 0;
   let steps = 0;
   while (physAcc >= FIXED_DT && steps < 4) {
-    dist += vehicle.step(FIXED_DT, input, othersList);
+    dist += vehicle.step(FIXED_DT, input, othersList, sky?.wetGrip ?? 1.0);
     impact = Math.max(impact, vehicle.impact);
     physAcc -= FIXED_DT;
     steps++;
@@ -515,7 +515,7 @@ function step(dt, t) {
   });
   updateCamera(camera, vehicle, input.boost, dt);
 
-  sky.update(hour, g.position, R.preset.shadows);
+  sky.update(hour, g.position, R.preset.shadows, dt);
   const night = sky.night;
   const lightsOn = lightsMode === 'on' || (lightsMode === 'auto' && night > 0.35);
   model.setLights(lightsOn);
@@ -723,7 +723,7 @@ function loop() {
     }
 
     const focusGroup = malibuHeroModel ? malibuHeroModel.group : model.group;
-    sky.update(hour, focusGroup.position, R.preset.shadows);
+    sky.update(hour, focusGroup.position, R.preset.shadows, dt);
     for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * sky.night;
     updateProps(t, sky.night);
     updateCitySectors(heroX, heroZ, 950);
