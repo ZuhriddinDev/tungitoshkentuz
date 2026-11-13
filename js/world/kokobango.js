@@ -2123,24 +2123,31 @@ export function buildKokobangoClub(scene) {
 
   // LED Ekran chizish yordamchisi
   let lastLedDraw = 0;
-  function drawLedScreens(t, beat, isInside) {
+  function drawLedScreens(t, beat, isInside, gameHour = 0) {
     if (t - lastLedDraw < 0.045) return; // ~22 FPS silliq yangilanish
     lastLedDraw = t;
 
     if (!isInside) {
+      const isOpen = gameHour >= 0 && gameHour < 3;
       const g = extLedCtx;
       g.fillStyle = '#070312';
       g.fillRect(0, 0, 512, 256);
       const bars = 24;
       for (let i = 0; i < bars; i++) {
-        const h = 30 + Math.abs(Math.sin(t * 4.5 + i * 0.45)) * 130;
-        g.fillStyle = i % 2 === 0 ? '#e879f9' : '#00e5ff';
-        g.fillRect(16 + i * 20, 240 - h, 14, h);
+        const h = 30 + Math.abs(Math.sin(t * 4.5 + i * 0.45)) * 110;
+        g.fillStyle = isOpen ? (i % 2 === 0 ? '#e879f9' : '#00e5ff') : (i % 2 === 0 ? '#be123c' : '#4c1d95');
+        g.fillRect(16 + i * 20, 244 - h, 14, h);
       }
       g.fillStyle = '#ffffff';
-      g.font = '900 42px "Segoe UI", Arial, sans-serif';
+      g.font = '900 40px "Segoe UI", Arial, sans-serif';
       g.textAlign = 'center';
-      g.fillText('KOKOBANGO CLUB', 256, 58);
+      g.fillText('KOKOBANGO CLUB', 256, 54);
+      g.fillStyle = '#fde047';
+      g.font = '800 22px "Segoe UI", Arial, sans-serif';
+      g.fillText('ISH VAQTI: 00:00 – 03:00', 256, 90);
+      g.fillStyle = isOpen ? '#4ade80' : '#fb7185';
+      g.font = '800 20px "Segoe UI", Arial, sans-serif';
+      g.fillText(isOpen ? '● OCHIQ · KIRISH MUMKIN' : '🔒 YOPIQ · 00:00 DA OCHILADI', 256, 122);
       extLedTex.needsUpdate = true;
     } else {
       const g = ledCtx;
@@ -2570,7 +2577,7 @@ export function buildKokobangoClub(scene) {
       this.beatDropBoost = 3.5;
     },
 
-    update(dt, t, isInside, playerDistSq = 0) {
+    update(dt, t, isInside, playerDistSq = 0, gameHour = 0) {
       const beat = music.getBeatPulse();
       if (!isInside) {
         parkedCarsGroup.visible = playerDistSq < 240 * 240;
@@ -2583,9 +2590,10 @@ export function buildKokobangoClub(scene) {
           extLight.intensity = 2.6 + Math.sin(t * 4) * 0.8;
         }
         if (playerDistSq < 180 * 180) {
-          drawLedScreens(t, 0.5, false);
+          drawLedScreens(t, 0.5, false, gameHour);
           for (const npc of exteriorNpcs) npc.update(dt, t, 0);
-          const doorOpen = playerDistSq < 55 * 55 ? 1.85 : 0;
+          const isClubOpen = gameHour >= 0 && gameHour < 3;
+          const doorOpen = isClubOpen && playerDistSq < 55 * 55 ? 1.85 : 0;
           doorLeft.position.x += ((cx - 1.15 - doorOpen) - doorLeft.position.x) * Math.min(1, dt * 6);
           doorRight.position.x += ((cx + 1.15 + doorOpen) - doorRight.position.x) * Math.min(1, dt * 6);
         }

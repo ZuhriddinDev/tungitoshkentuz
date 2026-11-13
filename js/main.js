@@ -285,6 +285,60 @@ let clubMobileNoticeShown = false;
 let clubEntryPaid = false;
 const CLUB_ENTRY_FEE = 9_000_000;
 
+function isClubOpenHour(h) {
+  const hr = ((Number(h) || 0) % 24 + 24) % 24;
+  return hr >= 0 && hr < 3;
+}
+
+function formatHourHHMM(h) {
+  const hr = ((Number(h) || 0) % 24 + 24) % 24;
+  const hh = Math.floor(hr);
+  const mm = Math.floor((hr - hh) * 60);
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+function showClubClosedNotice(currentHour) {
+  let modal = document.getElementById('clubClosedModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'clubClosedModal';
+    modal.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:9999', 'display:flex', 'align-items:center',
+      'justify-content:center', 'padding:18px', 'background:rgba(8,2,14,0.8)',
+      'backdrop-filter:blur(10px)', '-webkit-backdrop-filter:blur(10px)',
+      'font-family:Inter,system-ui,sans-serif',
+    ].join(';');
+    modal.innerHTML = `
+      <div style="max-width:410px;width:100%;background:linear-gradient(160deg,rgba(32,8,24,0.97),rgba(10,6,20,0.99));border:1px solid rgba(251,113,133,0.45);border-radius:18px;padding:24px 22px;box-shadow:0 24px 56px rgba(0,0,0,0.75),0 0 32px rgba(244,63,94,0.2);text-align:center;color:#fdf2f8;">
+        <div style="width:54px;height:54px;margin:0 auto 12px;border-radius:14px;background:linear-gradient(135deg,rgba(244,63,94,0.25),rgba(168,85,247,0.2));border:1px solid rgba(251,113,133,0.45);display:flex;align-items:center;justify-content:center;font-size:24px;">🌙</div>
+        <h3 style="margin:0 0 8px;font-size:18px;font-weight:800;letter-spacing:1px;color:#fb7185;">KOKOBANGO CLUB · YOPIQ</h3>
+        <div id="clubClosedBody" style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:#e2e8f0;"></div>
+        <button id="clubClosedOk" type="button" style="width:100%;padding:11px 16px;border:none;border-radius:12px;background:linear-gradient(90deg,#e11d48,#a855f7);color:#fff;font-weight:800;font-size:14px;cursor:pointer;">Tushunarli</button>
+      </div>
+    `;
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal || e.target.id === 'clubClosedOk') modal.style.display = 'none';
+    });
+    document.body.appendChild(modal);
+  }
+  const hr = ((Number(currentHour) || 0) % 24 + 24) % 24;
+  const hoursUntilOpen = hr >= 3 ? 24 - hr : 0;
+  const remH = Math.floor(hoursUntilOpen);
+  const remM = Math.round((hoursUntilOpen - remH) * 60);
+  const bodyEl = document.getElementById('clubClosedBody');
+  if (bodyEl) {
+    bodyEl.innerHTML = `
+      Klubga kunduzi yoki boshqa vaqtda kirish mumkin emas.<br><br>
+      <div style="background:rgba(0,0,0,0.3);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
+        🕒 <b>Ish vaqti:</b> <span style="color:#fde047;font-weight:800;">00:00 – 03:00</span> (Faqat tungi vaqt)<br>
+        🕰️ <b>Hozirgi shahar vaqti:</b> <b>${formatHourHHMM(hr)}</b><br>
+        ⏳ <b>Ochilishigacha:</b> ~${remH} soat ${remM} daqiqa qoldi
+      </div>
+    `;
+  }
+  modal.style.display = 'flex';
+}
+
 function showClubAgeGateModal(onConfirm) {
   let modal = document.getElementById('clubAgeGateModal');
   if (!modal) {
@@ -463,6 +517,11 @@ async function enterKokobangoClub() {
       return;
     }
   } catch { /* Offline/static server fallback relies on !isTouch() */ }
+  if (!isClubOpenHour(hour)) {
+    clubTransitioning = false;
+    showClubClosedNotice(hour);
+    return;
+  }
   if (!clubEntryPaid) {
     clubTransitioning = false;
     showClubAgeGateModal(() => {
@@ -628,7 +687,7 @@ function step(dt, t) {
   if (kokobango) {
     const dx = player.x - kokobango.cx;
     const dz = player.z - kokobango.cz;
-    kokobango.update(dt, t, insideClub, dx * dx + dz * dz);
+    kokobango.update(dt, t, insideClub, dx * dx + dz * dz, hour);
   }
 
   if (insideClub && playerChar && kokobango) {
@@ -677,7 +736,11 @@ function step(dt, t) {
         showClubPcOnlyNotice();
       }
     } else {
-      setClubPrompt('<span class="key">X</span> ENTER KOKOBANGO CLUB');
+      if (isClubOpenHour(hour)) {
+        setClubPrompt('<span class="key">X</span> ENTER KOKOBANGO CLUB · <span style="color:#4ade80;">OCHIQ (00:00–03:00)</span>');
+      } else {
+        setClubPrompt(`<span class="key">🔒</span> KOKOBANGO CLUB YOPIQ · Ish vaqti: <b>00:00 – 03:00</b> (Hozir: ${formatHourHHMM(hour)})`);
+      }
     }
   } else {
     clubMobileNoticeShown = false;
