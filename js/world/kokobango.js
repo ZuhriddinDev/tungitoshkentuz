@@ -2128,26 +2128,19 @@ export function buildKokobangoClub(scene) {
     lastLedDraw = t;
 
     if (!isInside) {
-      const isOpen = gameHour >= 0 && gameHour < 3;
       const g = extLedCtx;
       g.fillStyle = '#070312';
       g.fillRect(0, 0, 512, 256);
       const bars = 24;
       for (let i = 0; i < bars; i++) {
-        const h = 30 + Math.abs(Math.sin(t * 4.5 + i * 0.45)) * 110;
-        g.fillStyle = isOpen ? (i % 2 === 0 ? '#e879f9' : '#00e5ff') : (i % 2 === 0 ? '#be123c' : '#4c1d95');
-        g.fillRect(16 + i * 20, 244 - h, 14, h);
+        const h = 30 + Math.abs(Math.sin(t * 4.5 + i * 0.45)) * 130;
+        g.fillStyle = i % 2 === 0 ? '#e879f9' : '#00e5ff';
+        g.fillRect(16 + i * 20, 240 - h, 14, h);
       }
       g.fillStyle = '#ffffff';
-      g.font = '900 40px "Segoe UI", Arial, sans-serif';
+      g.font = '900 42px "Segoe UI", Arial, sans-serif';
       g.textAlign = 'center';
-      g.fillText('KOKOBANGO CLUB', 256, 54);
-      g.fillStyle = '#fde047';
-      g.font = '800 22px "Segoe UI", Arial, sans-serif';
-      g.fillText('ISH VAQTI: 00:00 – 03:00', 256, 90);
-      g.fillStyle = isOpen ? '#4ade80' : '#fb7185';
-      g.font = '800 20px "Segoe UI", Arial, sans-serif';
-      g.fillText(isOpen ? '● OCHIQ · KIRISH MUMKIN' : '🔒 YOPIQ · 00:00 DA OCHILADI', 256, 122);
+      g.fillText('KOKOBANGO CLUB', 256, 58);
       extLedTex.needsUpdate = true;
     } else {
       const g = ledCtx;
