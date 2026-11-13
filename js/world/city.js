@@ -143,8 +143,8 @@ export function buildCity(scene, quality) {
     return mat;
   });
 
-  // Shaharni 4x4 sektorlarga bo'lib yuklaymiz (Frustum Culling va LOD uchun)
-  const SEC_DIV = 4;
+  // Shaharni 2x2 kvartalli (10x10 bo'linish) yengil sektorlarga bo'lib yuklaymiz
+  const SEC_DIV = 10;
   const secSize = Math.ceil(N / SEC_DIV);
   const sectorBins = new Map(); // "sx,sz" -> { bGeos: STYLES.map(()=>[]), shopGeos: [], cx, cz }
 
@@ -152,8 +152,10 @@ export function buildCity(scene, quality) {
     const sx = Math.floor(j / secSize), sz = Math.floor(k / secSize);
     const key = `${sx},${sz}`;
     if (!sectorBins.has(key)) {
-      const cx = blockC(Math.min(N - 1, sx * secSize + Math.floor(secSize / 2)));
-      const cz = blockC(Math.min(N - 1, sz * secSize + Math.floor(secSize / 2)));
+      const j0 = sx * secSize, k0 = sz * secSize;
+      const j1 = Math.min(N - 1, j0 + secSize - 1), k1 = Math.min(N - 1, k0 + secSize - 1);
+      const cx = (blockC(j0) + blockC(j1)) / 2;
+      const cz = (blockC(k0) + blockC(k1)) / 2;
       sectorBins.set(key, { bGeos: STYLES.map(() => []), shopGeos: [], cx, cz });
     }
     return sectorBins.get(key);
@@ -251,22 +253,29 @@ export function buildCity(scene, quality) {
   if (grassGeos.length) group.add(new THREE.Mesh(mergeGeometries(grassGeos), grassMat));
 
   // Har bir sektorni alohida guruh sifatida sahnaga qo'shamiz (Frustum Culling + masofa optimizatsiyasi)
+  const secHalfDiagonal = Math.hypot(secSize * CELL, secSize * CELL) / 2;
   for (const sec of sectorBins.values()) {
     const secGroup = new THREE.Group();
+    let hasGeometry = false;
     sec.bGeos.forEach((geos, idx) => {
       if (!geos.length) return;
+      hasGeometry = true;
       const merged = mergeGeometries(geos);
       merged.computeBoundingSphere();
       const mesh = new THREE.Mesh(merged, styleMats[idx]);
-      mesh.castShadow = mesh.receiveShadow = true;
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
       secGroup.add(mesh);
     });
     if (sec.shopGeos.length) {
+      hasGeometry = true;
       const sm = new THREE.Mesh(mergeGeometries(sec.shopGeos), shopWindowMat);
       secGroup.add(sm);
     }
-    group.add(secGroup);
-    citySectors.push({ group: secGroup, cx: sec.cx, cz: sec.cz });
+    if (hasGeometry) {
+      group.add(secGroup);
+      citySectors.push({ group: secGroup, cx: sec.cx, cz: sec.cz, radius: secHalfDiagonal });
+    }
   }
 
   buildCanal(group);
@@ -280,11 +289,12 @@ export function buildCity(scene, quality) {
   return group;
 }
 
-// Uzoqdagi sektorlarni avtomatik yashirish (FPS tushib ketmasligi uchun)
+// Uzoqdagi sektorlarni avtomatik yashirish (radiusi hisobga olingan holda hech qachon binolar ko'rinmay qolmaydi)
 export function updateCitySectors(px, pz, maxDist = 950) {
-  for (const s of citySectors) {
+  for (let i = 0; i < citySectors.length; i++) {
+    const s = citySectors[i];
     const d = Math.hypot(s.cx - px, s.cz - pz);
-    s.group.visible = d < maxDist;
+    s.group.visible = (d - s.radius) < maxDist;
   }
 }
 

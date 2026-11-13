@@ -435,6 +435,10 @@ function instantiateGlb(cached, spec, cfg) {
   const isTail = new Set(spec.tailMats || []);
 
   root.traverse((o) => {
+    if (o.isMesh && /engine|seatbelt|seat_belt|undercarriage|underbody/i.test(`${o.name} ${o.material?.name || ''}`)) {
+      o.visible = false;
+      return;
+    }
     if (!o.isMesh || !o.material) return;
     const mName = o.material.name || '';
     const isGlassCandidate = !isHead.has(mName) && !isTail.has(mName) && !isPaint.has(mName) && !isRim.has(mName) &&

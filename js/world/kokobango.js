@@ -797,6 +797,8 @@ export function buildKokobangoClub(scene) {
     { id: 'mercedes',   x: cx + 18, z: cz - 55, h: -0.12, color: '#0f172a' },
     { id: 'maybach',    x: cx + 28, z: cz - 55, h: -0.22, color: '#1e1b4b' },
   ];
+  const parkedCarsGroup = new THREE.Group();
+  exteriorGroup.add(parkedCarsGroup);
   const parkedSupercars = [];
   for (const ps of parkedSpecs) {
     const cfg = CARS.find((c) => c.id === ps.id) || CARS[0];
@@ -804,7 +806,7 @@ export function buildKokobangoClub(scene) {
     car.group.position.set(ps.x, 0.28, ps.z);
     car.group.rotation.set(0, ps.h, 0);
     car.setLights(true);
-    exteriorGroup.add(car.group);
+    parkedCarsGroup.add(car.group);
     addCollider(ps.x - 1.4, ps.z - 2.6, ps.x + 1.4, ps.z + 2.6, 'building');
     parkedSupercars.push({ x: ps.x, z: ps.z, name: cfg.name, tier: cfg.tier, maxSpeed: cfg.maxSpeed });
   }
@@ -2149,6 +2151,7 @@ export function buildKokobangoClub(scene) {
     update(dt, t, isInside, playerDistSq = 0) {
       const beat = music.getBeatPulse();
       if (!isInside) {
+        parkedCarsGroup.visible = playerDistSq < 240 * 240;
         // Osmon projektori va tashqi LED ekran faqat yaqin bo'lsa yangilanadi
         if (playerDistSq < 600 * 600) {
           skyBeams[0].rotation.z = Math.sin(t * 0.65) * 0.38;

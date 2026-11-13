@@ -602,7 +602,7 @@ function step(dt, t) {
     waterMat.emissiveIntensity = 0.3 + night;
   }
   updateProps(t, night);
-  const cullDist = R.activeQuality === 'low' ? 550 : R.activeQuality === 'medium' ? 720 : R.activeQuality === 'ultra' ? 1100 : 950;
+  const cullDist = R.activeQuality === 'low' ? 700 : R.activeQuality === 'medium' ? 850 : R.activeQuality === 'ultra' ? 1250 : 1000;
   updateCitySectors(player.x, player.z, cullDist);
   updateLandmarks(player.x, player.z);
   traffic.setNight(night);
@@ -807,7 +807,7 @@ function loop() {
       waterMat.emissiveIntensity = 0.3 + sky.night;
     }
     updateProps(t, sky.night);
-    updateCitySectors(heroX, heroZ, 950);
+    updateCitySectors(heroX, heroZ, 1000);
     updateLandmarks(heroX, heroZ);
     traffic.setNight(sky.night);
     traffic.update(dt, t, { x: heroX, z: heroZ }, peds);

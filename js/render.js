@@ -7,10 +7,10 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 export const PRESETS = {
-  low:    { pr: 1.0,  shadows: false, map: 512,  bloom: false, traffic: 4,  peds: 12 },
-  medium: { pr: 1.25, shadows: true,  map: 1024, bloom: false, traffic: 7,  peds: 20 },
-  high:   { pr: 1.45, shadows: true,  map: 2048, bloom: true,  traffic: 10, peds: 36 },
-  ultra:  { pr: 1.75, shadows: true,  map: 2048, bloom: true,  traffic: 14, peds: 50 },
+  low:    { pr: 1.05, shadows: false, map: 512,  bloom: false, traffic: 4,  peds: 10 },
+  medium: { pr: 1.25, shadows: true,  map: 1024, bloom: false, traffic: 6,  peds: 16 },
+  high:   { pr: 1.45, shadows: true,  map: 1024, bloom: true,  traffic: 9,  peds: 24 },
+  ultra:  { pr: 1.75, shadows: true,  map: 2048, bloom: true,  traffic: 12, peds: 30 },
 };
 
 export const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
@@ -41,7 +41,7 @@ function detectGpuCapability(renderer) {
 export function createRenderer(canvas, quality) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: !IS_MOBILE || (devicePixelRatio || 1) < 2,
+    antialias: true,
     powerPreference: 'high-performance',
     stencil: false,
   });
@@ -67,7 +67,7 @@ export function createRenderer(canvas, quality) {
   const envMap = pmrem.fromScene(new RoomEnvironment(), 0.035).texture;
 
   let composer, bloom, preset, scene, camera, activeQuality = quality;
-  let autoAdapted = false, lastAdaptAt = 0, highFpsStreak = 0;
+  let autoAdapted = false, lastAdaptAt = 0, startTime = performance.now();
   const R = {
     renderer,
     envMap,
@@ -76,34 +76,21 @@ export function createRenderer(canvas, quality) {
     reportFps(fpsVal) {
       if (!Number.isFinite(fpsVal) || fpsVal <= 0) return;
       const now = performance.now();
-      if (fpsVal < 34) {
-        highFpsStreak = 0;
-        if (now - lastAdaptAt < 6000) return;
+      // O'yin boshlangandan keyingi dastlabki 12 soniya davomida sifatni o'zgartirmaymiz (loading jank)
+      if (now - startTime < 12000) return;
+      if (fpsVal < 26) {
+        if (now - lastAdaptAt < 8000) return;
         if (preset?.bloom) {
           preset = { ...preset, bloom: false };
           autoAdapted = true;
           lastAdaptAt = now;
-        } else if (preset && preset.pr > 1.0) {
-          preset = { ...preset, pr: 1.0 };
-          autoAdapted = true;
-          lastAdaptAt = now;
-          R.resize();
-        } else if (preset?.shadows) {
-          preset = { ...preset, shadows: false };
-          renderer.shadowMap.enabled = false;
-          autoAdapted = true;
-          lastAdaptAt = now;
         }
       } else if (autoAdapted && fpsVal > 54) {
-        highFpsStreak++;
-        if (highFpsStreak >= 4 && now - lastAdaptAt >= 6000) {
-          highFpsStreak = 0;
+        if (now - lastAdaptAt >= 10000) {
           autoAdapted = false;
           lastAdaptAt = now;
-          R.apply(activeQuality);
+          preset = { ...preset, bloom: PRESETS[activeQuality]?.bloom ?? false };
         }
-      } else {
-        highFpsStreak = 0;
       }
     },
     getMetrics() {
@@ -141,28 +128,28 @@ export function createRenderer(canvas, quality) {
       // Mobil qurilmalarda xavfsiz va silliq 60 FPS rejimlar (DPR cheklangan, qotishlar oldi olingan):
       if (IS_MOBILE) {
         if (activeQuality === 'low') {
-          preset = { ...preset, pr: 1.0, shadows: false, map: 512, bloom: false, traffic: 4, peds: 10 };
+          preset = { ...preset, pr: 1.05, shadows: false, map: 512, bloom: false, traffic: 4, peds: 10 };
         } else if (activeQuality === 'medium') {
-          preset = { ...preset, pr: 1.15, shadows: false, map: 1024, bloom: false, traffic: 6, peds: 16 };
+          preset = { ...preset, pr: 1.25, shadows: false, map: 512, bloom: false, traffic: 6, peds: 14 };
         } else if (activeQuality === 'high') {
           preset = {
             ...preset,
-            pr: gpuCap.isHighEndMobile ? 1.3 : 1.2,
+            pr: gpuCap.isHighEndMobile ? 1.4 : 1.3,
             shadows: true,
             map: 1024,
             bloom: false,
             traffic: 8,
-            peds: 24,
+            peds: 20,
           };
         } else if (activeQuality === 'ultra') {
           preset = {
             ...preset,
-            pr: gpuCap.isHighEndMobile ? 1.4 : 1.25,
+            pr: gpuCap.isHighEndMobile ? 1.5 : 1.35,
             shadows: true,
             map: 1024,
             bloom: gpuCap.isHighEndMobile,
             traffic: 10,
-            peds: 30,
+            peds: 24,
           };
         }
       }
@@ -170,7 +157,6 @@ export function createRenderer(canvas, quality) {
       renderer.setPixelRatio(pr);
       renderer.shadowMap.enabled = preset.shadows;
       composer?.setPixelRatio(pr);
-      scene?.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
       R.resize();
     },
     resize() {
