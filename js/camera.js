@@ -53,27 +53,10 @@ export function updateCamera(camera, v, boost, dt) {
   const followSpeed = 7.5 + Math.min(4.5, Math.abs(v.steer || 0) * 6);
   followH += dh * Math.min(1, dt * followSpeed);
 
-  const targetFov = camState.mode === 2 ? 72 : 60 + Math.min(16, v.kmh * 0.07) + (boost && v.kmh > 20 ? 6 : 0);
+  const targetFov = 60 + Math.min(16, v.kmh * 0.07) + (boost && v.kmh > 20 ? 6 : 0);
   fov += (targetFov - fov) * Math.min(1, dt * 4);
   camera.fov = fov; camera.updateProjectionMatrix();
 
-  if (camState.mode === 2) {
-    if (performance.now() - cam.lastMove > 2200) cam.yaw *= Math.pow(0.04, dt);
-    const eyeY = Math.max(0.95, (cfg.hei || 1.42) * 0.76);
-    const leftX = v.fwdZ;
-    const leftZ = -v.fwdX;
-    const baseY = (v.y || 0) + eyeY;
-    const camX = v.x + leftX * 0.33 - v.fwdX * 0.04;
-    const camZ = v.z + leftZ * 0.33 - v.fwdZ * 0.04;
-    const lookYaw = v.heading + (cam.yaw || 0) * 0.55;
-    camera.position.set(camX, baseY, camZ);
-    camera.lookAt(
-      camX + Math.sin(lookYaw) * 28,
-      baseY - 0.85 - (v.pitch || 0) * 4,
-      camZ + Math.cos(lookYaw) * 28
-    );
-    return;
-  }
   // Sichqoncha qo'yib yuborilgach, kamera asta-sekin orqaga qaytadi
   if (performance.now() - cam.lastMove > 2200) cam.yaw *= Math.pow(0.04, dt);
 

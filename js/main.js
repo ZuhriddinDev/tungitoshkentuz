@@ -186,8 +186,54 @@ const nearestBlock = (v) => Math.max(0, Math.min(N - 1, Math.round((v - blockC(0
 const nearPoi = () => POIS.find((p) => Math.hypot(p.x - player.x, p.z - player.z) < p.r && player.kmh < 20);
 function keyGuard(fn) { return () => { if (playing) fn(); }; }
 
-// E — Zapravka, Garaj yoki Xizmat paneli
+// E — Zapravka, Garaj, Xizmat paneli hamda KOKOBANGO CLUB interaksiyasi
 onKey('KeyE', keyGuard(() => {
+  if (!isTouch() && insideClub && kokobango && playerChar) {
+    if (clubSeated) {
+      clubSeated = false;
+      const exitX = playerChar.x - 0.9;
+      playerChar.spawnAt(exitX, playerChar.z, playerChar.heading, kokobango.getFloorY(exitX, playerChar.z, playerChar.y));
+      toast('🚶 Divandan turdingiz', 'ok');
+      return;
+    }
+    const act = kokobango.getInteractable?.(playerChar.x, playerChar.z, playerChar.y);
+    if (!act) return;
+    if (act.id === 'bar' || act.id === 'rooftop_bar') {
+      beep(660, 0.09);
+      toast('🍹 KOKOBANGO BAR: Maxsus alkogolsiz kokteyl tayyorlandi!', 'ok');
+    } else if (act.id === 'dj') {
+      kokobango.triggerBeatDrop();
+      beep(880, 0.12);
+      toast('🎧 DJ BEAT DROP! Lazer shou boshlandi!', 'ok');
+    } else if (act.id === 'npc') {
+      beep(580, 0.07);
+      toast(act.reply || '💬 Mehmon: "KOKOBANGO CLUB muhiti zo‘r ekan!"', 'ok');
+    } else if (act.teleport) {
+      const fadeEl = $('clubFade');
+      if (fadeEl) fadeEl.classList.add('active');
+      setTimeout(() => {
+        playerChar.spawnAt(act.teleport.x, act.teleport.z, act.teleport.h, act.teleport.y);
+        resetCharCamera(act.teleport.h);
+        toast(act.teleport.msg || '🛗 Qavat almashtirildi', 'ok');
+        setTimeout(() => { if (fadeEl) fadeEl.classList.remove('active'); }, 120);
+      }, 180);
+    } else if (act.seat) {
+      clubSeated = true;
+      playerChar.spawnAt(act.seat.x, act.seat.z, act.seat.h, act.seat.y);
+      toast("🛋️ Divanga o'tirdingiz ([E] yoki [WASD] — turish)", 'ok');
+    }
+    return;
+  }
+
+  if (!isTouch() && !insideClub && kokobango && vehicle) {
+    const carInfo = kokobango.getNearbySupercar?.(vehicle.x, vehicle.z);
+    if (carInfo) {
+      beep(520, 0.08);
+      toast(`🏎️ ${carInfo.name} · ${carInfo.tier} · Max ${carInfo.maxSpeed} km/h`, 'ok');
+      return;
+    }
+  }
+
   const poi = nearPoi();
   if (poi?.type === 'gas') toggle('gas');
   else if (poi?.type === 'garage') toggle('garage');
@@ -341,7 +387,7 @@ function exitKokobangoClub() {
 }
 
 onKey('KeyH', keyGuard(() => { if (!insideClub) horn(); }));
-onKey('KeyC', keyGuard(() => { if (!insideClub) camState.mode = (camState.mode + 1) % 3; }));
+onKey('KeyC', keyGuard(() => { if (!insideClub) camState.mode = (camState.mode + 1) % 2; }));
 onKey('KeyV', keyGuard(() => {
   if (!isTouch() && insideClub) {
     const zm = cycleCharZoom();
@@ -370,51 +416,6 @@ $('clubVolSlider')?.addEventListener('input', (e) => {
   kokobango.music.setVolume(v);
   syncClubAudioUi();
 });
-onKey('KeyE', keyGuard(() => {
-  if (!isTouch() && !insideClub && kokobango && vehicle) {
-    const carInfo = kokobango.getNearbySupercar?.(vehicle.x, vehicle.z);
-    if (carInfo) {
-      beep(520, 0.08);
-      toast(`🏎️ ${carInfo.name} · ${carInfo.tier} · Max ${carInfo.maxSpeed} km/h`, 'ok');
-      return;
-    }
-  }
-  if (!isTouch() && insideClub && kokobango && playerChar) {
-    if (clubSeated) {
-      clubSeated = false;
-      const exitX = playerChar.x - 0.9;
-      playerChar.spawnAt(exitX, playerChar.z, playerChar.heading, kokobango.getFloorY(exitX, playerChar.z, playerChar.y));
-      toast('🚶 Divandan turdingiz', 'ok');
-      return;
-    }
-    const act = kokobango.getInteractable?.(playerChar.x, playerChar.z, playerChar.y);
-    if (!act) return;
-    if (act.id === 'bar' || act.id === 'rooftop_bar') {
-      beep(660, 0.09);
-      toast('🍹 KOKOBANGO BAR: Maxsus alkogolsiz kokteyl tayyorlandi!', 'ok');
-    } else if (act.id === 'dj') {
-      kokobango.triggerBeatDrop();
-      beep(880, 0.12);
-      toast('🎧 DJ BEAT DROP! Lazer shou boshlandi!', 'ok');
-    } else if (act.id === 'npc') {
-      beep(580, 0.07);
-      toast(act.reply || '💬 Mehmon: "KOKOBANGO CLUB muhiti zo‘r ekan!"', 'ok');
-    } else if (act.teleport) {
-      const fadeEl = $('clubFade');
-      if (fadeEl) fadeEl.classList.add('active');
-      setTimeout(() => {
-        playerChar.spawnAt(act.teleport.x, act.teleport.z, act.teleport.h, act.teleport.y);
-        resetCharCamera(act.teleport.h);
-        toast(act.teleport.msg || '🛗 Qavat almashtirildi', 'ok');
-        setTimeout(() => { if (fadeEl) fadeEl.classList.remove('active'); }, 120);
-      }, 180);
-    } else if (act.seat) {
-      clubSeated = true;
-      playerChar.spawnAt(act.seat.x, act.seat.z, act.seat.h, act.seat.y);
-      toast("🛋️ Divanga o'tirdingiz ([E] yoki [WASD] — turish)", 'ok');
-    }
-  }
-}));
 onKey('KeyX', keyGuard(() => {
   if (!isTouch() && kokobango && !clubTransitioning) {
     if (insideClub && kokobango.nearExit(playerChar.x, playerChar.z)) {
@@ -559,7 +560,7 @@ function step(dt, t) {
   let impact = 0;
   let steps = 0;
   while (physAcc >= FIXED_DT && steps < 4) {
-    dist += vehicle.step(FIXED_DT, input, othersList, sky?.wetGrip ?? 1.0);
+    dist += vehicle.step(FIXED_DT, input, othersList, 1.0);
     impact = Math.max(impact, vehicle.impact);
     physAcc -= FIXED_DT;
     steps++;
@@ -582,7 +583,7 @@ function step(dt, t) {
     sound: vehicle.cfg.sound,
     braking: vehicle.braking,
     gear: vehicle.gear,
-    isInterior: camState.mode === 2,
+    isInterior: false,
     dt,
   });
   updateCamera(camera, vehicle, input.boost, dt);
@@ -591,14 +592,6 @@ function step(dt, t) {
   const night = sky.night;
   const lightsOn = lightsMode === 'on' || (lightsMode === 'auto' && night > 0.35);
   model.setLights(lightsOn);
-  const gearLabel = vehicle.v < -0.5 ? 'R' : Math.abs(vehicle.v) < 0.2 ? 'N' : 'D';
-  model.setCockpitMode?.(camState.mode === 2, {
-    kmh: player.kmh,
-    rpm: vehicle.rpm || 0.15,
-    fuel: vehicle.fuel ?? 1,
-    gear: gearLabel,
-    lights: lightsOn,
-  });
   headlight.intensity = lightsOn ? 90 : 0;
   if (vehicle.inst.headlightColor) {
     headlight.color.set(vehicle.inst.headlightColor);

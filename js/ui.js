@@ -551,7 +551,6 @@ function service() {
   const body = showModal('service', '🛠 Xizmat va Bonuslar Markazi', `
     <div class="grid">
       <div class="card"><h3>🎁 7 Kunlik Bonus</h3><p>Har kuni pul va 7-kuni SF90 Spider sovg'a!</p><p class="price">${canClaimDaily() ? 'Tayyor!' : 'Olingan'}</p><button class="btn gold" id="svOpenDaily">Bonus oynasi</button></div>
-      <div class="card"><h3>🎟️ Promokod</h3><p>Maxsus kod orqali bonus olish</p><p class="price">VIP Sovg'alar</p><button class="btn primary" id="svOpenPromo">Kiritish</button></div>
       <div class="card"><h3>💸 Pul O'tkazish</h3><p>Do'stlarga ID yoki ism orqali pul jo'natish</p><p class="price">P2P Transfer</p><button class="btn primary" id="svOpenTransfer">O'tkazish</button></div>
       <div class="card"><h3>🚚 Evakuator</h3><p>Mashinani avtosalon oldiga olib borish</p><p class="price">${fmt(1_500_000)}</p><button class="btn" id="svTow">Chaqirish</button></div>
       <div class="card"><h3>⛽ Benzin yetkazish</h3><p>10 litr ${inst.fuelType}, joyiga yetkazib beriladi</p><p class="price">${fmt(10 * FUELS[inst.fuelType].price * 1.5)}</p><button class="btn" id="svFuel">Buyurtma</button></div>
@@ -562,7 +561,6 @@ function service() {
     <div class="list">${state.tx.slice(0, 12).map((t) => `<div><span>${new Date(t.t).toLocaleTimeString('uz')} · ${t.reason}</span><b class="${t.amount >= 0 ? 'plus' : 'minus'}">${t.amount >= 0 ? '+' : ''}${fmt(t.amount)}</b></div>`).join('') || "<div>Hali tranzaksiyalar yo'q</div>"}</div>`);
 
   body.querySelector('#svOpenDaily').onclick = () => open('daily');
-  body.querySelector('#svOpenPromo').onclick = () => open('promocode');
   body.querySelector('#svOpenTransfer').onclick = () => open('transfer');
   body.querySelector('#svTow').onclick = () => {
     if (!spend(1_500_000, 'Evakuator xizmati')) return toast("Mablag' yetarli emas", 'err');
@@ -925,7 +923,6 @@ function pause() {
       <button class="btn primary big" data-a="resume">▶ O'yinni davom ettirish</button>
       <button class="btn gold big" data-a="garage">🚗 Garaj va Tuning</button>
       <button class="btn big ${dailyReady ? 'gold' : ''}" data-a="daily">🎁 7 Kunlik Bonus ${dailyReady ? '🔥' : ''}</button>
-      <button class="btn big" data-a="promocode">🎟️ Promokod</button>
       <button class="btn big" data-a="transfer">💸 Pul O'tkazish</button>
       <button class="btn big" data-a="online">👥 Do'stlar (${inf.count}/${inf.max || MAX_PLAYERS})</button>
       <button class="btn big" data-a="settings">⚙️ Sozlamalar</button>
@@ -951,7 +948,6 @@ function pause() {
     online,
     garage: () => open('garage'),
     daily: () => open('daily'),
-    promocode: () => open('promocode'),
     transfer: () => open('transfer'),
     map: () => open('map'),
     settings,
@@ -1495,7 +1491,6 @@ const PANELS = {
   gas: gasStation,
   service,
   daily: dailyRewardsModal,
-  promocode: promocodeModal,
   transfer: transferModal,
   garage: () => openGarage({ showModal, toast, closeModal, game }),
   map: bigMap,

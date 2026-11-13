@@ -57,80 +57,31 @@ export function createSky(scene) {
   const sun = new THREE.DirectionalLight(0xffffff, 1.5); scene.add(sun, sun.target);
   scene.fog = new THREE.Fog(0x000000, 750, 2600);
 
-  // Ob-havo tizimi (Clear / Cloudy / Rain / Fog) — barcha multiplayer o'yinchilar uchun sinxron
-  const isMob = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const rainCount = isMob ? 420 : 1100;
-  const rainPos = new Float32Array(rainCount * 3);
-  for (let i = 0; i < rainCount; i++) {
-    rainPos[i * 3] = (Math.random() - 0.5) * 90;
-    rainPos[i * 3 + 1] = Math.random() * 42;
-    rainPos[i * 3 + 2] = (Math.random() - 0.5) * 90;
-  }
-  const rainGeo = new THREE.BufferGeometry();
-  rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
-  const rainMat = new THREE.PointsMaterial({
-    color: 0x93c5fd,
-    size: 0.24,
-    transparent: true,
-    opacity: 0.55,
-    depthWrite: false,
-    fog: false,
-  });
-  const rainPoints = new THREE.Points(rainGeo, rainMat);
-  rainPoints.visible = false;
-  rainPoints.frustumCulled = false;
-  scene.add(rainPoints);
-
-  const getGlobalWeather = () => {
-    const slot = Math.floor(Date.now() / 120000) % 6; // har 2 daqiqada almashinuvchi global ob-havo
-    if (slot === 2) return 'cloudy';
-    if (slot === 3) return 'rain';
-    if (slot === 5) return 'fog';
-    return 'clear';
-  };
-
   const dir = new THREE.Vector3();
   return {
     sun, hemi, night: 0, weather: 'clear', wetGrip: 1.0,
-    update(hour, center, shadows, dt = 0.016) {
+    update(hour, center, shadows) {
       const ang = ((hour - 6) / 24) * Math.PI * 2; // 6:00 da ufqda, 12:00 da zenitda
       dir.set(Math.cos(ang) * 0.8, Math.sin(ang), 0.45).normalize();
       const top = sample(hour, 1), bottom = sample(hour, 2), sc = sample(hour, 3), k = sample(hour, 4);
-      const w = getGlobalWeather();
-      this.weather = w;
-      this.wetGrip = w === 'rain' ? 0.88 : w === 'fog' ? 0.95 : 1.0;
 
       uniforms.top.value.copy(top); uniforms.bottom.value.copy(bottom);
       dome.position.copy(center); stars.position.copy(center);
       sunSprite.position.copy(center).addScaledVector(dir, 3000); sunSprite.material.color.copy(sc);
-      sunSprite.visible = dir.y > -0.1 && w === 'clear';
-      moon.position.copy(center).addScaledVector(dir, -3000); moon.visible = dir.y < 0.1 && w !== 'rain';
+      sunSprite.visible = dir.y > -0.1;
+      moon.position.copy(center).addScaledVector(dir, -3000); moon.visible = dir.y < 0.1;
       this.night = THREE.MathUtils.clamp(1 - (k - 0.05) / 0.5, 0, 1);
-      starMat.opacity = w === 'clear' ? this.night : this.night * 0.25;
+      starMat.opacity = this.night;
       const lightDir = dir.y > 0 ? dir : dir.clone().negate(); // tunda oy yorug'ligi
       sun.position.copy(center).addScaledVector(lightDir, 300); sun.target.position.copy(center);
       sun.color.copy(dir.y > 0 ? sc : new THREE.Color(0x8fa6e0));
-      const weatherDim = w === 'rain' ? 0.65 : w === 'cloudy' ? 0.78 : w === 'fog' ? 0.72 : 1.0;
-      sun.intensity = (dir.y > 0 ? 2.2 * k : 0.18) * weatherDim;
-      hemi.intensity = (0.1 + k * 0.7) * weatherDim;
+      sun.intensity = dir.y > 0 ? 2.2 * k : 0.18;
+      hemi.intensity = 0.1 + k * 0.7;
       hemi.color.copy(top).lerp(new THREE.Color(0xffffff), 0.5);
       scene.fog.color.copy(bottom).lerp(top, 0.3);
-      scene.fog.near = w === 'fog' ? 140 : w === 'rain' ? 320 : 750;
-      scene.fog.far = w === 'fog' ? 780 : w === 'rain' ? 1450 : 2600;
-      sun.castShadow = shadows && dir.y > 0.05 && w !== 'rain';
-
-      rainPoints.visible = w === 'rain' && center.y > -20;
-      if (rainPoints.visible) {
-        rainPoints.position.set(center.x, 0, center.z);
-        const attr = rainGeo.attributes.position;
-        const arr = attr.array;
-        const fall = 36 * Math.min(dt, 0.05);
-        for (let i = 1; i < arr.length; i += 3) {
-          arr[i] -= fall;
-          if (arr[i] < 0) arr[i] += 42;
-        }
-        attr.needsUpdate = true;
-      }
+      scene.fog.near = 750;
+      scene.fog.far = 2600;
+      sun.castShadow = shadows && dir.y > 0.05;
     },
   };
 }

@@ -5,7 +5,6 @@ import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, POIS, addCollider
 import { signTexture, ADS } from './textures.js';
 import { GLOW_TEX } from '../carModel.js';
 import { nightMats } from './city.js';
-import { loadBuildingGlb } from './landmarks.js';
 
 const box = new THREE.BoxGeometry(1, 1, 1);
 const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v3 = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
@@ -267,39 +266,7 @@ function buildPOIs(scene) {
 
       addCollider(p.x - 10, p.z - 35, p.x + 10, p.z - 25);
       addSign(g, ['UZ-OIL', 'AI-92 · AI-95 · AI-100'], '#062c1c', '#00ff7a', 0, 9.2, 4);
-
-      // /binolar/gas-station.glb 3D modelini asinxron yuklash va materiallarini PBR sozlash
-      loadBuildingGlb('/binolar/gas-station.glb', { targetWidth: 32 }).then((glb) => {
-        if (!glb) return;
-        glb.traverse((obj) => {
-          if (!obj.isMesh || !obj.material) return;
-          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-          for (const m of mats) {
-            const mn = (m.name || '').toLowerCase();
-            if (mn.includes('white')) {
-              m.color?.setHex(0xd4dce6);
-              if (m.roughness !== undefined) m.roughness = 0.45;
-              if (m.metalness !== undefined) m.metalness = 0.15;
-              if (m.emissiveIntensity !== undefined) m.emissiveIntensity = Math.min(m.emissiveIntensity, 0.05);
-            } else if (mn.includes('asphalt')) {
-              m.color?.setHex(0x1f242d);
-              if (m.roughness !== undefined) m.roughness = 0.88;
-            } else if (mn.includes('glass')) {
-              m.color?.setHex(0x18344c);
-              if (m.roughness !== undefined) m.roughness = 0.12;
-              if (m.metalness !== undefined) m.metalness = 0.65;
-            } else if (mn.includes('steel') || mn.includes('metal')) {
-              if (m.roughness !== undefined) m.roughness = 0.32;
-              if (m.metalness !== undefined) m.metalness = 0.72;
-            } else if (mn.includes('text_light') || mn.includes('digit')) {
-              if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 0.85;
-            }
-          }
-        });
-        procGas.visible = false;
-        glb.position.set(0, 0.15, -14);
-        g.add(glb);
-      });
+      addSign(g, ['UZ-OIL 24/7', '10 500 · 12 800 · 16 500'], '#0b192c', '#fbbf24', 14.5, 4.6, 5.5);
     } else {
       const hall = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x1d2433, metalness: 0.7, roughness: 0.2, emissive: 0x0b3d91, emissiveIntensity: 0.3 }));
       hall.scale.set(60, 12, 30); hall.position.set(0, 6, -38); g.add(hall);
