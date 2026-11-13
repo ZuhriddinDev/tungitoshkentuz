@@ -20,6 +20,22 @@ export function getLandscapePointerXY(e) {
   };
 }
 
+let gameCanvas = null;
+let cursorHideTimer = 0;
+
+function showCanvasCursor() {
+  if (!gameCanvas) return;
+  gameCanvas.style.cursor = '';
+  clearTimeout(cursorHideTimer);
+  if (enabled && !isTouch() && document.pointerLockElement !== gameCanvas) {
+    cursorHideTimer = setTimeout(() => {
+      if (enabled && !isTouch() && document.pointerLockElement !== gameCanvas) {
+        gameCanvas.style.cursor = 'none';
+      }
+    }, 1800);
+  }
+}
+
 export function onKey(code, fn) { hot.set(code, fn); }
 export function setEnabled(v) {
   enabled = v;
@@ -27,14 +43,28 @@ export function setEnabled(v) {
     keys.clear();
     for (const k of Object.keys(touch)) touch[k] = 0;
     document.querySelectorAll('[data-touch].on').forEach((b) => b.classList.remove('on'));
+    clearTimeout(cursorHideTimer);
+    if (gameCanvas) gameCanvas.style.cursor = '';
+    if (document.pointerLockElement) {
+      try { document.exitPointerLock(); } catch { /* */ }
+    }
+  } else {
+    showCanvasCursor();
   }
 }
 
 export function initInput(canvas) {
+  gameCanvas = canvas;
   addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
       if (e.code === 'Escape') e.target.blur?.();
       return;
+    }
+    if (enabled && !isTouch() && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+      if (gameCanvas && document.pointerLockElement !== gameCanvas) {
+        clearTimeout(cursorHideTimer);
+        gameCanvas.style.cursor = 'none';
+      }
     }
     if (hot.has(e.code) && !e.repeat) { e.preventDefault(); hot.get(e.code)(); return; }
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
@@ -58,11 +88,20 @@ export function initInput(canvas) {
     if (document.hidden) clearAllInputs();
   });
 
-  // Sichqoncha / barmoq: bo'sh joyni bosib sudrash — kamerani 360° aylantirish (avtomatik gorizontal rejimga mos)
+  // Sichqoncha / barmoq:
+  // - PC da canvas ustiga bosilganda Pointer Lock yoqiladi (mishka ekranda xalaqit bermaydi, erkin 360° kamera)
+  // - Agar haydovchi klaviaturada haydasa va mishkaga tegmasa, kursor avtomatik yashiriladi
+  // - Mobil/touch va drag rejimida esa barmoq bilan sudrab aylantirish ishlaydi
   let drag = null;
   canvas.addEventListener('pointerdown', (e) => {
     if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
       document.activeElement.blur?.();
+    }
+    if (enabled && !isTouch() && e.pointerType === 'mouse' && document.pointerLockElement !== canvas) {
+      const hud = document.getElementById('hud');
+      if (hud && !hud.classList.contains('hidden')) {
+        try { canvas.requestPointerLock?.(); } catch { /* */ }
+      }
     }
     if (drag) return;
     const pt = getLandscapePointerXY(e);
@@ -70,6 +109,16 @@ export function initInput(canvas) {
     try { canvas.setPointerCapture(e.pointerId); } catch { /* */ }
   });
   canvas.addEventListener('pointermove', (e) => {
+    if (document.pointerLockElement === canvas && enabled) {
+      const s = (window.__sens || 1) * 0.0032;
+      cam.yaw -= (e.movementX || 0) * s;
+      cam.pitch = Math.max(-0.05, Math.min(1.2, cam.pitch + (e.movementY || 0) * s));
+      cam.lastMove = performance.now();
+      return;
+    }
+    if (!isTouch() && e.pointerType === 'mouse') {
+      showCanvasCursor();
+    }
     if (!drag || drag.id !== e.pointerId) return;
     const pt = getLandscapePointerXY(e);
     const s = (window.__sens || 1) * 0.005;
@@ -78,6 +127,14 @@ export function initInput(canvas) {
     drag.x = pt.x;
     drag.y = pt.y;
     cam.lastMove = performance.now();
+  });
+  document.addEventListener('pointerlockchange', () => {
+    if (document.pointerLockElement === canvas) {
+      clearTimeout(cursorHideTimer);
+      canvas.style.cursor = 'none';
+    } else {
+      showCanvasCursor();
+    }
   });
   const end = (e) => { if (drag && drag.id === e.pointerId) drag = null; };
   canvas.addEventListener('pointerup', end);
