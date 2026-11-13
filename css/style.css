@@ -3475,6 +3475,104 @@ body.phone .club-prompt.hidden {
   opacity: 1;
 }
 
+/* =========================================================
+   KOKOBANGO CLUB MODE — HAYDASH HUDINI YASHIRISH VA KLUB UI
+   ========================================================= */
+#hud.club-mode .dash,
+#hud.club-mode .hotbar,
+#hud.club-mode .touch,
+#hud.club-mode #minimap,
+#hud.club-mode #missionHud,
+#hud.club-mode #prompt,
+#hud.club-mode #onlinePeersHud {
+  display: none !important;
+}
+
+.club-ui {
+  display: none;
+}
+#hud.club-mode .club-ui {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(12, 6, 26, 0.88), rgba(28, 10, 52, 0.86));
+  border: 1px solid rgba(232, 121, 249, 0.45);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.72), 0 0 24px rgba(0, 229, 255, 0.18);
+  backdrop-filter: blur(14px);
+  z-index: 42;
+  color: #f8fafc;
+  pointer-events: auto;
+}
+.club-ui-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.club-brand {
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.9px;
+  color: #f0abfc;
+  text-shadow: 0 0 10px rgba(232, 121, 249, 0.65);
+}
+.club-zone-pill {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(0, 229, 255, 0.16);
+  border: 1px solid rgba(0, 229, 255, 0.5);
+  color: #67e8f9;
+}
+.club-ui-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.club-btn {
+  background: rgba(232, 121, 249, 0.18);
+  border: 1px solid rgba(232, 121, 249, 0.55);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.club-btn:hover {
+  background: rgba(232, 121, 249, 0.34);
+}
+.club-vol-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.club-vol-wrap input[type="range"] {
+  width: 110px;
+  accent-color: #e879f9;
+  cursor: pointer;
+}
+.club-ui-hints {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  font-size: 11px;
+  color: rgba(226, 232, 240, 0.82);
+}
+.club-ui-hints b {
+  color: #00e5ff;
+  margin-right: 2px;
+}
+
 
 
 

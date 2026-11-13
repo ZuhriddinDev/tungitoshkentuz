@@ -216,6 +216,17 @@ function setClubPrompt(text) {
   el.classList.remove('hidden');
 }
 
+function syncClubAudioUi() {
+  const btn = $('clubMusicToggle');
+  const slider = $('clubVolSlider');
+  if (btn && kokobango?.music) {
+    btn.textContent = kokobango.music.muted ? "🔇 Musiqa o'chiq" : '🔊 Musiqa';
+  }
+  if (slider && kokobango?.music && document.activeElement !== slider) {
+    slider.value = String(Math.round((kokobango.music.targetVol || 0.75) * 100));
+  }
+}
+
 function enterKokobangoClub() {
   if (!kokobango || !playerChar || insideClub || clubTransitioning || isTouch()) return;
   clubTransitioning = true;
@@ -228,12 +239,15 @@ function enterKokobangoClub() {
     vehicle.place(kokobango.parkDropOff.x, kokobango.parkDropOff.z, dropH);
     vehicle.v = 0;
     insideClub = true;
+    $('hud')?.classList.add('club-mode');
+    $('clubUi')?.classList.remove('hidden');
     engineOff();
     if (model) model.group.visible = false;
     kokobango.setInside(true);
     playerChar.spawnAt(kokobango.insideSpawn.x, kokobango.insideSpawn.z, spawnH, kokobango.interiorY);
     resetCharCamera(spawnH);
     kokobango.music.setVolume(0.75);
+    syncClubAudioUi();
     toast('🎧 KOKOBANGO CLUB! [WASD] Yurish · [V] Kamera · [B] Raqs · [X] Chiqish', 'ok');
     setTimeout(() => {
       if (fadeEl) fadeEl.classList.remove('active');
@@ -251,6 +265,8 @@ function exitKokobangoClub() {
   setTimeout(() => {
     insideClub = false;
     clubSeated = false;
+    $('hud')?.classList.remove('club-mode');
+    $('clubUi')?.classList.add('hidden');
     kokobango.setInside(false);
     kokobango.music.setVolume(0);
     playerChar.hide();
@@ -276,30 +292,65 @@ onKey('KeyV', keyGuard(() => {
 onKey('KeyM', keyGuard(() => {
   if (!isTouch() && insideClub && kokobango) {
     const muted = kokobango.music.toggleMute();
+    syncClubAudioUi();
     toast(muted ? '🔇 Klub musiqasi o‘chirildi' : '🔊 Klub musiqasi yoqildi', 'ok');
   }
 }));
+$('clubMusicToggle')?.addEventListener('click', () => {
+  if (!insideClub || !kokobango) return;
+  const muted = kokobango.music.toggleMute();
+  syncClubAudioUi();
+  toast(muted ? '🔇 Klub musiqasi o‘chirildi' : '🔊 Klub musiqasi yoqildi', 'ok');
+});
+$('clubVolSlider')?.addEventListener('input', (e) => {
+  if (!insideClub || !kokobango) return;
+  const v = Math.max(0, Math.min(1, Number(e.target.value) / 100));
+  if (kokobango.music.muted && v > 0) kokobango.music.muted = false;
+  kokobango.music.setVolume(v);
+  syncClubAudioUi();
+});
 onKey('KeyE', keyGuard(() => {
+  if (!isTouch() && !insideClub && kokobango && vehicle) {
+    const carInfo = kokobango.getNearbySupercar?.(vehicle.x, vehicle.z);
+    if (carInfo) {
+      beep(520, 0.08);
+      toast(`🏎️ ${carInfo.name} · ${carInfo.tier} · Max ${carInfo.maxSpeed} km/h`, 'ok');
+      return;
+    }
+  }
   if (!isTouch() && insideClub && kokobango && playerChar) {
     if (clubSeated) {
       clubSeated = false;
-      playerChar.spawnAt(playerChar.x - 0.9, playerChar.z, playerChar.heading, kokobango.getFloorY(playerChar.x - 0.9, playerChar.z));
+      const exitX = playerChar.x - 0.9;
+      playerChar.spawnAt(exitX, playerChar.z, playerChar.heading, kokobango.getFloorY(exitX, playerChar.z, playerChar.y));
       toast('🚶 Divandan turdingiz', 'ok');
       return;
     }
-    const act = kokobango.getInteractable?.(playerChar.x, playerChar.z);
+    const act = kokobango.getInteractable?.(playerChar.x, playerChar.z, playerChar.y);
     if (!act) return;
-    if (act.id === 'bar') {
+    if (act.id === 'bar' || act.id === 'rooftop_bar') {
       beep(660, 0.09);
       toast('🍹 KOKOBANGO BAR: Maxsus alkogolsiz kokteyl tayyorlandi!', 'ok');
     } else if (act.id === 'dj') {
       kokobango.triggerBeatDrop();
       beep(880, 0.12);
       toast('🎧 DJ BEAT DROP! Lazer shou boshlandi!', 'ok');
+    } else if (act.id === 'npc') {
+      beep(580, 0.07);
+      toast(act.reply || '💬 Mehmon: "KOKOBANGO CLUB muhiti zo‘r ekan!"', 'ok');
+    } else if (act.teleport) {
+      const fadeEl = $('clubFade');
+      if (fadeEl) fadeEl.classList.add('active');
+      setTimeout(() => {
+        playerChar.spawnAt(act.teleport.x, act.teleport.z, act.teleport.h, act.teleport.y);
+        resetCharCamera(act.teleport.h);
+        toast(act.teleport.msg || '🛗 Qavat almashtirildi', 'ok');
+        setTimeout(() => { if (fadeEl) fadeEl.classList.remove('active'); }, 120);
+      }, 180);
     } else if (act.seat) {
       clubSeated = true;
       playerChar.spawnAt(act.seat.x, act.seat.z, act.seat.h, act.seat.y);
-      toast("🛋️ VIP divanga o'tirdingiz ([E] yoki [WASD] — turish)", 'ok');
+      toast("🛋️ Divanga o'tirdingiz ([E] yoki [WASD] — turish)", 'ok');
     }
   }
 }));
@@ -379,21 +430,28 @@ function step(dt, t) {
       clubSeated = false;
       playerChar.x -= 0.85;
     }
+    const activeColliders = kokobango.getCollidersAt ? kokobango.getCollidersAt(playerChar.y) : kokobango.interiorColliders;
     if (!clubSeated) {
-      const clubFloorY = kokobango.getFloorY ? kokobango.getFloorY(playerChar.x, playerChar.z) : kokobango.interiorY;
-      playerChar.step(dt, input, clubFloorY, cam.yaw, kokobango.interiorColliders);
+      const clubFloorY = kokobango.getFloorY ? kokobango.getFloorY(playerChar.x, playerChar.z, playerChar.y) : kokobango.interiorY;
+      playerChar.step(dt, input, clubFloorY, cam.yaw, activeColliders);
     } else {
       playerChar.model.animate(dt, 0, 'sit');
     }
-    updateCharCamera(camera, playerChar, dt, kokobango.interiorColliders);
+    updateCharCamera(camera, playerChar, dt, activeColliders);
+    const zoneInfo = kokobango.getZoneInfo?.(playerChar.x, playerChar.y, playerChar.z);
+    if (zoneInfo) {
+      const badge = $('clubZoneBadge');
+      if (badge && badge.textContent !== zoneInfo.label) badge.textContent = zoneInfo.label;
+      kokobango.music.setZone?.(zoneInfo.musicZone);
+    }
     setPrompt('');
     if (!isTouch()) {
-      if (kokobango.nearExit(playerChar.x, playerChar.z)) {
+      if (kokobango.nearExit(playerChar.x, playerChar.z, playerChar.y)) {
         setClubPrompt('<span class="key">X</span> EXIT KOKOBANGO CLUB');
       } else if (clubSeated) {
         setClubPrompt('<span class="key">E</span> DIVANDAN TURISH');
       } else {
-        const act = kokobango.getInteractable?.(playerChar.x, playerChar.z);
+        const act = kokobango.getInteractable?.(playerChar.x, playerChar.z, playerChar.y);
         setClubPrompt(act ? act.label : '');
       }
     } else {
@@ -404,6 +462,9 @@ function step(dt, t) {
 
   if (!isTouch() && kokobango && kokobango.nearEntrance(vehicle.x, vehicle.z)) {
     setClubPrompt('<span class="key">X</span> ENTER KOKOBANGO CLUB');
+  } else if (!isTouch() && kokobango) {
+    const nearCar = kokobango.getNearbySupercar?.(vehicle.x, vehicle.z);
+    setClubPrompt(nearCar ? `<span class="key">E</span> ${nearCar.name} ko'rish` : '');
   } else {
     setClubPrompt('');
   }

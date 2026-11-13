@@ -41,9 +41,17 @@ class ClubMusicEngine {
     this.beatPulse = 0;
     this.lastBeatTime = 0;
     this.timer = null;
-    this.volume = 0.55;
+    this.volume = 0.75;
+    this.targetVol = 0.75;
     this.muted = false;
     this.crowdSrc = null;
+    this.zone = 'main';
+  }
+
+  setZone(z) {
+    if (this.zone === z) return;
+    this.zone = z;
+    this.stepDur = z === 'rooftop' ? 0.144 : z === 'vip' ? 0.127 : 0.117;
   }
 
   toggleMute() {
@@ -54,7 +62,9 @@ class ClubMusicEngine {
 
   setVolume(v) {
     this.volume = Math.max(0, Math.min(1, v));
-    const eff = this.muted ? 0.0001 : this.volume * 0.65;
+    if (this.volume > 0) this.targetVol = this.volume;
+    const zoneGain = this.zone === 'rooftop' ? 0.42 : this.zone === 'vip' ? 0.52 : 0.65;
+    const eff = this.muted ? 0.0001 : this.volume * zoneGain;
     if (this.master && this.ctx && this.playing) {
       this.master.gain.setTargetAtTime(eff, this.ctx.currentTime, 0.08);
     }
@@ -668,23 +678,72 @@ export function buildKokobangoClub(scene) {
   carpet.position.set(cx, 0.74, cz - 30.2);
   exteriorGroup.add(carpet);
 
-  // Shisha kirish portali va soyabon (Canopy)
-  const canopy = new THREE.Mesh(new THREE.BoxGeometry(14, 0.6, 6.5), mObsidian);
-  canopy.position.set(cx, 5.4, cz - 27.2);
+  // Shisha kirish portali, soyabon (Canopy) va animatsiyali surilma eshiklar
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(15.2, 0.65, 7.2), mObsidian);
+  canopy.position.set(cx, 5.4, cz - 27.4);
   exteriorGroup.add(canopy);
-  const canopyNeon = new THREE.Mesh(new THREE.BoxGeometry(14.2, 0.18, 6.7), mNeonPurple);
-  canopyNeon.position.set(cx, 5.15, cz - 27.2);
+  const canopyNeon = new THREE.Mesh(new THREE.BoxGeometry(15.4, 0.18, 7.4), mNeonPurple);
+  canopyNeon.position.set(cx, 5.15, cz - 27.4);
   exteriorGroup.add(canopyNeon);
 
-  const glassPortal = new THREE.Mesh(new THREE.BoxGeometry(9.6, 4.4, 0.3), mGlass);
+  // Kirish soyaboni ostidagi me'moriy oltin boshliqli ustunlar
+  for (const sx of [-1, 1]) {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.42, 5.2, 16), mMarble);
+    col.position.set(cx + sx * 6.4, 2.95, cz - 29.8);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.4, 0.35, 16), mGold);
+    cap.position.set(cx + sx * 6.4, 5.15, cz - 29.8);
+    exteriorGroup.add(col, cap);
+  }
+
+  // Ko'p qavatli shisha fasad va ichki yorug'lik chuqurligi
+  for (const sx of [-1, 1]) {
+    const glassBay = new THREE.Mesh(new THREE.BoxGeometry(11.4, 7.5, 0.35), mGlass);
+    glassBay.position.set(cx + sx * 19, 12.6, cz - 24.1);
+    const innerGlow = new THREE.Mesh(
+      new THREE.PlaneGeometry(10.6, 6.8),
+      new THREE.MeshBasicMaterial({ color: sx < 0 ? 0x3b0764 : 0x083344 })
+    );
+    innerGlow.position.set(cx + sx * 19, 12.6, cz - 23.85);
+    innerGlow.rotation.y = Math.PI;
+    exteriorGroup.add(glassBay, innerGlow);
+  }
+
+  const glassPortal = new THREE.Mesh(new THREE.BoxGeometry(10.4, 4.6, 0.3), mGlass);
   glassPortal.position.set(cx, 2.9, cz - 24.2);
   exteriorGroup.add(glassPortal);
-  const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(5.2, 3.6, 0.35), mNeonCyan);
+  const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(5.6, 3.8, 0.35), mNeonCyan);
   doorFrame.position.set(cx, 2.5, cz - 24.3);
   exteriorGroup.add(doorFrame);
-  const doorInner = new THREE.Mesh(new THREE.BoxGeometry(4.6, 3.3, 0.4), mGlass);
-  doorInner.position.set(cx, 2.4, cz - 24.35);
-  exteriorGroup.add(doorInner);
+
+  const doorLeft = new THREE.Mesh(new THREE.BoxGeometry(2.3, 3.4, 0.38), mGlass);
+  doorLeft.position.set(cx - 1.15, 2.4, cz - 24.35);
+  const doorRight = new THREE.Mesh(new THREE.BoxGeometry(2.3, 3.4, 0.38), mGlass);
+  doorRight.position.set(cx + 1.15, 2.4, cz - 24.35);
+  exteriorGroup.add(doorLeft, doorRight);
+
+  // Obodonlashtirish: ko'cha daraxtlari, gulzorlar va zamonaviy skameykalar
+  const mTrunk = new THREE.MeshStandardMaterial({ color: 0x3b2a1e, roughness: 0.9 });
+  const mLeaves = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.78 });
+  for (const sx of [-1, 1]) {
+    for (const tx of [12, 26]) {
+      const px = cx + sx * tx;
+      const pz = cz - 33.5;
+      const planter = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.55, 2.4), mMarble);
+      planter.position.set(px, 0.52, pz);
+      const pRing = new THREE.Mesh(new THREE.BoxGeometry(2.46, 0.08, 2.46), mNeonCyan);
+      pRing.position.set(px, 0.82, pz);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 2.6, 8), mTrunk);
+      trunk.position.set(px, 1.9, pz);
+      const crown = new THREE.Mesh(new THREE.DodecahedronGeometry(1.35, 1), mLeaves);
+      crown.position.set(px, 3.5, pz);
+      exteriorGroup.add(planter, pRing, trunk, crown);
+    }
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.45, 0.9), mObsidian);
+    bench.position.set(cx + sx * 19, 0.48, cz - 34.0);
+    const benchGlow = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.06, 0.8), mNeonPurple);
+    benchGlow.position.set(cx + sx * 19, 0.26, cz - 34.0);
+    exteriorGroup.add(bench, benchGlow);
+  }
 
   // Qizil/binafsha VIP to'siq ustunchalari (Velvet ropes)
   for (const sx of [-1, 1]) {
@@ -729,13 +788,16 @@ export function buildKokobangoClub(scene) {
     }
   }
 
-  // Klub oldida turgan 4 ta hashamatli VIP avtomobil
+  // Klub oldida turgan 6 ta hashamatli VIP superkar + Valet zona
   const parkedSpecs = [
-    { id: 'lambo', x: cx - 22, z: cz - 55, h: 0.15, color: '#9333ea' },
-    { id: 'bmwm8wb', x: cx - 11, z: cz - 55, h: 0.05, color: '#111827' },
-    { id: 'mercedes', x: cx + 11, z: cz - 55, h: -0.08, color: '#0f172a' },
-    { id: 'sf90', x: cx + 22, z: cz - 55, h: -0.15, color: '#dc2626' },
+    { id: 'lambo',      x: cx - 28, z: cz - 55, h: 0.22,  color: '#9333ea' },
+    { id: 'bmwm8wb',    x: cx - 18, z: cz - 55, h: 0.12,  color: '#111827' },
+    { id: 'porsche911', x: cx - 9,  z: cz - 55, h: 0.04,  color: '#f8fafc' },
+    { id: 'sf90',       x: cx + 9,  z: cz - 55, h: -0.04, color: '#dc2626' },
+    { id: 'mercedes',   x: cx + 18, z: cz - 55, h: -0.12, color: '#0f172a' },
+    { id: 'maybach',    x: cx + 28, z: cz - 55, h: -0.22, color: '#1e1b4b' },
   ];
+  const parkedSupercars = [];
   for (const ps of parkedSpecs) {
     const cfg = CARS.find((c) => c.id === ps.id) || CARS[0];
     const car = buildCar(cfg, { color: ps.color, paintType: 'metallic', tint: 'dark', neon: '#d946ef' }, { beam: false });
@@ -744,10 +806,27 @@ export function buildKokobangoClub(scene) {
     car.setLights(true);
     exteriorGroup.add(car.group);
     addCollider(ps.x - 1.4, ps.z - 2.6, ps.x + 1.4, ps.z + 2.6, 'building');
+    parkedSupercars.push({ x: ps.x, z: ps.z, name: cfg.name, tier: cfg.tier, maxSpeed: cfg.maxSpeed });
   }
 
-  // Tashqi qo'riqchilar va mehmonlar
+  // Valet Parking stendi va Valet NPC
+  const valetDesk = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.15, 0.8), mObsidian);
+  valetDesk.position.set(cx - 5.2, 0.85, cz - 37.5);
+  const valetSign = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.2, 0.4),
+    new THREE.MeshBasicMaterial({ map: makeSignTexture('VALET', 'VIP PARKING', '#0a0518', '#ffd166', '#00e5ff', 256, 96) })
+  );
+  valetSign.position.set(cx - 5.2, 1.1, cz - 37.92);
+  valetSign.rotation.y = Math.PI;
+  exteriorGroup.add(valetDesk, valetSign);
+
+  // Tashqi qo'riqchilar, valet va mehmonlar
   const exteriorNpcs = [];
+  const valetNpc = createClubNpc({ role: 'guard', shirt: '#7c2d12', pants: '#09090b', glasses: false, phase: 0.7 });
+  valetNpc.root.position.set(cx - 4.1, 0.28, cz - 37.2);
+  valetNpc.root.rotation.y = Math.PI;
+  exteriorGroup.add(valetNpc.root);
+  exteriorNpcs.push(valetNpc);
   for (const sx of [-1, 1]) {
     const guard = createClubNpc({ role: 'guard', shirt: '#09090b', pants: '#09090b', glasses: true, phase: sx });
     guard.root.position.set(cx + sx * 3.5, 0.72, cz - 26.2);
@@ -1798,6 +1877,151 @@ export function buildKokobangoClub(scene) {
     }
   }
 
+  // ========================================================================
+  // 4. HOJATXONA (WC) VA ROOFTOP TERRACE (OCHIQ OSMON OSTIDAGI LOUNGE)
+  // ========================================================================
+  const ROOF_Y = iy + 11.0;
+  const rooftopColliders = [];
+  const addRoofCol = (x0, z0, x1, z1) => {
+    rooftopColliders.push({ minX: Math.min(x0, x1), maxX: Math.max(x0, x1), minZ: Math.min(z0, z1), maxZ: Math.max(z0, z1) });
+  };
+
+  // Asosiy zal chap-orqa burchakdagi Hojatxona (WC) zonasi
+  const wcAlcoveFrame = new THREE.Mesh(new THREE.BoxGeometry(5.6, 3.8, 0.35), mObsidian);
+  wcAlcoveFrame.position.set(cx - 21.5, iy + 1.9, cz - 14.8);
+  const wcAlcoveSign = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.6, 0.8),
+    new THREE.MeshBasicMaterial({ map: makeSignTexture('WC · RESTROOMS', 'GENTLEMEN & LADIES', '#090915', '#00e5ff', '#e879f9', 256, 96) })
+  );
+  wcAlcoveSign.position.set(cx - 21.5, iy + 3.4, cz - 14.6);
+  const wcAlcoveVanity = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.95, 0.8), mMarble);
+  wcAlcoveVanity.position.set(cx - 21.5, iy + 0.48, cz - 16.4);
+  const wcAlcoveMirror = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.5, 0.08), mGlass);
+  wcAlcoveMirror.position.set(cx - 21.5, iy + 1.9, cz - 16.75);
+  interiorGroup.add(wcAlcoveFrame, wcAlcoveSign, wcAlcoveVanity, wcAlcoveMirror);
+  addIntCol(cx - 23.6, cz - 16.9, cx - 19.4, cz - 15.9);
+
+  // Asosiy zaldagi Rooftop Terrace shisha lifti portali (cx - 19.5, cz + 14.5)
+  const elevBox = new THREE.Mesh(new THREE.BoxGeometry(3.4, 4.2, 3.4), mGlass);
+  elevBox.position.set(cx - 19.5, iy + 2.1, cz + 14.5);
+  const elevTrim = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.2, 3.6), mNeonCyan);
+  elevTrim.position.set(cx - 19.5, iy + 4.25, cz + 14.5);
+  const elevSign = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.0, 0.9),
+    new THREE.MeshBasicMaterial({ map: makeSignTexture('ROOFTOP TERRACE', 'SKY LOUNGE · [E]', '#070b18', '#00e5ff', '#f0abfc', 256, 96) })
+  );
+  elevSign.position.set(cx - 19.5, iy + 3.5, cz + 12.74);
+  elevSign.rotation.y = Math.PI;
+  interiorGroup.add(elevBox, elevTrim, elevSign);
+
+  // ROOFTOP TERRACE — Ochiq osmon ostidagi hashamatli terasa (38m x 28m)
+  const roofFloor = new THREE.Mesh(
+    new THREE.BoxGeometry(38, 0.4, 28),
+    new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.42, metalness: 0.25 })
+  );
+  roofFloor.position.set(cx, ROOF_Y - 0.2, cz);
+  interiorGroup.add(roofFloor);
+
+  // Rooftop atrofida shisha to'siqlar va neon tutqichlar
+  const railSpecs = [
+    [cx, ROOF_Y + 0.65, cz - 13.9, 38, 1.3, 0.2],
+    [cx, ROOF_Y + 0.65, cz + 13.9, 38, 1.3, 0.2],
+    [cx - 18.9, ROOF_Y + 0.65, cz, 0.2, 1.3, 28],
+    [cx + 18.9, ROOF_Y + 0.65, cz, 0.2, 1.3, 28],
+  ];
+  for (const [rx, ry, rz, rw, rh, rd] of railSpecs) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mGlass);
+    rail.position.set(rx, ry, rz);
+    interiorGroup.add(rail);
+  }
+  addRoofCol(cx - 20, cz - 15, cx + 20, cz - 13.7);
+  addRoofCol(cx - 20, cz + 13.7, cx + 20, cz + 15);
+  addRoofCol(cx - 20, cz - 15, cx - 18.7, cz + 15);
+  addRoofCol(cx + 18.7, cz - 15, cx + 20, cz + 15);
+
+  // Rooftop Pergola ustunlari va neon nurlar
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const pCol = new THREE.Mesh(new THREE.BoxGeometry(0.45, 4.2, 0.45), mObsidian);
+      pCol.position.set(cx + sx * 12, ROOF_Y + 2.1, cz + sz * 9);
+      interiorGroup.add(pCol);
+    }
+  }
+  for (let bz = -8; bz <= 8; bz += 4) {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(24.5, 0.16, 0.22), mNeonPurple);
+    beam.position.set(cx, ROOF_Y + 4.2, cz + bz);
+    interiorGroup.add(beam);
+  }
+  const roofLightA = new THREE.PointLight(0xe879f9, 26, 28, 1.4);
+  roofLightA.position.set(cx - 6, ROOF_Y + 4.0, cz);
+  const roofLightB = new THREE.PointLight(0x00e5ff, 26, 28, 1.4);
+  roofLightB.position.set(cx + 6, ROOF_Y + 4.0, cz);
+  interiorGroup.add(roofLightA, roofLightB);
+
+  // Tungi Toshkent osmono'par binolari silueti (Rooftop atrofi manzarasi)
+  const skyTowerMat = new THREE.MeshStandardMaterial({ color: 0x090d1a, emissive: 0x1e1b4b, emissiveIntensity: 0.45, roughness: 0.6 });
+  for (let ti = 0; ti < 14; ti++) {
+    const ang = (ti / 14) * Math.PI * 2;
+    const dist = 46 + (ti % 3) * 14;
+    const th = 22 + (ti % 4) * 11;
+    const tw = 6 + (ti % 3) * 3;
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(tw, th, tw), skyTowerMat);
+    tower.position.set(cx + Math.cos(ang) * dist, ROOF_Y - 12 + th * 0.5, cz + Math.sin(ang) * dist);
+    const crown = new THREE.Mesh(new THREE.BoxGeometry(tw + 0.3, 0.4, tw + 0.3), ti % 2 === 0 ? mNeonCyan : mNeonPurple);
+    crown.position.set(tower.position.x, ROOF_Y - 12 + th + 0.2, tower.position.z);
+    interiorGroup.add(tower, crown);
+  }
+
+  // Rooftop Bar va Barmen
+  const roofBar = new THREE.Mesh(new THREE.BoxGeometry(7.2, 1.15, 1.4), mObsidian);
+  roofBar.position.set(cx, ROOF_Y + 0.58, cz - 9.5);
+  const roofBarTop = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.12, 1.6), mNeonCyan);
+  roofBarTop.position.set(cx, ROOF_Y + 1.18, cz - 9.5);
+  interiorGroup.add(roofBar, roofBarTop);
+  addRoofCol(cx - 3.8, cz - 10.4, cx + 3.8, cz - 8.6);
+
+  const roofBartender = createClubNpc({ role: 'bartender', shirt: '#18181b', pants: '#09090b', phase: 1.9 });
+  roofBartender.root.position.set(cx, ROOF_Y, cz - 11.2);
+  interiorGroup.add(roofBartender.root);
+
+  // Rooftop Lounge Divanlari va Stollari
+  for (const sx of [-1, 1]) {
+    const rSofa = createDetailedSofa(3.8, 0x312e81, 0x00e5ff);
+    rSofa.position.set(cx + sx * 10.5, ROOF_Y, cz);
+    rSofa.rotation.y = sx < 0 ? Math.PI / 2 : -Math.PI / 2;
+    const rTable = createDetailedVipTable(0x00e5ff);
+    rTable.position.set(cx + sx * 7.8, ROOF_Y, cz);
+    interiorGroup.add(rSofa, rTable);
+    addRoofCol(cx + sx * 10.5 - 1.1, cz - 2.0, cx + sx * 10.5 + 1.1, cz + 2.0);
+    addRoofCol(cx + sx * 7.8 - 0.8, cz - 0.8, cx + sx * 7.8 + 0.8, cz + 0.8);
+  }
+
+  // Rooftop Liftdan pastga tushish portali (cx - 14.5, ROOF_Y, cz + 10.5)
+  const roofElev = new THREE.Mesh(new THREE.BoxGeometry(3.0, 3.6, 3.0), mGlass);
+  roofElev.position.set(cx - 14.5, ROOF_Y + 1.8, cz + 10.5);
+  const roofElevSign = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.6, 0.8),
+    new THREE.MeshBasicMaterial({ map: makeSignTexture('MAIN CLUB', 'DOWN · [E]', '#070b18', '#e879f9', '#00e5ff', 256, 96) })
+  );
+  roofElevSign.position.set(cx - 14.5, ROOF_Y + 3.0, cz + 8.95);
+  roofElevSign.rotation.y = Math.PI;
+  interiorGroup.add(roofElev, roofElevSign);
+
+  // Rooftop ijtimoiy NPC mehmonlari
+  const rooftopNpcs = [roofBartender];
+  const roofGuestSpecs = [
+    { x: cx - 5.5, z: cz + 2.5, h: 0.9, dress: '#a855f7', role: 'guest' },
+    { x: cx - 4.4, z: cz + 3.2, h: -2.1, dress: '#0284c7', role: 'guest' },
+    { x: cx + 5.8, z: cz - 1.8, h: -1.1, dress: '#ec4899', role: 'dancer' },
+  ];
+  roofGuestSpecs.forEach((rg, idx) => {
+    const npc = createClubNpc({ role: rg.role, shirt: rg.dress, pants: '#0f172a', phase: idx * 1.4 });
+    npc.root.position.set(rg.x, ROOF_Y, rg.z);
+    npc.root.rotation.y = rg.h;
+    interiorGroup.add(npc.root);
+    rooftopNpcs.push(npc);
+  });
+
   // Kirish va Chiqish koordinatalari
   const entrancePos = { x: cx, y: 0.72, z: cz - 31.5, r: 6.5 };
   const parkDropOff = { x: cx, z: cz - 42.5, heading: Math.PI };
@@ -1808,11 +2032,13 @@ export function buildKokobangoClub(scene) {
     cx,
     cz,
     interiorY: iy,
+    rooftopY: ROOF_Y,
     entrancePos,
     parkDropOff,
     insideSpawn,
     exitPos,
     interiorColliders,
+    rooftopColliders,
     exteriorGroup,
     interiorGroup,
     music,
@@ -1832,18 +2058,71 @@ export function buildKokobangoClub(scene) {
       return Math.hypot(px - entrancePos.x, pz - entrancePos.z) < entrancePos.r;
     },
 
-    nearExit(px, pz) {
+    nearExit(px, pz, py = iy) {
+      if (py > iy + 5.0) return false;
       return Math.hypot(px - exitPos.x, pz - exitPos.z) < exitPos.r;
     },
 
-    getFloorY(px, pz) {
+    getCollidersAt(py = iy) {
+      return py > iy + 5.0 ? rooftopColliders : interiorColliders;
+    },
+
+    getFloorY(px, pz, curY = iy) {
+      if (curY > iy + 5.0) return ROOF_Y;
       if (px >= cx + 14.5 && px <= cx + 27.6 && pz >= cz - 2.0 && pz <= cz + 22.5) {
         return VIP_Y;
       }
       return iy;
     },
 
-    getInteractable(px, pz) {
+    getZoneInfo(px, py, pz) {
+      if (py > iy + 5.0) return { label: '🌃 Rooftop Terrace', musicZone: 'rooftop' };
+      if (px >= cx + 14.5 && px <= cx + 27.6 && pz >= cz - 2.0 && pz <= cz + 22.5) {
+        return { label: '👑 VIP Lounge (21+)', musicZone: 'vip' };
+      }
+      if (Math.hypot(px - (cx - 16.5), pz - (cz + 1.0)) < 5.0) {
+        return { label: '🍹 KOKOBANGO BAR', musicZone: 'main' };
+      }
+      if (Math.hypot(px - cx, pz - (cz - 10.8)) < 5.0) {
+        return { label: '🎧 DJ Sahna', musicZone: 'main' };
+      }
+      return { label: '🪩 Main Dance Floor', musicZone: 'main' };
+    },
+
+    getNearbySupercar(px, pz) {
+      for (const sc of parkedSupercars) {
+        if (Math.hypot(px - sc.x, pz - sc.z) < 5.2) return sc;
+      }
+      return null;
+    },
+
+    getInteractable(px, pz, py = iy) {
+      if (py > iy + 5.0) {
+        if (Math.hypot(px - (cx - 14.5), pz - (cz + 10.5)) < 3.4) {
+          return {
+            id: 'rooftop_down',
+            label: '[E] Asosiy klub zaliga tushish',
+            teleport: { x: cx - 19.5, y: iy, z: cz + 11.2, h: Math.PI, msg: '🪩 Asosiy zalga tushdingiz' },
+          };
+        }
+        if (Math.hypot(px - cx, pz - (cz - 8.2)) < 3.6) {
+          return { id: 'rooftop_bar', label: '[E] ROOFTOP BAR — Kokteyl buyurtma berish' };
+        }
+        if (Math.hypot(px - (cx - 9.2), pz - cz) < 2.8) {
+          return { id: 'roof_sofa_1', label: "[E] Rooftop Divanga o'tirish", seat: { x: cx - 10.4, y: ROOF_Y + 0.18, z: cz, h: Math.PI / 2 } };
+        }
+        if (Math.hypot(px - (cx + 9.2), pz - cz) < 2.8) {
+          return { id: 'roof_sofa_2', label: "[E] Rooftop Divanga o'tirish", seat: { x: cx + 10.4, y: ROOF_Y + 0.18, z: cz, h: -Math.PI / 2 } };
+        }
+        return null;
+      }
+      if (Math.hypot(px - (cx - 19.5), pz - (cz + 14.5)) < 3.5) {
+        return {
+          id: 'rooftop_up',
+          label: '[E] ROOFTOP TERRACE (Sky Lounge) ga chiqish',
+          teleport: { x: cx - 14.5, y: ROOF_Y, z: cz + 7.2, h: Math.PI, msg: '🌃 Rooftop Terrace ga chiqdingiz!' },
+        };
+      }
       if (Math.hypot(px - (cx - 16.5), pz - (cz + 1.0)) < 3.6) {
         return { id: 'bar', label: '[E] KOKOBANGO BAR — Kokteyl buyurtma berish' };
       }
@@ -1881,6 +2160,9 @@ export function buildKokobangoClub(scene) {
         if (playerDistSq < 180 * 180) {
           drawLedScreens(t, 0.5, false);
           for (const npc of exteriorNpcs) npc.update(dt, t, 0);
+          const doorOpen = playerDistSq < 55 * 55 ? 1.85 : 0;
+          doorLeft.position.x += ((cx - 1.15 - doorOpen) - doorLeft.position.x) * Math.min(1, dt * 6);
+          doorRight.position.x += ((cx + 1.15 + doorOpen) - doorRight.position.x) * Math.min(1, dt * 6);
         }
         return;
       }
@@ -2215,6 +2497,9 @@ export function buildKokobangoClub(scene) {
           }
         }
         npc.update(dt, t, effectiveBeat);
+      }
+      for (const rnpc of rooftopNpcs) {
+        rnpc.update(dt, t, effectiveBeat * 0.5);
       }
     },
   };
