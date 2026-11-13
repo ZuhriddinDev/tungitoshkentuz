@@ -1365,33 +1365,47 @@ export function buildKokobangoClub(scene) {
   vipEdgeGlow.position.set(cx + 14.55, iy + 0.07, cz + 10.0);
   interiorGroup.add(vipEdgeGlow);
 
-  // VIP xonani oddiy zaldan ajratuvchi shisha va oltin-neon devorlar (eshik o'rni: z = cz + 10.2 .. cz + 13.8)
+  // VIP xonani oddiy zaldan ajratuvchi yopiq (shaffof bo'lmagan) obsidian va oltin devorlar (ichkarisi tashqaridan ko'rinmaydi)
   const vipWallNorth = new THREE.Mesh(new THREE.BoxGeometry(13.2, 5.2, 0.35), mObsidian);
   vipWallNorth.position.set(cx + 21.1, iy + 2.6, cz - 2.0);
-  const vipWallNorthGlass = new THREE.Mesh(new THREE.BoxGeometry(12.6, 3.4, 0.14), mGlass);
-  vipWallNorthGlass.position.set(cx + 21.1, iy + 2.6, cz - 2.0);
+  const vipWallNorthPanel = new THREE.Mesh(new THREE.BoxGeometry(12.6, 3.4, 0.38), mQuiltedVelvet);
+  vipWallNorthPanel.position.set(cx + 21.1, iy + 2.6, cz - 2.0);
   const vipWallNorthNeon = new THREE.Mesh(new THREE.BoxGeometry(13.2, 0.14, 0.42), mNeonPurple);
   vipWallNorthNeon.position.set(cx + 21.1, iy + 5.2, cz - 2.0);
-  interiorGroup.add(vipWallNorth, vipWallNorthGlass, vipWallNorthNeon);
+  interiorGroup.add(vipWallNorth, vipWallNorthPanel, vipWallNorthNeon);
   addIntCol(cx + 14.4, cz - 2.3, cx + 27.8, cz - 1.7);
 
-  // G'arbiy shisha devor (2 qism — o'rtada VIP kirish eshigi ochiq qoldirilgan)
-  const vipWestSeg1 = new THREE.Mesh(new THREE.BoxGeometry(0.28, 4.8, 12.2), mGlass);
+  // G'arbiy yopiq maxfiylik devori (2 qism — o'rtada VIP kirish eshigi yopiq turadi)
+  const vipWestSeg1 = new THREE.Mesh(new THREE.BoxGeometry(0.32, 4.8, 12.2), mObsidian);
   vipWestSeg1.position.set(cx + 14.5, iy + 2.4, cz + 4.1);
-  const vipWestTrim1 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.16, 12.2), mGold);
+  const vipWestTrim1 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.16, 12.2), mGold);
   vipWestTrim1.position.set(cx + 14.5, iy + 4.85, cz + 4.1);
-  const vipWestBase1 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.9, 12.2), mObsidian);
+  const vipWestBase1 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.9, 12.2), mQuiltedVelvet);
   vipWestBase1.position.set(cx + 14.5, iy + 0.45, cz + 4.1);
 
-  const vipWestSeg2 = new THREE.Mesh(new THREE.BoxGeometry(0.28, 4.8, 8.2), mGlass);
+  const vipWestSeg2 = new THREE.Mesh(new THREE.BoxGeometry(0.32, 4.8, 8.2), mObsidian);
   vipWestSeg2.position.set(cx + 14.5, iy + 2.4, cz + 17.9);
-  const vipWestTrim2 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.16, 8.2), mGold);
+  const vipWestTrim2 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.16, 8.2), mGold);
   vipWestTrim2.position.set(cx + 14.5, iy + 4.85, cz + 17.9);
-  const vipWestBase2 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.9, 8.2), mObsidian);
+  const vipWestBase2 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.9, 8.2), mQuiltedVelvet);
   vipWestBase2.position.set(cx + 14.5, iy + 0.45, cz + 17.9);
   interiorGroup.add(vipWestSeg1, vipWestTrim1, vipWestBase1, vipWestSeg2, vipWestTrim2, vipWestBase2);
   addIntCol(cx + 14.2, cz - 2.0, cx + 14.8, cz + 10.1);
   addIntCol(cx + 14.2, cz + 13.9, cx + 14.8, cz + 22.5);
+
+  // Yopiq VIP eshik paneli (25 mln so'm to'lanmaguncha ichkarini to'sib turadi)
+  const vipPrivacyDoor = new THREE.Mesh(new THREE.BoxGeometry(0.28, 3.8, 3.65), mQuiltedVelvet);
+  vipPrivacyDoor.position.set(cx + 14.5, iy + 1.9, cz + 12.0);
+  const vipDoorCrest = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.2, 1.1),
+    new THREE.MeshBasicMaterial({ map: makeSignTexture('VIP 21+', '25 000 000 SO‘M', '#1f0518', '#fde047', '#fb7185', 256, 128) })
+  );
+  vipDoorCrest.position.set(-0.16, 0.25, 0);
+  vipDoorCrest.rotation.y = -Math.PI / 2;
+  vipPrivacyDoor.add(vipDoorCrest);
+  interiorGroup.add(vipPrivacyDoor);
+  const vipDoorCollider = { minX: cx + 14.2, minZ: cz + 10.1, maxX: cx + 14.8, maxZ: cz + 13.9, tag: 'vip_door' };
+  interiorColliders.push(vipDoorCollider);
 
   // VIP ROOM neon yozuvli kirish arkasi
   const vipDoorTop = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.4, 4.0), mObsidian);
@@ -2344,6 +2358,14 @@ export function buildKokobangoClub(scene) {
 
     setVipUnlocked(v) {
       vipUnlocked = !!v;
+      vipPrivacyDoor.visible = !vipUnlocked;
+      if (vipUnlocked) {
+        vipDoorCollider.minX = -99999;
+        vipDoorCollider.maxX = -99999;
+      } else {
+        vipDoorCollider.minX = cx + 14.2;
+        vipDoorCollider.maxX = cx + 14.8;
+      }
     },
 
     isVipUnlocked() {
@@ -2442,15 +2464,18 @@ export function buildKokobangoClub(scene) {
       if (Math.hypot(px - (cx + 23.8), pz - (cz + 17.5)) < 2.8) {
         return { id: 'vip_sofa_2', label: "[E] VIP Divanga o'tirish", seat: { x: cx + 24.5, y: VIP_Y + 0.18, z: cz + 17.5, h: -Math.PI / 2 } };
       }
-      if (Math.hypot(px - (cx + 13.8), pz - (cz + 12.0)) < 2.6) {
+      if (Math.hypot(px - (cx + 13.8), pz - (cz + 12.0)) < 2.8) {
         if (!vipUnlocked) {
           return {
             id: 'vip_unlock',
-            cost: 5_000_000,
-            label: '[E] 👑 VIP LOUNGE (21+) — Kirish chiptasi: 5 000 000 so‘m',
+            cost: 25_000_000,
+            label: '[E] 👑 VIP LOUNGE (21+) — Batafsil va kirish (25 000 000 so‘m)',
           };
         }
         return { id: 'vip_door', label: '👑 VIP LOUNGE (21+) — Kirish ochiq' };
+      }
+      if (vipUnlocked && Math.hypot(px - (cx + 21.0), pz - (cz + 0.5)) < 2.6) {
+        return { id: 'vip_service', label: '[E] 🥂 VIP Lounge maxsus xizmat va shampan (1 500 000 so‘m)' };
       }
       // Yaqin atrofdagi katta yoshli NPC mehmonlar / raqqosalar bilan suhbat
       let nearNpcIdx = -1;

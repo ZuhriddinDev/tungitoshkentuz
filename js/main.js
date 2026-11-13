@@ -200,17 +200,28 @@ onKey('KeyE', keyGuard(() => {
     const act = kokobango.getInteractable?.(playerChar.x, playerChar.z, playerChar.y);
     if (!act) return;
     if (act.id === 'vip_unlock') {
-      const cost = act.cost || 5_000_000;
-      if (!spend(cost, 'KOKOBANGO VIP Lounge (21+)')) {
+      const cost = act.cost || 25_000_000;
+      showVipLoungeModal(cost, () => {
+        if (!spend(cost, 'KOKOBANGO VIP Lounge (21+)')) {
+          beep(220, 0.12);
+          toast(`💸 VIP Lounge uchun mablag‘ yetarli emas (${fmt(cost)})!`, 'err');
+          return;
+        }
+        state.vipClubPass = true;
+        save();
+        kokobango.setVipUnlocked?.(true);
+        beep(880, 0.14);
+        toast('👑 VIP Lounge (21+) ochildi! Endi VIP hududga kirishingiz mumkin.', 'ok');
+      });
+    } else if (act.id === 'vip_service') {
+      const vipDrinkCost = 1_500_000;
+      if (!spend(vipDrinkCost, 'KOKOBANGO VIP Lounge: Shampan xizmati')) {
         beep(220, 0.12);
-        toast(`💸 VIP Lounge uchun mablag‘ yetarli emas (${fmt(cost)})!`, 'err');
+        toast(`💸 VIP xizmat uchun mablag‘ yetarli emas (${fmt(vipDrinkCost)})!`, 'err');
         return;
       }
-      state.vipClubPass = true;
-      save();
-      kokobango.setVipUnlocked?.(true);
-      beep(880, 0.14);
-      toast('👑 VIP Lounge (21+) ochildi! Endi VIP hududga kirishingiz mumkin.', 'ok');
+      beep(740, 0.11);
+      toast('🥂 VIP Lounge: Premium shampan (alkogolsiz) va VIP xizmat tayyor (-1 500 000 so‘m)!', 'ok');
     } else if (act.id === 'bar' || act.id === 'rooftop_bar') {
       const drinkCost = 500_000;
       if (!spend(drinkCost, 'KOKOBANGO BAR: Alkogolsiz kokteyl')) {
@@ -271,7 +282,8 @@ onKey('KeyL', keyGuard(() => {
   toast(`Faralar: ${{ auto: 'avtomatik', on: 'yoqilgan', off: "o'chirilgan" }[lightsMode]}`);
 }));
 let clubMobileNoticeShown = false;
-let clubAgeConfirmed = false;
+let clubEntryPaid = false;
+const CLUB_ENTRY_FEE = 9_000_000;
 
 function showClubAgeGateModal(onConfirm) {
   let modal = document.getElementById('clubAgeGateModal');
@@ -285,16 +297,17 @@ function showClubAgeGateModal(onConfirm) {
       'font-family:Inter,system-ui,sans-serif',
     ].join(';');
     modal.innerHTML = `
-      <div style="max-width:410px;width:100%;background:linear-gradient(160deg,rgba(32,6,24,0.97),rgba(12,4,20,0.99));border:1px solid rgba(244,63,94,0.45);border-radius:18px;padding:24px 22px;box-shadow:0 24px 56px rgba(0,0,0,0.75),0 0 32px rgba(244,63,94,0.22);text-align:center;color:#fdf2f8;">
+      <div style="max-width:420px;width:100%;background:linear-gradient(160deg,rgba(32,6,24,0.97),rgba(12,4,20,0.99));border:1px solid rgba(244,63,94,0.45);border-radius:18px;padding:24px 22px;box-shadow:0 24px 56px rgba(0,0,0,0.75),0 0 32px rgba(244,63,94,0.22);text-align:center;color:#fdf2f8;">
         <div style="width:54px;height:54px;margin:0 auto 12px;border-radius:14px;background:linear-gradient(135deg,rgba(244,63,94,0.28),rgba(251,191,36,0.2));border:1px solid rgba(251,191,36,0.45);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fde047;">21+</div>
         <h3 style="margin:0 0 10px;font-size:18px;font-weight:800;letter-spacing:1.1px;color:#fb7185;">KOKOBANGO CLUB · 18+ / 21+</h3>
-        <p style="margin:0 0 18px;font-size:13.5px;line-height:1.58;color:#e2e8f0;">
+        <p style="margin:0 0 14px;font-size:13.5px;line-height:1.58;color:#e2e8f0;">
           Ushbu hudud faqat <b>18+ / 21+</b> kattalar uchun mo‘ljallangan tungi klub va VIP lounge muhitidir.<br><br>
-          Davom etish orqali yoshingiz 18+ ekanligini tasdiqlaysiz.
+          <b>Asosiy zalga kirish chiptasi:</b> <span style="color:#fde047;font-weight:800;">9 000 000 so‘m</span><br>
+          <span style="font-size:12px;color:#94a3b8;">(Tasdiqlasangiz virtual hisobingizdan yechiladi)</span>
         </p>
         <div style="display:flex;gap:10px;">
           <button id="clubAgeCancel" type="button" style="flex:1;padding:11px 12px;border:1px solid rgba(255,255,255,0.18);border-radius:12px;background:rgba(255,255,255,0.06);color:#cbd5e1;font-weight:700;font-size:13px;cursor:pointer;">Bekor qilish</button>
-          <button id="clubAgeConfirm" type="button" style="flex:1.4;padding:11px 14px;border:none;border-radius:12px;background:linear-gradient(90deg,#e11d48,#a855f7);color:#fff;font-weight:800;font-size:13px;cursor:pointer;letter-spacing:0.3px;">Ha, 18+ man — Kirish</button>
+          <button id="clubAgeConfirm" type="button" style="flex:1.5;padding:11px 14px;border:none;border-radius:12px;background:linear-gradient(90deg,#e11d48,#a855f7);color:#fff;font-weight:800;font-size:13px;cursor:pointer;letter-spacing:0.3px;">18+ · 9 mln to‘lab kirish</button>
         </div>
       </div>
     `;
@@ -302,6 +315,55 @@ function showClubAgeGateModal(onConfirm) {
   }
   const confirmBtn = document.getElementById('clubAgeConfirm');
   const cancelBtn = document.getElementById('clubAgeCancel');
+  if (confirmBtn) {
+    confirmBtn.onclick = () => {
+      modal.style.display = 'none';
+      if (typeof onConfirm === 'function') onConfirm();
+    };
+  }
+  if (cancelBtn) {
+    cancelBtn.onclick = () => {
+      modal.style.display = 'none';
+    };
+  }
+  modal.onclick = (e) => {
+    if (e.target === modal) modal.style.display = 'none';
+  };
+  modal.style.display = 'flex';
+}
+
+function showVipLoungeModal(cost, onConfirm) {
+  let modal = document.getElementById('clubVipModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'clubVipModal';
+    modal.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:9999', 'display:flex', 'align-items:center',
+      'justify-content:center', 'padding:18px', 'background:rgba(8,2,14,0.84)',
+      'backdrop-filter:blur(12px)', '-webkit-backdrop-filter:blur(12px)',
+      'font-family:Inter,system-ui,sans-serif',
+    ].join(';');
+    modal.innerHTML = `
+      <div style="max-width:440px;width:100%;background:linear-gradient(160deg,rgba(40,8,28,0.98),rgba(14,4,22,0.99));border:1px solid rgba(251,191,36,0.5);border-radius:18px;padding:24px 22px;box-shadow:0 24px 56px rgba(0,0,0,0.8),0 0 36px rgba(251,191,36,0.2);text-align:center;color:#fdf2f8;">
+        <div style="width:54px;height:54px;margin:0 auto 12px;border-radius:14px;background:linear-gradient(135deg,rgba(251,191,36,0.28),rgba(244,63,94,0.25));border:1px solid rgba(251,191,36,0.55);display:flex;align-items:center;justify-content:center;font-size:24px;">👑</div>
+        <h3 style="margin:0 0 10px;font-size:18px;font-weight:800;letter-spacing:1.1px;color:#fde047;">VIP LOUNGE (21+ EXCLUSIVE)</h3>
+        <p style="margin:0 0 14px;font-size:13.5px;line-height:1.6;color:#e2e8f0;text-align:left;background:rgba(0,0,0,0.28);padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
+          ✨ <b>Yopiq premium zona:</b> tashqaridan ko‘rinmaydigan maxfiy VIP muhit<br>
+          🛋️ <b>Hashamatli baxmal divanlar</b> va shaxsiy stol xizmati<br>
+          🥂 <b>VIP mini-bar:</b> maxsus shampan va kokteyl xizmati<br>
+          🎭 <b>21+ Glamour atmosfera:</b> oltin ramkali fotografiyalar va maxsus yoritish
+        </p>
+        <div style="margin-bottom:16px;font-size:14px;font-weight:800;color:#fde047;">Kirish to‘lovi: ${fmt(cost)}</div>
+        <div style="display:flex;gap:10px;">
+          <button id="clubVipCancel" type="button" style="flex:1;padding:11px 12px;border:1px solid rgba(255,255,255,0.18);border-radius:12px;background:rgba(255,255,255,0.06);color:#cbd5e1;font-weight:700;font-size:13px;cursor:pointer;">Kirmayman</button>
+          <button id="clubVipConfirm" type="button" style="flex:1.5;padding:11px 14px;border:none;border-radius:12px;background:linear-gradient(90deg,#f59e0b,#e11d48);color:#fff;font-weight:800;font-size:13px;cursor:pointer;letter-spacing:0.3px;">25 mln to‘lab kirish</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  const confirmBtn = document.getElementById('clubVipConfirm');
+  const cancelBtn = document.getElementById('clubVipCancel');
   if (confirmBtn) {
     confirmBtn.onclick = () => {
       modal.style.display = 'none';
@@ -401,10 +463,17 @@ async function enterKokobangoClub() {
       return;
     }
   } catch { /* Offline/static server fallback relies on !isTouch() */ }
-  if (!clubAgeConfirmed) {
+  if (!clubEntryPaid) {
     clubTransitioning = false;
     showClubAgeGateModal(() => {
-      clubAgeConfirmed = true;
+      if (!spend(CLUB_ENTRY_FEE, 'KOKOBANGO CLUB kirish chiptasi')) {
+        beep(220, 0.12);
+        toast(`💸 Klubga kirish uchun mablag‘ yetarli emas (${fmt(CLUB_ENTRY_FEE)})!`, 'err');
+        return;
+      }
+      clubEntryPaid = true;
+      beep(780, 0.1);
+      toast('🎟️ KOKOBANGO CLUB chiptasi olindi (-9 000 000 so‘m)!', 'ok');
       enterKokobangoClub();
     });
     return;
@@ -439,6 +508,7 @@ async function enterKokobangoClub() {
 function exitKokobangoClub() {
   if (!kokobango || !playerChar || !insideClub || clubTransitioning) return;
   clubTransitioning = true;
+  clubEntryPaid = false;
   setClubPrompt('');
   const fadeEl = $('clubFade');
   if (fadeEl) fadeEl.classList.add('active');
