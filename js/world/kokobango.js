@@ -601,6 +601,7 @@ export function buildKokobangoClub(scene) {
   const mCarpet = new THREE.MeshStandardMaterial({ color: 0x6d1148, roughness: 0.85 });
   const mNeonPurple = new THREE.MeshStandardMaterial({ color: 0xd946ef, emissive: 0xd946ef, emissiveIntensity: 2.8, roughness: 0.2 });
   const mNeonCyan = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 2.6, roughness: 0.2 });
+  const mNeonPink = new THREE.MeshStandardMaterial({ color: 0xf43f5e, emissive: 0xf43f5e, emissiveIntensity: 2.8, roughness: 0.2 });
 
   // Asosiy bino korpusi (76m kenglik x 60m chuqurlik x 18m balandlik, z = cz - 24 .. cz + 36)
   const bCenterZ = cz + 6;
