@@ -1372,6 +1372,10 @@ export function buildKokobangoClub(scene) {
   ];
 
   function collectBip01Rig(root) {
+    root.updateMatrixWorld(true);
+    const rootQuatInv = new THREE.Quaternion();
+    root.getWorldQuaternion(rootQuatInv).invert();
+
     const find = (name) => root.getObjectByName(name) || null;
     const raw = {
       pelvis: find('Bip01 Pelvis'),
@@ -1388,21 +1392,46 @@ export function buildKokobangoClub(scene) {
     };
     const rig = {};
     for (const [k, bone] of Object.entries(raw)) {
-      if (bone) rig[k] = { bone, base: bone.quaternion.clone() };
+      if (!bone) continue;
+      const parentWorld = new THREE.Quaternion();
+      if (bone.parent) {
+        bone.parent.getWorldQuaternion(parentWorld);
+        parentWorld.premultiply(rootQuatInv);
+      }
+      const parentInv = parentWorld.clone().invert();
+      rig[k] = {
+        bone,
+        base: bone.quaternion.clone(),
+        parentWorld,
+        parentInv,
+      };
     }
     return rig;
   }
 
   const _animEuler = new THREE.Euler();
-  const _animQuat = new THREE.Quaternion();
+  const _modelQuat = new THREE.Quaternion();
   const _targetQuat = new THREE.Quaternion();
   function poseBone(entry, rx, ry, rz, blend = 1.0) {
     if (!entry) return;
     _animEuler.set(rx, ry, rz, 'XYZ');
-    _animQuat.setFromEuler(_animEuler);
-    _targetQuat.copy(entry.base).multiply(_animQuat);
+    _modelQuat.setFromEuler(_animEuler);
+    // Q_local = parentInv * Q_model * parentWorld * base
+    _targetQuat
+      .copy(entry.parentInv)
+      .multiply(_modelQuat)
+      .multiply(entry.parentWorld)
+      .multiply(entry.base);
     if (blend >= 0.99) entry.bone.quaternion.copy(_targetQuat);
     else entry.bone.quaternion.slerp(_targetQuat, blend);
+  }
+
+  function applyRelaxedPose(rig) {
+    if (!rig) return;
+    poseBone(rig.lArm, -0.05, 0, -0.78, 1.0);
+    poseBone(rig.rArm, -0.05, 0, 0.78, 1.0);
+    poseBone(rig.lFore, -0.22, 0, 0, 1.0);
+    poseBone(rig.rFore, -0.22, 0, 0, 1.0);
   }
 
   const vipSeats = [
@@ -1498,6 +1527,7 @@ export function buildKokobangoClub(scene) {
           const model = gltf.scene;
           normalizeGlbScene(model, ag.cfg.targetH);
           ag.rig = collectBip01Rig(model);
+          applyRelaxedPose(ag.rig);
           ag.inner = model;
           ag.root.add(model);
           ag.loaded = true;
@@ -1998,16 +2028,16 @@ export function buildKokobangoClub(scene) {
           ag.root.rotation.y = ag.yaw;
           if (ag.rig) {
             poseBone(ag.rig.pelvis, 0, 0, 0, animBlend);
-            poseBone(ag.rig.spine, -0.05, Math.sin(t * 1.2 + ag.phase) * 0.06, 0, animBlend);
+            poseBone(ag.rig.spine, 0.06, Math.sin(t * 1.2 + ag.phase) * 0.06, 0, animBlend);
             poseBone(ag.rig.head, Math.sin(t * 1.8 + ag.phase) * 0.06, Math.sin(t * 0.9 + ag.phase) * 0.16, 0, animBlend);
-            poseBone(ag.rig.lThigh, 0, 0, 1.35, animBlend);
-            poseBone(ag.rig.rThigh, 0, 0, 1.35, animBlend);
-            poseBone(ag.rig.lCalf, 0, 0, -1.35, animBlend);
-            poseBone(ag.rig.rCalf, 0, 0, -1.35, animBlend);
-            poseBone(ag.rig.lArm, 0.1, 0, 0.2, animBlend);
-            poseBone(ag.rig.rArm, -0.1, 0, -0.25 + Math.sin(t * 2.1 + ag.phase) * 0.08, animBlend);
-            poseBone(ag.rig.lFore, 0, 0.35, 0, animBlend);
-            poseBone(ag.rig.rFore, 0, -0.55, 0, animBlend);
+            poseBone(ag.rig.lThigh, -1.42, 0.08, 0, animBlend);
+            poseBone(ag.rig.rThigh, -1.42, -0.08, 0, animBlend);
+            poseBone(ag.rig.lCalf, 1.42, 0, 0, animBlend);
+            poseBone(ag.rig.rCalf, 1.42, 0, 0, animBlend);
+            poseBone(ag.rig.lArm, -0.18, 0, -0.72, animBlend);
+            poseBone(ag.rig.rArm, -0.22 + Math.sin(t * 2.1 + ag.phase) * 0.08, 0, 0.72, animBlend);
+            poseBone(ag.rig.lFore, -0.45, 0, 0, animBlend);
+            poseBone(ag.rig.rFore, -0.65, 0, 0, animBlend);
           }
         } else if (curSpd > 0.18 && ag.aiState === 'WALKING') {
           const targetYaw = Math.atan2(ag.vx, ag.vz);
@@ -2019,17 +2049,19 @@ export function buildKokobangoClub(scene) {
           const w = t * 5.8 + ag.phase;
           const amp = Math.min(1, curSpd / ag.speed);
           if (ag.rig) {
-            poseBone(ag.rig.pelvis, 0, Math.sin(w) * 0.06 * amp, 0, animBlend);
-            poseBone(ag.rig.spine, 0.04 * amp, -Math.sin(w) * 0.06 * amp, 0, animBlend);
-            poseBone(ag.rig.head, 0, Math.sin(w * 0.5) * 0.06, 0, animBlend);
-            poseBone(ag.rig.lThigh, 0, 0, Math.sin(w) * 0.36 * amp, animBlend);
-            poseBone(ag.rig.rThigh, 0, 0, -Math.sin(w) * 0.36 * amp, animBlend);
-            poseBone(ag.rig.lCalf, 0, 0, Math.max(0, -Math.cos(w)) * 0.42 * amp, animBlend);
-            poseBone(ag.rig.rCalf, 0, 0, Math.max(0, Math.cos(w)) * 0.42 * amp, animBlend);
-            poseBone(ag.rig.lArm, 0, 0, -Math.sin(w) * 0.24 * amp, animBlend);
-            poseBone(ag.rig.rArm, 0, 0, Math.sin(w) * 0.24 * amp, animBlend);
-            poseBone(ag.rig.lFore, 0, 0.25, 0, animBlend);
-            poseBone(ag.rig.rFore, 0, -0.25, 0, animBlend);
+            const s = Math.sin(w);
+            const c = Math.cos(w);
+            poseBone(ag.rig.pelvis, 0, s * 0.06 * amp, c * 0.025 * amp, animBlend);
+            poseBone(ag.rig.spine, 0.04 * amp, -s * 0.06 * amp, 0, animBlend);
+            poseBone(ag.rig.head, 0, s * 0.04, 0, animBlend);
+            poseBone(ag.rig.lThigh, -s * 0.44 * amp, 0, 0, animBlend);
+            poseBone(ag.rig.rThigh, s * 0.44 * amp, 0, 0, animBlend);
+            poseBone(ag.rig.lCalf, Math.max(0, c) * 0.55 * amp, 0, 0, animBlend);
+            poseBone(ag.rig.rCalf, Math.max(0, -c) * 0.55 * amp, 0, 0, animBlend);
+            poseBone(ag.rig.lArm, s * 0.34 * amp, 0, -0.78, animBlend);
+            poseBone(ag.rig.rArm, -s * 0.34 * amp, 0, 0.78, animBlend);
+            poseBone(ag.rig.lFore, -0.28 - Math.max(0, -s) * 0.25 * amp, 0, 0, animBlend);
+            poseBone(ag.rig.rFore, -0.28 - Math.max(0, s) * 0.25 * amp, 0, 0, animBlend);
           }
         } else if (ag.aiState === 'IDLE' || ag.aiState === 'STANDING_UP') {
           const breath = Math.sin(t * 2.1 + ag.phase);
@@ -2041,10 +2073,10 @@ export function buildKokobangoClub(scene) {
             poseBone(ag.rig.rThigh, 0, 0, 0, animBlend);
             poseBone(ag.rig.lCalf, 0, 0, 0, animBlend);
             poseBone(ag.rig.rCalf, 0, 0, 0, animBlend);
-            poseBone(ag.rig.lArm, 0, 0, 0.06, animBlend);
-            poseBone(ag.rig.rArm, 0, 0, -0.06, animBlend);
-            poseBone(ag.rig.lFore, 0, 0.15, 0, animBlend);
-            poseBone(ag.rig.rFore, 0, -0.15, 0, animBlend);
+            poseBone(ag.rig.lArm, -0.05, 0, -0.78, animBlend);
+            poseBone(ag.rig.rArm, -0.05, 0, 0.78, animBlend);
+            poseBone(ag.rig.lFore, -0.22, 0, 0, animBlend);
+            poseBone(ag.rig.rFore, -0.22, 0, 0, animBlend);
           }
         } else if (ag.aiState === 'TALKING') {
           const talk = Math.sin(t * 3.4 + ag.phase);
@@ -2056,13 +2088,13 @@ export function buildKokobangoClub(scene) {
             poseBone(ag.rig.rThigh, 0, 0, 0, animBlend);
             poseBone(ag.rig.lCalf, 0, 0, 0, animBlend);
             poseBone(ag.rig.rCalf, 0, 0, 0, animBlend);
-            poseBone(ag.rig.lArm, 0.1, 0, 0.18 + talk * 0.12, animBlend);
-            poseBone(ag.rig.rArm, 0.2, 0, -0.32 - talk * 0.18, animBlend);
-            poseBone(ag.rig.lFore, 0, 0.45, 0, animBlend);
-            poseBone(ag.rig.rFore, 0, -0.75 + talk * 0.2, 0, animBlend);
+            poseBone(ag.rig.lArm, -0.15 + talk * 0.12, 0, -0.74, animBlend);
+            poseBone(ag.rig.rArm, -0.35 - talk * 0.18, 0, 0.70, animBlend);
+            poseBone(ag.rig.lFore, -0.45, 0, 0, animBlend);
+            poseBone(ag.rig.rFore, -0.85 + talk * 0.22, 0, 0, animBlend);
           }
         } else {
-          // DANCING
+          // DANCING (har bir NPC uchun turlicha raqs uslublari)
           const lookYaw = ag.cfg.zone === 'vip'
             ? Math.atan2(cx + 18.0 - nx, cz + 10.5 - nz)
             : Math.atan2(cx - nx, cz - 14.0 - nz);
@@ -2072,18 +2104,33 @@ export function buildKokobangoClub(scene) {
           ag.root.rotation.y = ag.yaw;
 
           const d = t * 6.4 + ag.phase;
+          const style = i % 3;
           if (ag.rig) {
-            poseBone(ag.rig.pelvis, 0, Math.sin(d * 0.5) * 0.14, Math.sin(d) * 0.06, animBlend);
-            poseBone(ag.rig.spine, Math.sin(d) * 0.05, Math.cos(d * 0.5) * 0.10, 0, animBlend);
-            poseBone(ag.rig.head, Math.sin(d) * 0.10, Math.sin(d * 0.25) * 0.18, 0, animBlend);
-            poseBone(ag.rig.lThigh, 0, 0, Math.sin(d) * 0.08, animBlend);
-            poseBone(ag.rig.rThigh, 0, 0, -Math.sin(d) * 0.08, animBlend);
-            poseBone(ag.rig.lCalf, 0, 0, Math.abs(Math.sin(d)) * 0.12, animBlend);
-            poseBone(ag.rig.rCalf, 0, 0, Math.abs(Math.cos(d)) * 0.12, animBlend);
-            poseBone(ag.rig.lArm, Math.sin(d) * 0.28, 0.2, 0.35 + Math.cos(d) * 0.25, animBlend);
-            poseBone(ag.rig.rArm, Math.cos(d) * 0.28, -0.2, -0.35 - Math.sin(d) * 0.25, animBlend);
-            poseBone(ag.rig.lFore, 0, 0.55 + Math.sin(d) * 0.2, 0, animBlend);
-            poseBone(ag.rig.rFore, 0, -0.55 - Math.cos(d) * 0.2, 0, animBlend);
+            const s = Math.sin(d);
+            const c = Math.cos(d);
+            poseBone(ag.rig.pelvis, 0, Math.sin(d * 0.5) * 0.15, s * 0.06, animBlend);
+            poseBone(ag.rig.spine, s * 0.06, c * 0.10, s * 0.04, animBlend);
+            poseBone(ag.rig.head, s * 0.10, Math.sin(d * 0.25) * 0.18, 0, animBlend);
+            poseBone(ag.rig.lThigh, -Math.max(0, s) * 0.16, 0, 0, animBlend);
+            poseBone(ag.rig.rThigh, -Math.max(0, -s) * 0.16, 0, 0, animBlend);
+            poseBone(ag.rig.lCalf, Math.max(0, s) * 0.28, 0, 0, animBlend);
+            poseBone(ag.rig.rCalf, Math.max(0, -s) * 0.28, 0, 0, animBlend);
+            if (style === 0) {
+              poseBone(ag.rig.lArm, -0.65 + s * 0.35, 0, -0.58 + c * 0.18, animBlend);
+              poseBone(ag.rig.rArm, -0.65 + c * 0.35, 0, 0.58 - s * 0.18, animBlend);
+              poseBone(ag.rig.lFore, -0.95 + c * 0.25, 0, 0, animBlend);
+              poseBone(ag.rig.rFore, -0.95 + s * 0.25, 0, 0, animBlend);
+            } else if (style === 1) {
+              poseBone(ag.rig.lArm, -1.25 + s * 0.25, 0, -0.45, animBlend);
+              poseBone(ag.rig.rArm, -0.35 + c * 0.25, 0, 0.72, animBlend);
+              poseBone(ag.rig.lFore, -0.55 + c * 0.2, 0, 0, animBlend);
+              poseBone(ag.rig.rFore, -0.85, 0, 0, animBlend);
+            } else {
+              poseBone(ag.rig.lArm, -0.35 + c * 0.25, 0, -0.72, animBlend);
+              poseBone(ag.rig.rArm, -1.25 + s * 0.25, 0, 0.45, animBlend);
+              poseBone(ag.rig.lFore, -0.85, 0, 0, animBlend);
+              poseBone(ag.rig.rFore, -0.55 + s * 0.2, 0, 0, animBlend);
+            }
           }
         }
       }
