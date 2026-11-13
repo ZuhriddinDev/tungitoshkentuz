@@ -848,55 +848,27 @@ export function buildKokobangoClub(scene) {
     lasers.push({ pivot: lPivot, mat: lMat, phase: i * 0.65 });
   }
 
-  // 2.5 VIP LOUNGE HUDUDI (G'arb tarafda, ko'tarilgan platforma, divanlar va stollar)
-  const vipDeck = new THREE.Mesh(new THREE.BoxGeometry(11.5, 0.65, 24), mMarble);
-  vipDeck.position.set(cx - 21.5, iy + 0.325, cz - 1);
-  interiorGroup.add(vipDeck);
-  const vipTrim = new THREE.Mesh(new THREE.BoxGeometry(11.6, 0.12, 24.1), mNeonPurple);
-  vipTrim.position.set(cx - 21.5, iy + 0.65, cz - 1);
-  interiorGroup.add(vipTrim);
-
-  // Shisha panjara (zinapoya qoldirilgan)
-  for (const gz of [-9, 7]) {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.0, 8), mGlass);
-    rail.position.set(cx - 15.8, iy + 1.15, cz + gz);
-    interiorGroup.add(rail);
-  }
-  addIntCol(cx - 27.5, cz - 13, cx - 15.8, cz - 5);
-  addIntCol(cx - 27.5, cz + 3, cx - 15.8, cz + 11);
-
-  // VIP Divanlar va Stollar
-  const mLeather = new THREE.MeshStandardMaterial({ color: 0x3b0764, roughness: 0.42, metalness: 0.15 });
-  for (const vz of [cz - 8, cz + 6]) {
-    const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.05, 5.4), mLeather);
-    sofaBack.position.set(cx - 25.2, iy + 1.15, vz);
-    const sofaSeat = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.45, 5.4), mLeather);
-    sofaSeat.position.set(cx - 24.4, iy + 0.85, vz);
-    const table = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.55, 2.8), mObsidian);
-    table.position.set(cx - 22.0, iy + 0.92, vz);
-    const tableGlow = new THREE.Mesh(new THREE.BoxGeometry(1.44, 0.08, 2.84), mNeonCyan);
-    tableGlow.position.set(cx - 22.0, iy + 1.18, vz);
-    // Bezak ichimlik butilkalari va bokallar (alkogolsiz mocktail)
-    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 0.3, 10), mGold);
-    bucket.position.set(cx - 22.0, iy + 1.35, vz);
-    interiorGroup.add(sofaBack, sofaSeat, table, tableGlow, bucket);
-  }
-
-  // 2.6 BAR PESHTAXTASI (Sharq tarafda, x = cx + 17 .. cx + 26)
+  // 2.5 ASOSIY BAR VA LOUNGE (G'arb / Chap tarafda, x = cx - 27 .. cx - 16)
   const barCounter = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 16), mObsidian);
-  barCounter.position.set(cx + 18.5, iy + 0.6, cz + 2);
+  barCounter.position.set(cx - 18.5, iy + 0.6, cz + 1);
   interiorGroup.add(barCounter);
-  addIntCol(cx + 17.6, cz - 6.2, cx + 26.5, cz + 10.2);
+  addIntCol(cx - 26.5, cz - 7.2, cx - 17.6, cz + 9.2);
 
   const barTop = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 16.4), mMarble);
-  barTop.position.set(cx + 18.5, iy + 1.22, cz + 2);
+  barTop.position.set(cx - 18.5, iy + 1.22, cz + 1);
   const barGlow = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.12, 16.1), mNeonCyan);
-  barGlow.position.set(cx + 18.4, iy + 0.12, cz + 2);
+  barGlow.position.set(cx - 18.4, iy + 0.12, cz + 1);
   interiorGroup.add(barTop, barGlow);
+
+  const barSignTex = makeSignTexture('KOKOBANGO BAR', 'COCKTAILS & LOUNGE', '#090915', '#22d3ee', '#e879f9', 512, 128);
+  const barSign = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 1.3), new THREE.MeshBasicMaterial({ map: barSignTex }));
+  barSign.position.set(cx - 26.2, iy + 4.8, cz + 1);
+  barSign.rotation.y = Math.PI / 2;
+  interiorGroup.add(barSign);
 
   // Bar ortidagi javon va rang-barang bezak shishalar
   const barShelf = new THREE.Mesh(new THREE.BoxGeometry(0.9, 4.2, 14), mDarkWall);
-  barShelf.position.set(cx + 26.8, iy + 2.1, cz + 2);
+  barShelf.position.set(cx - 26.8, iy + 2.1, cz + 1);
   interiorGroup.add(barShelf);
   const bottleCols = [0x00e5ff, 0xd946ef, 0xfacc15, 0x38bdf8, 0xf43f5e, 0xa855f7];
   for (let b = 0; b < 18; b++) {
@@ -907,15 +879,90 @@ export function buildKokobangoClub(scene) {
       roughness: 0.15,
     });
     const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.36, 8), bMat);
-    bottle.position.set(cx + 26.2, iy + 1.8 + (b % 2) * 1.1, cz - 4 + Math.floor(b / 2) * 1.45);
+    bottle.position.set(cx - 26.2, iy + 1.8 + (b % 2) * 1.1, cz - 5 + Math.floor(b / 2) * 1.45);
     interiorGroup.add(bottle);
   }
-  // Bar stullari
+  const mLeather = new THREE.MeshStandardMaterial({ color: 0x3b0764, roughness: 0.42, metalness: 0.15 });
   for (let st = 0; st < 6; st++) {
     const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.12, 0.75, 10), mLeather);
-    stool.position.set(cx + 16.8, iy + 0.38, cz - 4 + st * 2.4);
+    stool.position.set(cx - 16.8, iy + 0.38, cz - 5 + st * 2.4);
     interiorGroup.add(stool);
   }
+
+  // 2.6 ALOHIDA VIP ZONA XONASI (Kirishda O'NG TOMONDA: x = cx + 14.5 .. cx + 27.6, z = cz - 2 .. cz + 22)
+  const VIP_Y = iy + 0.12;
+  const vipFloorMat = new THREE.MeshStandardMaterial({ color: 0x240a3d, roughness: 0.25, metalness: 0.45 });
+  const vipFloor = new THREE.Mesh(new THREE.BoxGeometry(13.2, 0.12, 24.2), vipFloorMat);
+  vipFloor.position.set(cx + 21.1, iy + 0.06, cz + 10.0);
+  interiorGroup.add(vipFloor);
+  const vipEdgeGlow = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 24.2), mGold);
+  vipEdgeGlow.position.set(cx + 14.55, iy + 0.07, cz + 10.0);
+  interiorGroup.add(vipEdgeGlow);
+
+  // VIP xonani oddiy zaldan ajratuvchi shisha va oltin-neon devorlar (eshik o'rni: z = cz + 10.2 .. cz + 13.8)
+  const vipWallNorth = new THREE.Mesh(new THREE.BoxGeometry(13.2, 5.2, 0.35), mObsidian);
+  vipWallNorth.position.set(cx + 21.1, iy + 2.6, cz - 2.0);
+  const vipWallNorthGlass = new THREE.Mesh(new THREE.BoxGeometry(12.6, 3.4, 0.14), mGlass);
+  vipWallNorthGlass.position.set(cx + 21.1, iy + 2.6, cz - 2.0);
+  const vipWallNorthNeon = new THREE.Mesh(new THREE.BoxGeometry(13.2, 0.14, 0.42), mNeonPurple);
+  vipWallNorthNeon.position.set(cx + 21.1, iy + 5.2, cz - 2.0);
+  interiorGroup.add(vipWallNorth, vipWallNorthGlass, vipWallNorthNeon);
+  addIntCol(cx + 14.4, cz - 2.3, cx + 27.8, cz - 1.7);
+
+  // G'arbiy shisha devor (2 qism — o'rtada VIP kirish eshigi ochiq qoldirilgan)
+  const vipWestSeg1 = new THREE.Mesh(new THREE.BoxGeometry(0.28, 4.8, 12.2), mGlass);
+  vipWestSeg1.position.set(cx + 14.5, iy + 2.4, cz + 4.1);
+  const vipWestTrim1 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.16, 12.2), mGold);
+  vipWestTrim1.position.set(cx + 14.5, iy + 4.85, cz + 4.1);
+  const vipWestBase1 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.9, 12.2), mObsidian);
+  vipWestBase1.position.set(cx + 14.5, iy + 0.45, cz + 4.1);
+
+  const vipWestSeg2 = new THREE.Mesh(new THREE.BoxGeometry(0.28, 4.8, 8.2), mGlass);
+  vipWestSeg2.position.set(cx + 14.5, iy + 2.4, cz + 17.9);
+  const vipWestTrim2 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.16, 8.2), mGold);
+  vipWestTrim2.position.set(cx + 14.5, iy + 4.85, cz + 17.9);
+  const vipWestBase2 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.9, 8.2), mObsidian);
+  vipWestBase2.position.set(cx + 14.5, iy + 0.45, cz + 17.9);
+  interiorGroup.add(vipWestSeg1, vipWestTrim1, vipWestBase1, vipWestSeg2, vipWestTrim2, vipWestBase2);
+  addIntCol(cx + 14.2, cz - 2.0, cx + 14.8, cz + 10.1);
+  addIntCol(cx + 14.2, cz + 13.9, cx + 14.8, cz + 22.5);
+
+  // VIP ROOM neon yozuvli kirish arkasi
+  const vipDoorTop = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.4, 4.0), mObsidian);
+  vipDoorTop.position.set(cx + 14.5, iy + 4.3, cz + 12.0);
+  const vipSignTex = makeSignTexture('VIP ROOM', 'EXCLUSIVE LOUNGE', '#1a0633', '#facc15', '#e879f9', 512, 128);
+  const vipSign = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 0.95), new THREE.MeshBasicMaterial({ map: vipSignTex }));
+  vipSign.position.set(cx + 14.22, iy + 4.3, cz + 12.0);
+  vipSign.rotation.y = -Math.PI / 2;
+  const vipDoorGlowL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.8, 0.16), mNeonPurple);
+  vipDoorGlowL.position.set(cx + 14.5, iy + 1.9, cz + 10.15);
+  const vipDoorGlowR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.8, 0.16), mNeonPurple);
+  vipDoorGlowR.position.set(cx + 14.5, iy + 1.9, cz + 13.85);
+  interiorGroup.add(vipDoorTop, vipSign, vipDoorGlowL, vipDoorGlowR);
+
+  // VIP xona ichidagi hashamatli divanlar, stollar va shampan idishlari
+  for (const vz of [cz + 3.5, cz + 17.5]) {
+    const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.05, 5.2), mLeather);
+    sofaBack.position.set(cx + 25.8, VIP_Y + 0.52, vz);
+    const sofaSeat = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.45, 5.2), mLeather);
+    sofaSeat.position.set(cx + 24.9, VIP_Y + 0.22, vz);
+    const table = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.52, 2.8), mObsidian);
+    table.position.set(cx + 22.4, VIP_Y + 0.26, vz);
+    const tableGlow = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.08, 2.86), mNeonCyan);
+    tableGlow.position.set(cx + 22.4, VIP_Y + 0.52, vz);
+    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 0.3, 10), mGold);
+    bucket.position.set(cx + 22.4, VIP_Y + 0.7, vz);
+    interiorGroup.add(sofaBack, sofaSeat, table, tableGlow, bucket);
+    addIntCol(cx + 24.0, vz - 2.6, cx + 26.6, vz + 2.6);
+    addIntCol(cx + 21.6, vz - 1.4, cx + 23.2, vz + 1.4);
+  }
+  // VIP xona ichidagi shaxsiy mini-bar (shimoliy devor bo'ylab)
+  const vipMiniBar = new THREE.Mesh(new THREE.BoxGeometry(5.6, 1.1, 1.1), mObsidian);
+  vipMiniBar.position.set(cx + 21.0, VIP_Y + 0.55, cz - 0.6);
+  const vipMiniBarTop = new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.1, 1.25), mGold);
+  vipMiniBarTop.position.set(cx + 21.0, VIP_Y + 1.12, cz - 0.6);
+  interiorGroup.add(vipMiniBar, vipMiniBarTop);
+  addIntCol(cx + 18.1, cz - 1.25, cx + 23.9, cz + 0.05);
 
   // 2.7 HOJATXONA VA KORIDOR (WC / RESTROOMS — Shimoli-Sharqiy burchak)
   const wcWallFront = new THREE.Mesh(new THREE.BoxGeometry(10, 5.5, 0.4), wallMat);
@@ -968,12 +1015,14 @@ export function buildKokobangoClub(scene) {
   const intStageLight = new THREE.PointLight(0x00e5ff, 68, 38, 1.3);
   intStageLight.position.set(cx, iy + 6.5, cz - 14);
   const intBarLight = new THREE.PointLight(0xd946ef, 48, 32, 1.3);
-  intBarLight.position.set(cx + 18, iy + 5.5, cz + 2);
-  const intVipLight = new THREE.PointLight(0xa855f7, 46, 32, 1.3);
-  intVipLight.position.set(cx - 21, iy + 5.5, cz);
+  intBarLight.position.set(cx - 21, iy + 5.5, cz + 1);
+  const intVipLight = new THREE.PointLight(0xfacc15, 42, 26, 1.3);
+  intVipLight.position.set(cx + 21, iy + 5.5, cz + 10);
+  const intVipPurple = new THREE.PointLight(0xd946ef, 38, 24, 1.3);
+  intVipPurple.position.set(cx + 21, iy + 5.0, cz + 16);
   const intEntranceLight = new THREE.PointLight(0x38bdf8, 38, 28, 1.3);
   intEntranceLight.position.set(cx, iy + 6.0, cz + 15);
-  interiorGroup.add(intHemi, intAmbient, intStageLight, intBarLight, intVipLight, intEntranceLight);
+  interiorGroup.add(intHemi, intAmbient, intStageLight, intBarLight, intVipLight, intVipPurple, intEntranceLight);
 
   // Aylanuvchi Disko Shari (Mirror Disco Ball)
   const discoGroup = new THREE.Group();
@@ -1087,37 +1136,37 @@ export function buildKokobangoClub(scene) {
     co2Jets.push(jet);
   }
 
-  // Kokobango/18.glb — Klub ichida 6 ta jonli harakatlanuvchi va raqsga tushuvchi 3D model
+  // Kokobango/18.glb — Kirishda o'ng tomondagi ALOHIDA VIP ZONA xonasida 6 ta model
   const GLB_CONFIGS = [
     {
-      pos: [0, 2.2], color: 0xe879f9, speed: 1.75,
-      wps: [[0, 2.2], [4.8, 3.2], [5.2, -3.0], [-4.8, -3.2], [-4.2, 4.8], [0, 8.5]],
+      pos: [17.8, 10.5], color: 0xe879f9, speed: 1.5,
+      wps: [[17.8, 10.5], [19.8, 6.2], [18.5, 2.2], [16.5, 6.5]],
     },
     {
-      pos: [-5.5, -1.5], color: 0x22d3ee, speed: 1.6,
-      wps: [[-5.5, -1.5], [-1.8, -5.8], [3.5, -5.2], [1.2, 1.5], [-6.2, 3.5]],
+      pos: [20.5, 4.0], color: 0x22d3ee, speed: 1.4,
+      wps: [[20.5, 4.0], [23.2, 8.5], [19.2, 11.2], [17.5, 5.0]],
     },
     {
-      pos: [5.5, -2.0], color: 0xa855f7, speed: 1.85,
-      wps: [[5.5, -2.0], [7.8, 4.5], [2.5, 7.2], [-2.5, 4.0], [2.2, -5.8]],
+      pos: [18.2, 15.8], color: 0xfacc15, speed: 1.45,
+      wps: [[18.2, 15.8], [20.8, 18.5], [20.2, 12.2], [16.8, 14.2]],
     },
     {
-      pos: [10.5, 3.5], color: 0xf472b6, speed: 1.5,
-      wps: [[10.5, 3.5], [13.5, -2.5], [13.5, 8.0], [7.2, 9.5], [6.5, 1.0]],
+      pos: [21.0, 14.5], color: 0xf472b6, speed: 1.35,
+      wps: [[21.0, 14.5], [18.5, 19.2], [17.2, 11.8], [20.2, 9.5]],
     },
     {
-      pos: [-10.5, 2.5], color: 0x38bdf8, speed: 1.55,
-      wps: [[-10.5, 2.5], [-12.2, -4.5], [-8.5, -7.5], [-4.5, -1.5], [-9.2, 8.2]],
+      pos: [17.2, 2.8], color: 0x38bdf8, speed: 1.5,
+      wps: [[17.2, 2.8], [21.5, 2.4], [20.5, 7.2], [16.8, 8.0]],
     },
     {
-      pos: [-2.0, 12.0], color: 0xc084fc, speed: 1.7,
-      wps: [[-2.0, 12.0], [4.5, 12.5], [8.5, 7.0], [0.5, 5.2], [-6.5, 10.5]],
+      pos: [19.5, 12.0], color: 0xc084fc, speed: 1.4,
+      wps: [[19.5, 12.0], [22.8, 12.2], [19.8, 16.5], [17.0, 13.5]],
     },
   ];
 
   const glbAgents = GLB_CONFIGS.map((cfg, idx) => {
     const root = new THREE.Group();
-    root.position.set(cx + cfg.pos[0], iy, cz + cfg.pos[1]);
+    root.position.set(cx + cfg.pos[0], VIP_Y, cz + cfg.pos[1]);
     interiorGroup.add(root);
 
     const auraRing = new THREE.Mesh(
@@ -1145,11 +1194,11 @@ export function buildKokobangoClub(scene) {
     };
   });
 
-  // Raqs maydonini yorituvchi 2 ta jonli spotlight
+  // VIP xonadagi 18.glb modellarni yorituvchi spotlightlar
   const glbSpotA = new THREE.PointLight(0xf5d0fe, 28, 16, 1.35);
-  glbSpotA.position.set(cx - 3.5, iy + 4.8, cz + 1.5);
-  const glbSpotB = new THREE.PointLight(0x67e8f9, 24, 16, 1.35);
-  glbSpotB.position.set(cx + 3.5, iy + 4.8, cz + 1.5);
+  glbSpotA.position.set(cx + 19.5, VIP_Y + 4.8, cz + 6.5);
+  const glbSpotB = new THREE.PointLight(0xfde047, 22, 16, 1.35);
+  glbSpotB.position.set(cx + 19.5, VIP_Y + 4.8, cz + 15.5);
   interiorGroup.add(glbSpotA, glbSpotB);
 
   let glbBaseLoaded = false;
@@ -1264,8 +1313,8 @@ export function buildKokobangoClub(scene) {
     interiorNpcs.push(npc);
   });
 
-  // 3) 2 ta Barmen NPC
-  for (const bz of [cz - 1, cz + 5]) {
+  // 3) 2 ta Barmen NPC (G'arbiy asosiy barda)
+  for (const bz of [cz - 2, cz + 4]) {
     const barNpc = createClubNpc({
       role: 'bartender',
       shirt: '#18181b',
@@ -1273,8 +1322,8 @@ export function buildKokobangoClub(scene) {
       hair: '#1c1917',
       phase: bz,
     });
-    barNpc.root.position.set(cx + 21.2, iy, bz);
-    barNpc.root.rotation.y = -Math.PI / 2;
+    barNpc.root.position.set(cx - 21.2, iy, bz);
+    barNpc.root.rotation.y = Math.PI / 2;
     interiorGroup.add(barNpc.root);
     interiorNpcs.push(barNpc);
   }
@@ -1431,6 +1480,13 @@ export function buildKokobangoClub(scene) {
       return Math.hypot(px - exitPos.x, pz - exitPos.z) < exitPos.r;
     },
 
+    getFloorY(px, pz) {
+      if (px >= cx + 14.5 && px <= cx + 27.6 && pz >= cz - 2.0 && pz <= cz + 22.5) {
+        return VIP_Y;
+      }
+      return iy;
+    },
+
     update(dt, t, isInside, playerDistSq = 0) {
       const beat = music.getBeatPulse();
       if (!isInside) {
@@ -1543,8 +1599,8 @@ export function buildKokobangoClub(scene) {
           ag.vz += (wantVz - ag.vz) * accel;
 
           const curSpd = Math.hypot(ag.vx, ag.vz);
-          let nx = Math.max(cx - 24.5, Math.min(cx + 24.5, ag.root.position.x + ag.vx * dt));
-          let nz = Math.max(cz - 19.5, Math.min(cz + 19.5, ag.root.position.z + ag.vz * dt));
+          let nx = Math.max(cx + 15.3, Math.min(cx + 26.2, ag.root.position.x + ag.vx * dt));
+          let nz = Math.max(cz + 0.5, Math.min(cz + 20.8, ag.root.position.z + ag.vz * dt));
 
           // Klub devorlari va mebellari bilan AABB kolliziya (sirpanish fizikasi)
           for (const c of interiorColliders) {
@@ -1574,20 +1630,20 @@ export function buildKokobangoClub(scene) {
 
             if (!ag.mixer && ag.inner) {
               const stride = t * 7.6 + ag.phase;
-              ag.root.position.y = iy + Math.abs(Math.sin(stride)) * 0.052;
+              ag.root.position.y = VIP_Y + Math.abs(Math.sin(stride)) * 0.052;
               ag.inner.rotation.z = Math.sin(stride * 0.5) * 0.042;
               ag.inner.rotation.x = Math.min(0.06, curSpd * 0.022);
             }
           } else {
             // To'xtaganda musiqa ritmiga mos raqs/tebranish
-            const lookCenterYaw = Math.atan2(cx - nx, cz - 14 - nz);
+            const lookCenterYaw = Math.atan2(cx + 14.5 - nx, cz + 12.0 - nz);
             let dy = lookCenterYaw - ag.yaw;
             dy = Math.atan2(Math.sin(dy), Math.cos(dy));
             ag.yaw += dy * Math.min(1, dt * 3.0);
             ag.root.rotation.y = ag.yaw;
 
             if (!ag.mixer && ag.inner) {
-              ag.root.position.y = iy + beat * 0.065;
+              ag.root.position.y = VIP_Y + beat * 0.065;
               ag.inner.rotation.z = Math.sin(t * 5.2 + ag.phase) * 0.055;
               ag.inner.rotation.x = Math.cos(t * 2.6 + ag.phase) * 0.032;
             }

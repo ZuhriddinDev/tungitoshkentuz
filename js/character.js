@@ -1057,6 +1057,8 @@ export class PlayerCharacter {
     this.vy = 0;
     this.heading = Number.isFinite(heading) ? heading : 0;
     this.v = 0;
+    this.vx = 0;
+    this.vz = 0;
     this.grounded = true;
     this.animState = 'idle';
     this.transition = null;
@@ -1214,17 +1216,44 @@ export class PlayerCharacter {
       }
     }
 
-    // 2. Oddiy yurish, yugurish va sakrash (WASD + Shift + Space)
-    const turnRate = 3.4;
-    if (Math.abs(input.steer) > 0.02) {
-      this.heading += input.steer * turnRate * dt;
+    // 2. Mukammal piyoda yurish, burilish, yugurish va sakrash fizikasi (WASD + Shift + Space)
+    const sDt = Math.min(dt, 0.05);
+    const turnRate = 3.2;
+    const isRunning = !!input.boost;
+    const maxSpd = isRunning ? 8.6 : 4.6;
+
+    const fwdInput = input.throttle - input.reverse * 0.72;
+    const steerInput = Math.abs(input.steer) > 0.02 ? input.steer : 0;
+
+    if (steerInput !== 0) {
+      // Harakatda ham, joyida ham silliq burilish
+      this.heading += steerInput * turnRate * sDt;
     }
 
-    const isRunning = !!input.boost;
-    const maxSpd = isRunning ? 9.4 : 5.2; // Yugurish 9.4 m/s, yurish 5.2 m/s
-    const moveDir = input.throttle - input.reverse * 0.65;
-    const targetV = moveDir * maxSpd;
-    this.v += (targetV - this.v) * Math.min(1, dt * 11);
+    // Oldinga/orqaga + yon tomonga (A/D bosilganda qotib qolmasdan tabiiy yurish)
+    const fwdX = Math.sin(this.heading);
+    const fwdZ = Math.cos(this.heading);
+    const rightX = Math.cos(this.heading);
+    const rightZ = -Math.sin(this.heading);
+
+    const strafeFactor = Math.abs(fwdInput) < 0.05 ? 0.55 : 0.25;
+    let wishX = fwdX * fwdInput + rightX * (-steerInput * strafeFactor);
+    let wishZ = fwdZ * fwdInput + rightZ * (-steerInput * strafeFactor);
+    const wishLen = Math.hypot(wishX, wishZ);
+    if (wishLen > 1) {
+      wishX /= wishLen;
+      wishZ /= wishLen;
+    }
+
+    const targetVx = wishX * maxSpd;
+    const targetVz = wishZ * maxSpd;
+    const accelRate = wishLen > 0.05 ? 14.0 : 12.0;
+    const blend = Math.min(1, sDt * accelRate);
+    this.vx = (this.vx || 0) + (targetVx - (this.vx || 0)) * blend;
+    this.vz = (this.vz || 0) + (targetVz - (this.vz || 0)) * blend;
+
+    const spd = Math.hypot(this.vx, this.vz);
+    this.v = (this.vx * fwdX + this.vz * fwdZ);
 
     // Space (input.handbrake) bosilganda sakrash (Jump)
     if (input.handbrake && this.grounded) {
@@ -1234,57 +1263,82 @@ export class PlayerCharacter {
       this.emoteTimer = 0;
     }
 
-    if (Math.abs(this.v) > 0.18 || !this.grounded) {
+    if (spd > 0.22 || !this.grounded) {
       this.emote = '';
       this.emoteTimer = 0;
     } else if (this.emoteTimer > 0) {
-      this.emoteTimer -= dt;
+      this.emoteTimer -= sDt;
       if (this.emoteTimer <= 0) this.emote = '';
     }
 
-    const nx = this.x + Math.sin(this.heading) * this.v * dt;
-    const nz = this.z + Math.cos(this.heading) * this.v * dt;
-
-    // Binolar va to'siqlar (shuningdek klub interyer devorlari) bilan silliq sirpanuvchi kolliziya
-    const r = 0.42;
-    const isBlocked = (tx, tz) => {
-      if (extraColliders) {
-        for (let i = 0; i < extraColliders.length; i++) {
-          const b = extraColliders[i];
-          if (tx + r > b.minX && tx - r < b.maxX && tz + r > b.minZ && tz - r < b.maxZ) return true;
-        }
-        return false;
-      }
-      for (const b of queryColliders(tx, tz, r + 1.5)) {
-        if (tx + r > b.minX && tx - r < b.maxX && tz + r > b.minZ && tz - r < b.maxZ) return true;
-      }
-      return false;
-    };
-
-    const bx = extraColliders ? nx : Math.max(-HALF + 5, Math.min(HALF - 5, nx));
-    const bz = extraColliders ? nz : Math.max(-HALF + 5, Math.min(HALF - 5, nz));
-    if (!isBlocked(bx, bz)) {
-      this.x = bx;
-      this.z = bz;
-    } else if (!isBlocked(bx, this.z)) {
-      this.x = bx;
-    } else if (!isBlocked(this.x, bz)) {
-      this.z = bz;
-    } else {
-      this.v = 0;
+    let nx = this.x + this.vx * sDt;
+    let nz = this.z + this.vz * sDt;
+    if (!extraColliders) {
+      nx = Math.max(-HALF + 5, Math.min(HALF - 5, nx));
+      nz = Math.max(-HALF + 5, Math.min(HALF - 5, nz));
     }
 
-    // Vertikal fizika (Jump & Fall va yerga botmaslik)
-    if (!this.grounded || this.y > groundY + 0.02) {
-      this.vy -= 16.8 * dt; // Gravitatsiya
-      this.y += this.vy * dt;
+    // Doira-AABB itaruvchi kolliziya (devor va mebellarga yopishib qolmasdan silliq sirpanish)
+    const r = 0.42;
+    const resolveCols = (cols) => {
+      for (let i = 0; i < cols.length; i++) {
+        const b = cols[i];
+        const closestX = Math.max(b.minX, Math.min(nx, b.maxX));
+        const closestZ = Math.max(b.minZ, Math.min(nz, b.maxZ));
+        const dx = nx - closestX;
+        const dz = nz - closestZ;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < r * r) {
+          const d = Math.sqrt(d2);
+          if (d > 0.0001) {
+            const pen = r - d;
+            const pnx = dx / d;
+            const pnz = dz / d;
+            nx += pnx * pen;
+            nz += pnz * pen;
+            const vn = this.vx * pnx + this.vz * pnz;
+            if (vn < 0) {
+              this.vx -= vn * pnx;
+              this.vz -= vn * pnz;
+            }
+          } else {
+            // Ichkariga kirib qolgan bo'lsa eng yaqin chetga chiqarish
+            const dl = Math.abs(nx - b.minX);
+            const dr = Math.abs(b.maxX - nx);
+            const dtM = Math.abs(nz - b.minZ);
+            const db = Math.abs(b.maxZ - nz);
+            const m = Math.min(dl, dr, dtM, db);
+            if (m === dl) { nx = b.minX - r; this.vx = Math.min(0, this.vx); }
+            else if (m === dr) { nx = b.maxX + r; this.vx = Math.max(0, this.vx); }
+            else if (m === dtM) { nz = b.minZ - r; this.vz = Math.min(0, this.vz); }
+            else { nz = b.maxZ + r; this.vz = Math.max(0, this.vz); }
+          }
+        }
+      }
+    };
+
+    if (extraColliders) {
+      resolveCols(extraColliders);
+      resolveCols(extraColliders);
+    } else {
+      const nearby = queryColliders(nx, nz, r + 1.5);
+      resolveCols(nearby);
+      resolveCols(nearby);
+    }
+    this.x = nx;
+    this.z = nz;
+
+    // Vertikal fizika (Jump & Fall va pog'onalarga silliq chiqish)
+    if (!this.grounded || this.y > groundY + 0.03) {
+      this.vy -= 16.8 * sDt;
+      this.y += this.vy * sDt;
       if (this.y <= groundY) {
         this.y = groundY;
         this.vy = 0;
         this.grounded = true;
       }
     } else {
-      this.y = groundY;
+      this.y += (groundY - this.y) * Math.min(1, sDt * 18);
       this.vy = 0;
       this.grounded = true;
     }

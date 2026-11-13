@@ -344,7 +344,8 @@ function step(dt, t) {
 
   if (insideClub && playerChar && kokobango) {
     const input = player.locked ? { throttle: 0, reverse: 0, steer: 0, boost: false, handbrake: true, drift: false } : readDrive();
-    playerChar.step(dt, input, kokobango.interiorY, cam.yaw, kokobango.interiorColliders);
+    const clubFloorY = kokobango.getFloorY ? kokobango.getFloorY(playerChar.x, playerChar.z) : kokobango.interiorY;
+    playerChar.step(dt, input, clubFloorY, cam.yaw, kokobango.interiorColliders);
     updateCharCamera(camera, playerChar, dt);
     setPrompt('');
     if (!isTouch() && kokobango.nearExit(playerChar.x, playerChar.z)) {
