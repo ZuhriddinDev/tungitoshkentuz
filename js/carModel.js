@@ -546,35 +546,58 @@ function instantiateGlb(cached, spec, cfg) {
     if (isPaint.has(mName) || isRim.has(mName) || isHead.has(mName) || isTail.has(mName) || isGlassCandidate) {
       let cloned = matClones.get(o.material);
       if (!cloned) {
-        cloned = o.material.clone();
-        cloned.side = THREE.DoubleSide;
-        if (isPaint.has(mName)) {
-          cloned.metalness = 0.72;
-          cloned.roughness = 0.18;
-          cloned.envMapIntensity = 1.45;
+        if (isPaint.has(mName) && !o.material.isMeshPhysicalMaterial) {
+          cloned = new THREE.MeshPhysicalMaterial({
+            name: o.material.name,
+            color: o.material.color ? o.material.color.clone() : new THREE.Color(0xffffff),
+            map: o.material.map || null,
+            normalMap: o.material.normalMap || null,
+            roughnessMap: o.material.roughnessMap || null,
+            metalnessMap: o.material.metalnessMap || null,
+            aoMap: o.material.aoMap || null,
+            metalness: 0.78,
+            roughness: 0.14,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.06,
+            envMapIntensity: 1.85,
+            side: THREE.DoubleSide,
+          });
           paintMats.push(cloned);
+        } else {
+          cloned = o.material.clone();
+          cloned.side = THREE.DoubleSide;
+          if (isPaint.has(mName)) {
+            cloned.metalness = 0.78;
+            cloned.roughness = 0.14;
+            cloned.clearcoat = 1.0;
+            cloned.clearcoatRoughness = 0.06;
+            cloned.envMapIntensity = 1.85;
+            paintMats.push(cloned);
+          }
         }
         if (isRim.has(mName)) {
+          cloned.envMapIntensity = 1.65;
           cloned.userData = {
             origColor: cloned.color ? cloned.color.clone() : new THREE.Color(0xcccccc),
-            origMetal: cloned.metalness ?? 0.8,
-            origRough: cloned.roughness ?? 0.3,
+            origMetal: cloned.metalness ?? 0.85,
+            origRough: cloned.roughness ?? 0.22,
           };
           rimMats.push(cloned);
         }
         if (isHead.has(mName)) {
           if (!cloned.emissive) cloned.emissive = new THREE.Color(0xfff3d0);
           else cloned.emissive.setHex(0xfff3d0);
-          cloned.emissiveIntensity = 0.2;
+          cloned.emissiveIntensity = 0.25;
           headMats.push(cloned);
         }
         if (isTail.has(mName)) {
           if (!cloned.emissive) cloned.emissive = new THREE.Color(0xff1a1a);
           else cloned.emissive.setHex(0xff1a1a);
-          cloned.emissiveIntensity = 0.3;
+          cloned.emissiveIntensity = 0.35;
           tailMats.push(cloned);
         }
         if (isGlassCandidate) {
+          cloned.envMapIntensity = 2.0;
           cloned.userData = {
             origColor: cloned.color ? cloned.color.clone() : new THREE.Color(0x111822),
             origOpacity: cloned.opacity ?? 0.45,
@@ -951,23 +974,23 @@ export function buildCar(cfg, look = {}, opts = {}) {
       api.lightsOn = on;
       const hCol = currentLook.headlightColor || '#fff3d0';
       headMat.emissive.set(hCol);
-      headMat.emissiveIntensity = on ? 3 : 0.2;
+      headMat.emissiveIntensity = on ? 4.2 : 0.25;
       if (headBeam) {
         headBeam.visible = on;
         headBeam.material.color.set(hCol);
       }
       for (const m of api._glbHeadMats) {
         if (m.emissive) m.emissive.set(hCol);
-        m.emissiveIntensity = on ? 3.2 : 0.2;
+        m.emissiveIntensity = on ? 4.4 : 0.25;
       }
-      const tailInt = api.braking ? 4 : on ? 1.4 : 0.3;
+      const tailInt = api.braking ? 5.2 : on ? 1.85 : 0.35;
       tailMat.emissiveIntensity = tailInt;
       for (const m of api._glbTailMats) m.emissiveIntensity = tailInt;
     },
 
     setBrake(b) {
       api.braking = b;
-      const tailInt = b ? 4 : api.lightsOn ? 1.4 : 0.3;
+      const tailInt = b ? 5.2 : api.lightsOn ? 1.85 : 0.35;
       tailMat.emissiveIntensity = tailInt;
       for (const m of api._glbTailMats) m.emissiveIntensity = tailInt;
     },
@@ -980,21 +1003,30 @@ export function buildCar(cfg, look = {}, opts = {}) {
       currentLook = { ...currentLook, ...t };
       if (currentLook.color) api.setColor(currentLook.color);
 
-      // 1. Kuzov bo'yoq qoplamasi (Metallik / Mat / Xrom / Marvarid)
+      // 1. Kuzov bo'yoq qoplamasi (Showroom Clearcoat Metallik / Mat / Xrom / Marvarid)
       const pType = currentLook.paintType || 'metallic';
       const pSpec = pType === 'matte'
-        ? { metalness: 0.15, roughness: 0.65, env: 0.75 }
+        ? { metalness: 0.18, roughness: 0.62, env: 0.85, clearcoat: 0.08, ccRough: 0.45 }
         : pType === 'chrome'
-          ? { metalness: 0.98, roughness: 0.05, env: 2.1 }
+          ? { metalness: 1.0, roughness: 0.03, env: 2.5, clearcoat: 1.0, ccRough: 0.02 }
           : pType === 'pearl'
-            ? { metalness: 0.84, roughness: 0.10, env: 1.75 }
-            : { metalness: 0.72, roughness: 0.18, env: 1.45 };
+            ? { metalness: 0.88, roughness: 0.08, env: 2.15, clearcoat: 1.0, ccRough: 0.04 }
+            : { metalness: 0.78, roughness: 0.14, env: 1.85, clearcoat: 1.0, ccRough: 0.06 };
       paint.metalness = pSpec.metalness;
       paint.roughness = pSpec.roughness;
+      paint.envMapIntensity = pSpec.env;
+      if ('clearcoat' in paint) {
+        paint.clearcoat = pSpec.clearcoat;
+        paint.clearcoatRoughness = pSpec.ccRough;
+      }
       for (const m of api._glbPaintMats) {
         m.metalness = pSpec.metalness;
         m.roughness = pSpec.roughness;
         m.envMapIntensity = pSpec.env;
+        if ('clearcoat' in m) {
+          m.clearcoat = pSpec.clearcoat;
+          m.clearcoatRoughness = pSpec.ccRough;
+        }
       }
 
       // 2. Spoyler, Body Kit, Bamperlar va Neon

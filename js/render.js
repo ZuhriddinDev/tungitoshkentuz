@@ -8,9 +8,9 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 export const PRESETS = {
   low:    { pr: 1.05, shadows: false, map: 512,  bloom: false, traffic: 4,  peds: 10 },
-  medium: { pr: 1.25, shadows: true,  map: 1024, bloom: false, traffic: 6,  peds: 16 },
-  high:   { pr: 1.45, shadows: true,  map: 1024, bloom: true,  traffic: 9,  peds: 24 },
-  ultra:  { pr: 1.75, shadows: true,  map: 2048, bloom: true,  traffic: 12, peds: 30 },
+  medium: { pr: 1.30, shadows: true,  map: 1024, bloom: false, traffic: 6,  peds: 16 },
+  high:   { pr: 1.55, shadows: true,  map: 2048, bloom: true,  traffic: 9,  peds: 24 },
+  ultra:  { pr: 2.00, shadows: true,  map: 2048, bloom: true,  traffic: 12, peds: 30 },
 };
 
 export const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
@@ -129,10 +129,10 @@ export function createRenderer(canvas, quality) {
       scene.environment = envMap;
       composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
-      // Yarim o'lchamli bloom: keshlanib GPU yuklamasini keskin kamaytiradi (maksimal 640x480)
-      const bw = Math.min(640, Math.max(256, innerWidth >> 1));
-      const bh = Math.min(480, Math.max(256, innerHeight >> 1));
-      bloom = new UnrealBloomPass(new THREE.Vector2(bw, bh), 0.44, 0.50, 0.85);
+      // Yarim o'lchamli kinematografik bloom (maksimal 800x540, silliq halo)
+      const bw = Math.min(800, Math.max(256, innerWidth >> 1));
+      const bh = Math.min(540, Math.max(256, innerHeight >> 1));
+      bloom = new UnrealBloomPass(new THREE.Vector2(bw, bh), 0.46, 0.62, 0.82);
       composer.addPass(bloom);
       composer.addPass(new OutputPass());
       R.apply(quality);
@@ -221,12 +221,12 @@ export function createRenderer(canvas, quality) {
     },
     // night: 0 (kun) .. 1 (tun)
     render(night) {
-      // Tungi rejimda ham mashina kuzovi va shahar yorqin, tiniq ko'rinishi uchun
-      renderer.toneMappingExposure = 1.08 + night * 0.16;
-      scene.environmentIntensity = 0.52 + (1 - night) * 0.45;
+      // Kinematografik ACES Filmic ekspozitsiya va metallik/shisha muhit refleksi
+      renderer.toneMappingExposure = 1.06 + night * 0.20;
+      scene.environmentIntensity = 0.62 + (1 - night) * 0.55;
       if (preset.bloom) {
-        bloom.strength = 0.16 + night * 0.28;
-        bloom.threshold = 0.92 - night * 0.08;
+        bloom.strength = 0.14 + night * 0.34;
+        bloom.threshold = 0.88 - night * 0.12;
         composer.render();
       } else {
         renderer.render(scene, camera);

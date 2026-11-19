@@ -5,7 +5,7 @@ import { N, BLOCK, ROAD, HALF, roadC, blockC, blockInfo, nearestRoad, POIS, LAND
 export { TASHKENT_DISTRICTS_OSM, districtAt };
 
 const IS_MOB = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900));
-const BASE_SIZE = IS_MOB ? 1024 : 1536;
+const BASE_SIZE = IS_MOB ? 1280 : 2048;
 let baseCanvas = null;
 
 // Katta xarita holati (Zoom, Pan, Filter, Tanlangan obyekt)
@@ -284,23 +284,28 @@ function drawBase() {
         g.lineWidth = 1.4;
         g.strokeRect(bx + bw * 0.22, by + bw * 0.26, bw * 0.56, bw * 0.36);
       } else if (info.type === 'city') {
-        // Oddiy shahar kvartallarida OpenStreetMap uslubida 3-4 ta ko'p qavatli bino konturi
-        g.fillStyle = '#212f45';
-        g.strokeStyle = 'rgba(148, 163, 184, 0.22)';
-        g.lineWidth = 1;
+        // Oddiy shahar kvartallarida 3D-soyali OpenStreetMap bino konturlari
         const pad = bw * 0.12;
         const w1 = bw * (0.26 + 0.08 * hash2(j, kk, 2));
         const h1 = bw * (0.28 + 0.08 * hash2(j, kk, 3));
-        g.fillRect(bx + pad, by + pad, w1, h1);
-        g.strokeRect(bx + pad, by + pad, w1, h1);
-
         const w2 = bw * (0.28 + 0.06 * hash2(j, kk, 4));
         const h2 = bw * (0.24 + 0.08 * hash2(j, kk, 5));
-        g.fillRect(bx + bw - pad - w2, by + pad, w2, h2);
-        g.strokeRect(bx + bw - pad - w2, by + pad, w2, h2);
-
         const w3 = bw * (0.62 + 0.1 * hash2(j, kk, 6));
         const h3 = bw * 0.22;
+
+        // Yumshoq bino soyalari (depth)
+        g.fillStyle = 'rgba(4, 8, 18, 0.55)';
+        g.fillRect(bx + pad + 3, by + pad + 3, w1, h1);
+        g.fillRect(bx + bw - pad - w2 + 3, by + pad + 3, w2, h2);
+        g.fillRect(bx + pad + 3, by + bw - pad - h3 + 3, w3, h3);
+
+        g.fillStyle = '#24354f';
+        g.strokeStyle = 'rgba(148, 163, 184, 0.28)';
+        g.lineWidth = 1.1;
+        g.fillRect(bx + pad, by + pad, w1, h1);
+        g.strokeRect(bx + pad, by + pad, w1, h1);
+        g.fillRect(bx + bw - pad - w2, by + pad, w2, h2);
+        g.strokeRect(bx + bw - pad - w2, by + pad, w2, h2);
         g.fillRect(bx + pad, by + bw - pad - h3, w3, h3);
         g.strokeRect(bx + pad, by + bw - pad - h3, w3, h3);
       }
@@ -312,15 +317,22 @@ function drawBase() {
   g.lineCap = 'round';
   g.lineJoin = 'round';
   const canalX = (blockC(6) + HALF) * k;
-  g.strokeStyle = 'rgba(56, 189, 248, 0.22)';
-  g.lineWidth = 28;
+  g.strokeStyle = 'rgba(56, 189, 248, 0.30)';
+  g.lineWidth = 34;
   g.beginPath();
   g.moveTo(canalX - 18, 0);
   g.bezierCurveTo(canalX + 26, S * 0.3, canalX - 28, S * 0.65, canalX + 12, S);
   g.stroke();
 
-  g.strokeStyle = '#09527a';
-  g.lineWidth = 18;
+  g.strokeStyle = '#0a5e8c';
+  g.lineWidth = 20;
+  g.beginPath();
+  g.moveTo(canalX - 18, 0);
+  g.bezierCurveTo(canalX + 26, S * 0.3, canalX - 28, S * 0.65, canalX + 12, S);
+  g.stroke();
+
+  g.strokeStyle = 'rgba(125, 211, 252, 0.38)';
+  g.lineWidth = 5;
   g.beginPath();
   g.moveTo(canalX - 18, 0);
   g.bezierCurveTo(canalX + 26, S * 0.3, canalX - 28, S * 0.65, canalX + 12, S);

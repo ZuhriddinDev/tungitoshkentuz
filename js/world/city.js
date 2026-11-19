@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, addCollider, CANAL_COL, MAIN_ROADS_X, MAIN_ROADS_Z } from './layout.js';
-import { facadeTextures, asphaltTexture, tileTexture, grassTexture } from './textures.js';
+import { facadeTextures, asphaltPBR, tileTexture, grassTexture, waterBumpTexture } from './textures.js';
 
 export const nightMats = []; // { mat, base, day } — tunda yorug'ligi oshadigan materiallar
 export const citySectors = []; // { group, detailGroup, cx, cz, radius } — masofa bo'yicha 2-bosqichli LOD
@@ -57,9 +57,17 @@ export function buildCity(scene, quality) {
   outer.receiveShadow = true;
   group.add(outer);
 
-  // Yo'llar (tungi yomg'irdan keyingi yarim-yaltiroq asfalt reflekslari bilan)
-  const asph = asphaltTexture();
-  roadMat = new THREE.MeshStandardMaterial({ map: asph, roughness: 0.46, metalness: 0.22, envMapIntensity: 1.35 });
+  // Yo'llar (PBR asfalt: map + bumpMap + ho'l dog'li roughnessMap)
+  const asph = asphaltPBR();
+  roadMat = new THREE.MeshStandardMaterial({
+    map: asph.map,
+    roughnessMap: asph.roughnessMap,
+    bumpMap: asph.bumpMap,
+    bumpScale: 0.045,
+    roughness: 0.44,
+    metalness: 0.28,
+    envMapIntensity: 1.65,
+  });
   const roadGeos = [];
   for (let i = 0; i <= N; i++) {
     const a = new THREE.PlaneGeometry(HALF * 2, ROAD).rotateX(-Math.PI / 2).translate(0, 0.02, roadC(i));
@@ -129,18 +137,20 @@ export function buildCity(scene, quality) {
 
   const walkGeos = [], curbGeos = [], grassGeos = [];
   const styleMats = STYLES.map((s) => {
-    const { map, emissiveMap, roughnessMap } = facadeTextures(s.base, s.frame, s.glass, s.style);
+    const { map, emissiveMap, roughnessMap, bumpMap } = facadeTextures(s.base, s.frame, s.glass, s.style);
     const mat = new THREE.MeshStandardMaterial({
       map,
       emissiveMap,
       roughnessMap,
+      bumpMap,
+      bumpScale: s.style === 'glass' ? 0.03 : 0.14,
       emissive: 0xffffff,
       emissiveIntensity: 0,
-      roughness: s.style === 'glass' ? 0.22 : 0.85,
-      metalness: s.style === 'glass' ? 0.68 : 0.14,
-      envMapIntensity: s.style === 'glass' ? 1.55 : 0.9,
+      roughness: s.style === 'glass' ? 0.16 : 0.82,
+      metalness: s.style === 'glass' ? 0.78 : 0.18,
+      envMapIntensity: s.style === 'glass' ? 2.05 : 1.05,
     });
-    nightMats.push({ mat, base: 0.62 });
+    nightMats.push({ mat, base: s.style === 'glass' ? 0.92 : 0.82 });
     return mat;
   });
 
@@ -360,7 +370,18 @@ function scaleUV(g, su, sv) {
 export let waterMat;
 function buildCanal(group) {
   const cx = blockC(CANAL_COL), W = 32;
-  waterMat = new THREE.MeshStandardMaterial({ color: 0x0b3a52, roughness: 0.08, metalness: 0.7, emissive: 0x02121c });
+  const wBump = waterBumpTexture();
+  waterMat = new THREE.MeshPhysicalMaterial({
+    color: 0x07344d,
+    bumpMap: wBump,
+    bumpScale: 0.08,
+    roughness: 0.06,
+    metalness: 0.84,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.05,
+    envMapIntensity: 2.3,
+    emissive: 0x021826,
+  });
   const water = new THREE.Mesh(new THREE.PlaneGeometry(W, HALF * 2), waterMat);
   water.rotation.x = -Math.PI / 2;
   water.position.set(cx, -0.02, 0);
