@@ -1005,44 +1005,11 @@ function loop() {
   syncOnlineNow(dt);
 
   if (playing && !paused) {
-    if (malibuHeroModel) malibuHeroModel.group.visible = false;
-    if (malibuHeadlight) malibuHeadlight.intensity = 0;
     model.group.visible = !insideClub;
     step(dt, t);
   } else if (!playing) {
-    // MALIBU HERO SCENE — Asosiy kirish bannerida Chevrolet Malibu Premier 3D ko'rinishi
-    hour = 21.75;
-    const heroX = SPAWN.x;
-    const heroZ = SPAWN.z;
-    const heroH = SPAWN.heading;
-    const gy = groundY(heroX, heroZ);
-
-    if (model) model.group.visible = false;
-
-    if (malibuHeroModel) {
-      malibuHeroModel.group.visible = true;
-      malibuHeroModel.group.position.set(heroX, gy, heroZ);
-      malibuHeroModel.group.rotation.set(0, heroH, 0);
-      malibuHeroModel.setLights(true);
-      malibuHeroModel.update(dt * 0.65, 0.22, 0, 0);
-      if (malibuHeadlight) malibuHeadlight.intensity = 105;
-    }
-
-    const focusGroup = malibuHeroModel ? malibuHeroModel.group : model.group;
-    sky.update(hour, focusGroup.position, R.preset.shadows, dt);
-    if (Math.abs(sky.night - lastNightVal) > 0.004) {
-      lastNightVal = sky.night;
-      for (const { mat, base, day = 0 } of nightMats) mat.emissiveIntensity = day + (base - day) * sky.night;
-      waterMat.emissiveIntensity = 0.3 + sky.night;
-    }
-    updateProps(t, sky.night, heroX, heroZ, 1000);
-    updateCitySectors(heroX, heroZ, 1000);
-    updateLandmarks(heroX, heroZ);
-    traffic.setNight(sky.night, sky.hour);
-    traffic.update(dt, t, { x: heroX, z: heroZ }, peds);
-    peds.update(dt, t, { x: heroX, z: heroZ });
-    for (const f of animated) f(t);
-    menuCamera(camera, { x: heroX, z: heroZ, heading: heroH }, t, dt);
+    // 1-Variant: Kinematografik HD fon rejimida 3D render butunlay pauzada (0% GPU qotish!)
+    return;
   }
 
   if (playing) {
@@ -1125,22 +1092,21 @@ async function boot() {
   buildLandmarks(scene);
   kokobango = buildKokobangoClub(scene);
   playerChar = new PlayerCharacter(scene, state.look?.color || '#00e5ff');
-  await progress(82, 'Chevrolet Malibu Premier 3D modeli yuklanmoqda...');
-  const malibuCfg = carById('malibu');
-  preloadCar(malibuCfg);
+  await progress(82, 'Sizning avtomobilingiz tayyorlanmoqda...');
   preloadCar(carById(activeCar().id));
-  malibuHeroModel = buildCar(malibuCfg, { color: '#0d111c', paintType: 'metallic', rims: 'vossen', spoiler: 'none', neon: 'none' });
-  malibuHeroModel.group.rotation.order = 'YXZ';
-  malibuHeroModel.group.traverse((o) => {
-    if (o.isMesh && o.material !== undefined && !o.material.transparent) o.castShadow = true;
-  });
-  malibuHeadlight = new THREE.SpotLight(0xfff1d6, 105, 65, 0.55, 0.45, 1.2);
-  malibuHeadlight.position.set(0, 0.8, malibuCfg.len / 2);
-  malibuHeadlight.target.position.set(0, 0, malibuCfg.len / 2 + 20);
-  malibuHeroModel.group.add(malibuHeadlight, malibuHeadlight.target);
-  scene.add(malibuHeroModel.group);
   setCar();
   if (model) model.group.visible = false;
+  // Kirish ekrani uchun yengil sichqoncha parallax (0% GPU yuk)
+  const heroBg = $('heroBgPhoto');
+  if (heroBg) {
+    window.addEventListener('pointermove', (e) => {
+      if (playing) return;
+      const nx = (e.clientX / Math.max(1, window.innerWidth) - 0.5) * -18;
+      const ny = (e.clientY / Math.max(1, window.innerHeight) - 0.5) * -12;
+      heroBg.style.setProperty('--px', `${nx.toFixed(1)}px`);
+      heroBg.style.setProperty('--py', `${ny.toFixed(1)}px`);
+    }, { passive: true });
+  }
   await progress(92, 'Shahar transporti va 3D NPC lar...');
   traffic = new Traffic(scene, preset.traffic);
   peds = new Pedestrians(scene, preset.peds);

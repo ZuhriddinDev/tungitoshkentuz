@@ -3961,6 +3961,67 @@ body.phone .club-prompt.hidden {
   border-color: rgba(232, 121, 249, 0.85) !important;
 }
 
+/* 1-Variant: Kinematografik HD Tungi Toshkent Fon + Ken Burns + Parallax + Neon Particles (0% 3D GPU yuk) */
+.hero-v15 .hero-bg-photo {
+  position: fixed;
+  inset: -4%;
+  z-index: 0;
+  background: #050814 url('../kirishbanner/tungi-toshkent-hero.jpg') center center / cover no-repeat;
+  transform: translate3d(var(--px, 0px), var(--py, 0px), 0) scale(1.06);
+  animation: heroKenBurns 28s ease-in-out infinite alternate;
+  will-change: transform;
+  pointer-events: none;
+}
+
+@keyframes heroKenBurns {
+  0%   { transform: translate3d(var(--px, 0px), var(--py, 0px), 0) scale(1.05); }
+  100% { transform: translate3d(calc(var(--px, 0px) - 10px), calc(var(--py, 0px) - 6px), 0) scale(1.13); }
+}
+
+.hero-v15 .hero-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(5, 8, 22, 0.08) 0%, rgba(4, 6, 16, 0.62) 78%, rgba(2, 4, 12, 0.88) 100%),
+    linear-gradient(180deg, rgba(4, 7, 18, 0.65) 0%, rgba(4, 7, 18, 0.05) 32%, rgba(4, 7, 18, 0.12) 65%, rgba(3, 5, 14, 0.86) 100%);
+  pointer-events: none;
+}
+
+.hero-v15 .hero-particles {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-v15 .hero-particles i {
+  position: absolute;
+  bottom: -14px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 12px #38bdf8, 0 0 22px rgba(232, 121, 249, 0.65);
+  opacity: 0;
+  animation: heroFloatUp 11s linear infinite;
+}
+
+.hero-v15 .hero-particles i:nth-child(1) { left: 14%; animation-delay: 0s; animation-duration: 10s; background: #38bdf8; }
+.hero-v15 .hero-particles i:nth-child(2) { left: 29%; animation-delay: 2.2s; animation-duration: 13s; background: #e879f9; }
+.hero-v15 .hero-particles i:nth-child(3) { left: 48%; animation-delay: 4.5s; animation-duration: 11s; background: #fbbf24; }
+.hero-v15 .hero-particles i:nth-child(4) { left: 66%; animation-delay: 1.4s; animation-duration: 12s; background: #38bdf8; }
+.hero-v15 .hero-particles i:nth-child(5) { left: 81%; animation-delay: 3.6s; animation-duration: 9.5s; background: #e879f9; }
+.hero-v15 .hero-particles i:nth-child(6) { left: 91%; animation-delay: 5.8s; animation-duration: 14s; background: #fbbf24; }
+
+@keyframes heroFloatUp {
+  0%   { transform: translateY(0) scale(0.6); opacity: 0; }
+  15%  { opacity: 0.72; }
+  85%  { opacity: 0.45; }
+  100% { transform: translateY(-95vh) scale(1.25); opacity: 0; }
+}
+
 
 
 
