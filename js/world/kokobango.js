@@ -914,6 +914,45 @@ export function buildKokobangoClub(scene) {
       exteriorGroup.add(bGlow);
     }
   }
+  // Markaziy qizil gilam oldidagi VIP metall bollardlar va jismoniy mashina to'sig'i (mashina eshik oldiga o'ta olmaydi!)
+  for (const bxOff of [-7.5, -4.5, -1.6, 1.6, 4.5, 7.5]) {
+    const cBol = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.98, 10), mObsidian);
+    cBol.position.set(cx + bxOff, 0.72, cz - 38);
+    const cRing = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.155, 0.16, 10), mGold);
+    cRing.position.set(cx + bxOff, 1.12, cz - 38);
+    exteriorGroup.add(cBol, cRing);
+  }
+  addCollider(cx - 42, cz - 38.6, cx + 42, cz - 37.2, 'building');
+
+  // Yoritilgan VIP Valet Drop-Off halqasi (mashina shu yerda to'xtab Valetga topshiriladi)
+  const valetRingMat = new THREE.MeshBasicMaterial({
+    color: 0xffd166,
+    transparent: true,
+    opacity: 0.72,
+    depthWrite: false,
+  });
+  const valetRing = new THREE.Mesh(new THREE.RingGeometry(4.2, 4.85, 40).rotateX(-Math.PI / 2), valetRingMat);
+  valetRing.position.set(cx, 0.31, cz - 43.2);
+  const valetInnerMat = new THREE.MeshBasicMaterial({
+    color: 0xd946ef,
+    transparent: true,
+    opacity: 0.24,
+    depthWrite: false,
+  });
+  const valetInner = new THREE.Mesh(new THREE.CircleGeometry(4.2, 36).rotateX(-Math.PI / 2), valetInnerMat);
+  valetInner.position.set(cx, 0.30, cz - 43.2);
+  const valetFloorSign = new THREE.Mesh(
+    new THREE.PlaneGeometry(5.6, 1.4).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({
+      map: makeSignTexture('VALET DROP-OFF', 'VIP KIRISH ZONASI', '#120824', '#ffd166', '#e879f9', 512, 128),
+      transparent: true,
+      opacity: 0.92,
+      depthWrite: false,
+    })
+  );
+  valetFloorSign.position.set(cx, 0.32, cz - 43.2);
+  valetFloorSign.rotation.y = Math.PI;
+  exteriorGroup.add(valetRing, valetInner, valetFloorSign);
 
   // Klub oldida turgan 6 ta hashamatli VIP superkar + Valet zona
   const parkedSpecs = [
@@ -2523,9 +2562,9 @@ export function buildKokobangoClub(scene) {
     rooftopNpcs.push(npc);
   });
 
-  // Kirish va Chiqish koordinatalari
-  const entrancePos = { x: cx, y: 0.72, z: cz - 31.5, r: 6.5 };
-  const parkDropOff = { x: cx, z: cz - 42.5, heading: Math.PI };
+  // Kirish (Valet Drop-Off) va Chiqish koordinatalari
+  const entrancePos = { x: cx, y: 0.28, z: cz - 43.2, r: 7.5 };
+  const parkDropOff = { x: cx, z: cz - 55.0, heading: Math.PI };
   const insideSpawn = { x: cx, y: iy, z: cz + 19.0, heading: Math.PI };
   const exitPos = { x: cx, y: iy, z: cz + 21.5, r: 3.8 };
 

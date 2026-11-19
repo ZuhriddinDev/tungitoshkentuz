@@ -528,20 +528,30 @@ async function enterKokobangoClub() {
   }
   if (!clubEntryPaid) {
     clubTransitioning = false;
+    const carTier = vehicle?.cfg?.tier || '';
+    const isVipCar = /Sport|Premium|Giperkar/i.test(carTier);
+    const fee = isVipCar ? Math.round(CLUB_ENTRY_FEE * 0.5) : CLUB_ENTRY_FEE;
     showClubAgeGateModal(() => {
-      if (!spend(CLUB_ENTRY_FEE, 'KOKOBANGO CLUB kirish chiptasi')) {
+      if (!spend(fee, `KOKOBANGO CLUB Valet & Kirish (${isVipCar ? 'VIP -50%' : 'Standart'})`)) {
         beep(220, 0.12);
-        toast(`💸 Klubga kirish uchun mablag‘ yetarli emas (${fmt(CLUB_ENTRY_FEE)})!`, 'err');
+        toast(`💸 Klubga kirish uchun mablag‘ yetarli emas (${fmt(fee)})!`, 'err');
         return;
       }
       clubEntryPaid = true;
+      kokobango.music.playDoorChime?.(true);
       beep(780, 0.1);
-      toast('🎟️ KOKOBANGO CLUB chiptasi olindi (-9 000 000 so‘m)!', 'ok');
+      toast(
+        isVipCar
+          ? `🎩 Valet: "${vehicle.cfg.name}" VIP qatorga olindi! 🛡️ Qo'riqchi: Xush kelibsiz, VIP mehmon! (-${fmt(fee)})`
+          : `🎩 Valet mashinangizni parkovkaga oldi · 🛡️ Face Control tasdiqlandi (-${fmt(fee)})`,
+        'ok'
+      );
       enterKokobangoClub();
     });
     return;
   }
   setClubPrompt('');
+  kokobango.music.playDoorChime?.(true);
   const fadeEl = $('clubFade');
   if (fadeEl) fadeEl.classList.add('active');
   setTimeout(() => {
@@ -564,8 +574,8 @@ async function enterKokobangoClub() {
     setTimeout(() => {
       if (fadeEl) fadeEl.classList.remove('active');
       clubTransitioning = false;
-    }, 140);
-  }, 280);
+    }, 180);
+  }, 320);
 }
 
 function exitKokobangoClub() {
@@ -821,7 +831,10 @@ function step(dt, t) {
       }
     } else {
       if (isClubOpenHour(hour)) {
-        setClubPrompt('<span class="key">X</span> ENTER KOKOBANGO CLUB · <span style="color:#4ade80;">OCHIQ (00:00–03:00)</span>');
+        const isVipCar = /Sport|Premium|Giperkar/i.test(vehicle?.cfg?.tier || '');
+        setClubPrompt(
+          `<span class="key">X</span> 🎩 VALET PARKING & FACE CONTROL · ${isVipCar ? '<span style="color:#fde047;">VIP -50%</span>' : '<span style="color:#4ade80;">OCHIQ (00:00–03:00)</span>'}`
+        );
       } else {
         setClubPrompt(`<span class="key">🔒</span> KOKOBANGO CLUB YOPIQ · Ish vaqti: <b>00:00 – 03:00</b> (Hozir: ${formatHourHHMM(hour)})`);
       }
