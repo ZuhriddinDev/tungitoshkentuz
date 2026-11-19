@@ -220,6 +220,8 @@ function drawBase() {
         g.fillStyle = '#16243b';
       } else if (info.type === 'kokobango') {
         g.fillStyle = '#1c0f30';
+      } else if (info.type === 'garage') {
+        g.fillStyle = '#1b2236';
       } else {
         g.fillStyle = '#162030';
       }
@@ -283,6 +285,18 @@ function drawBase() {
         g.strokeStyle = '#22d3ee';
         g.lineWidth = 1.4;
         g.strokeRect(bx + bw * 0.22, by + bw * 0.26, bw * 0.56, bw * 0.36);
+      } else if (info.type === 'garage') {
+        // Zamonaviy Flagship Avtosalon & Tuning binosi konturi
+        g.fillStyle = '#263450';
+        g.strokeStyle = '#ffd740';
+        g.lineWidth = 2.2;
+        g.beginPath();
+        g.roundRect(bx + bw * 0.12, by + bw * 0.14, bw * 0.76, bw * 0.44, 6);
+        g.fill();
+        g.stroke();
+        g.strokeStyle = '#38bdf8';
+        g.lineWidth = 1.4;
+        g.strokeRect(bx + bw * 0.20, by + bw * 0.62, bw * 0.60, bw * 0.22);
       } else if (info.type === 'city') {
         // Oddiy shahar kvartallarida 3D-soyali OpenStreetMap bino konturlari
         const pad = bw * 0.12;

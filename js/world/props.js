@@ -309,21 +309,155 @@ function buildPOIs(scene) {
       addSign(g, ['UZ-OIL', 'AI-92 · AI-95 · AI-100'], '#062c1c', '#00ff7a', 0, 9.2, 4);
       addSign(g, ['UZ-OIL 24/7', '10 500 · 12 800 · 16 500'], '#0b192c', '#fbbf24', 14.5, 4.6, 5.5);
     } else {
-      const hall = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x1d2433, metalness: 0.7, roughness: 0.2, emissive: 0x0b3d91, emissiveIntensity: 0.3 }));
-      hall.scale.set(60, 12, 30); hall.position.set(0, 6, -38); g.add(hall);
-      addCollider(p.x - 30, p.z - 53, p.x + 30, p.z - 23);
-      addSign(g, ['AVTOSALON', 'Garaj · Tuning · Savdo'], '#0b0f2a', '#ffd740', 0, 14, -22.5);
+      buildModernAvtosalon(g, p);
     }
     const ring = new THREE.Mesh(new THREE.RingGeometry(p.r - 1.2, p.r, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: p.type === 'gas' ? 0x00ff7a : 0xffd740, transparent: true, opacity: 0.55, depthWrite: false }));
     ring.position.y = 0.3; g.add(ring); p.ring = ring;
   }
 }
 
-function addSign(g, lines, bg, accent, x, y, z) {
+function addSign(g, lines, bg, accent, x, y, z, w = 14, h = 7) {
   const tex = signTexture(lines, { bg, accent });
   const mat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.5 });
   nightMats.push({ mat, base: 1.8, day: 0.5 });
-  const s = new THREE.Mesh(new THREE.PlaneGeometry(14, 7), mat); s.position.set(x, y, z); g.add(s);
+  const s = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); s.position.set(x, y, z); g.add(s);
+}
+
+// ============================================================================
+// ZAMONAVIY FLAGSHIP AVTOSALON VA TUNING MARKAZI (3D ME'MORIY MAJMUASI)
+// ============================================================================
+function buildModernAvtosalon(g, p) {
+  const mDarkAlu = new THREE.MeshStandardMaterial({ color: 0x111520, roughness: 0.32, metalness: 0.75 });
+  const mWhiteClad = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.28, metalness: 0.35 });
+  const mGraphite = new THREE.MeshStandardMaterial({ color: 0x1e2432, roughness: 0.42, metalness: 0.55 });
+  const mChrome = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.14, metalness: 0.94 });
+  const mGold = new THREE.MeshStandardMaterial({ color: 0xffd166, roughness: 0.22, metalness: 0.90 });
+  const mGlass = new THREE.MeshStandardMaterial({
+    color: 0x172b45,
+    roughness: 0.08,
+    metalness: 0.88,
+    transparent: true,
+    opacity: 0.58,
+  });
+  const mInteriorGlow = new THREE.MeshStandardMaterial({
+    color: 0xfff8e7,
+    emissive: 0xffe4b5,
+    emissiveIntensity: 0.85,
+    roughness: 0.2,
+  });
+  const mNeonCyan = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    emissive: 0x00e5ff,
+    emissiveIntensity: 1.4,
+    roughness: 0.2,
+  });
+  const mNeonGold = new THREE.MeshStandardMaterial({
+    color: 0xfde047,
+    emissive: 0xf59e0b,
+    emissiveIntensity: 1.3,
+    roughness: 0.2,
+  });
+  nightMats.push({ mat: mInteriorGlow, base: 1.65, day: 0.55 });
+  nightMats.push({ mat: mNeonCyan, base: 2.2, day: 0.45 });
+  nightMats.push({ mat: mNeonGold, base: 2.0, day: 0.45 });
+
+  const addBox = (sx, sy, sz, x, y, z, mat) => {
+    const m = new THREE.Mesh(box, mat);
+    m.scale.set(sx, sy, sz);
+    m.position.set(x, y, z);
+    g.add(m);
+    return m;
+  };
+
+  // 1. Asosiy bino orqa korpusi va 2-qavat konsol (cantilever) arxitekturasi (z = -53 .. -23)
+  addBox(60, 12.2, 22, 0, 6.1, -42, mDarkAlu);
+  // Ikkinchi qavat oldinga chiqib turgan zamonaviy oq-alyuminiy rom
+  addBox(61.2, 1.1, 31.4, 0, 12.6, -37.8, mWhiteClad);
+  addBox(61.6, 0.26, 31.8, 0, 13.25, -37.8, mNeonCyan);
+  // 1-qavat va 2-qavat orasidagi oltin me'moriy belbog'
+  addBox(60.6, 0.55, 30.6, 0, 6.4, -38.0, mGraphite);
+  addBox(60.8, 0.16, 30.8, 0, 6.72, -38.0, mNeonGold);
+
+  // Yon tomondagi qiya/diagonal dizayn qanotlari
+  for (const sx of [-1, 1]) {
+    addBox(1.8, 12.8, 30.8, sx * 29.6, 6.4, -38.0, mWhiteClad);
+    addBox(0.24, 12.2, 0.35, sx * 30.55, 6.4, -22.8, mNeonCyan);
+  }
+
+  // 2. Old panoramik shisha vitrina (Showroom Curtain Wall, z = -23.1)
+  addBox(56.4, 11.4, 0.3, 0, 6.0, -23.1, mGlass);
+  // Vertikal alyuminiy mullion ustunlar
+  for (let mx = -24; mx <= 24; mx += 6) {
+    addBox(0.26, 11.8, 0.55, mx, 6.0, -22.95, mChrome);
+  }
+
+  // 3. Ichki Showroom yoritilgan shifti va 3 ta ko'rgazma podiumi (oynadan ko'rinib turadi)
+  addBox(54, 0.25, 9.5, 0, 5.7, -27.8, mInteriorGlow);
+  addBox(54, 0.25, 9.5, 0, 11.5, -27.8, mInteriorGlow);
+  addBox(56, 0.28, 11, 0, 0.14, -28.0, mGraphite);
+
+  const podGeo = new THREE.CylinderGeometry(3.4, 3.8, 0.36, 24);
+  const podRingGeo = new THREE.TorusGeometry(3.65, 0.08, 8, 28);
+  podRingGeo.rotateX(Math.PI / 2);
+  for (const px of [-16, 0, 16]) {
+    const pod = new THREE.Mesh(podGeo, mDarkAlu);
+    pod.position.set(px, 0.34, -27.5);
+    const pRing = new THREE.Mesh(podRingGeo, px === 0 ? mNeonGold : mNeonCyan);
+    pRing.position.set(px, 0.54, -27.5);
+    g.add(pod, pRing);
+  }
+
+  // 4. Markaziy VIP Kirish Soyaboni (Canopy) va Shisha Portal (z = -22.5 .. -15.5)
+  addBox(16.8, 0.72, 7.6, 0, 5.5, -19.2, mDarkAlu);
+  addBox(17.1, 0.18, 7.9, 0, 5.12, -19.2, mNeonGold);
+  for (const sx of [-1, 1]) {
+    addBox(0.55, 5.3, 0.55, sx * 7.6, 2.75, -15.8, mChrome);
+    addBox(0.75, 0.22, 0.75, sx * 7.6, 5.25, -15.8, mGold);
+  }
+  // Kirish shisha darvozasi va oltin romi
+  addBox(6.8, 4.1, 0.38, 0, 2.15, -22.8, mGold);
+  addBox(6.2, 3.8, 0.44, 0, 2.05, -22.78, mGlass);
+
+  // 5. O'ng qanotda zamonaviy Tuning & Service boks darvozalari (x = 16..27)
+  for (const bx of [17.5, 24.0]) {
+    addBox(4.8, 3.8, 0.4, bx, 2.0, -22.85, mGraphite);
+    addBox(4.4, 0.14, 0.46, bx, 3.95, -22.82, mNeonCyan);
+    for (let gy = 0.9; gy <= 3.1; gy += 0.7) {
+      addBox(4.3, 0.18, 0.45, bx, gy, -22.82, mGlass);
+    }
+  }
+
+  // 6. Tashqi Granit Plaza, VIP Ko'rgazma Podiumlari va 15m Totem Stele
+  addBox(64, 0.14, 18, 0, 0.08, -14.2, mGraphite);
+  for (const sx of [-1, 1]) {
+    const outPod = new THREE.Mesh(podGeo, mWhiteClad);
+    outPod.position.set(sx * 20.5, 0.26, -14.5);
+    const outRing = new THREE.Mesh(podRingGeo, mNeonCyan);
+    outRing.position.set(sx * 20.5, 0.46, -14.5);
+    g.add(outPod, outRing);
+
+    // Dekorativ zamonaviy gulzor + daraxt
+    const plx = sx * 12.2;
+    addBox(2.6, 0.65, 2.6, plx, 0.42, -13.5, mDarkAlu);
+    addBox(2.7, 0.08, 2.7, plx, 0.78, -13.5, mGold);
+    const tree = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(1.15, 1),
+      new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.75 })
+    );
+    tree.position.set(plx, 2.05, -13.5);
+    g.add(tree);
+  }
+
+  // Baland Avtosalon Totem Ustuni (chap old burchakda)
+  addBox(2.8, 14.5, 1.2, -29.2, 7.25, -12.5, mDarkAlu);
+  addBox(0.22, 14.2, 1.28, -27.75, 7.25, -12.5, mNeonGold);
+  addBox(0.22, 14.2, 1.28, -30.65, 7.25, -12.5, mNeonCyan);
+  addSign(g, ['TASHKENT', 'MOTORS'], '#070b18', '#00e5ff', -29.2, 11.5, -11.82, 2.5, 3.6);
+
+  // 7. Fasad Katta Yorug' Peshlavhalari va Collider (mavjud chegaraga 100% mos)
+  addCollider(p.x - 30, p.z - 53, p.x + 30, p.z - 23);
+  addSign(g, ['AVTOSALON', 'Premium Motors · Tuning · Savdo'], '#080c1c', '#ffd740', 0, 15.8, -22.2, 22, 5.2);
+  addSign(g, ['TUNING & SERVICE', 'Stage 1-3 · Disk · Neon'], '#071526', '#00e5ff', 20.8, 9.2, -22.4, 11.5, 3.0);
 }
 
 // Svetofor fazasi: 0..1 orasidagi vaqt. Qaysi o'q uchun yashil?
