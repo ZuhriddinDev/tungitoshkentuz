@@ -104,7 +104,12 @@ export function buildLandmarks(scene) {
     scene.add(g);
     const f = BUILDERS[l.type];
     if (f) f(g, l);
-    landmarkEntries.push({ group: g, x: l.x, z: l.z, isTall: l.type === 'tvtower' || l.type === 'citytower' });
+    landmarkEntries.push({
+      group: g,
+      x: l.x,
+      z: l.z,
+      isTall: l.type === 'tvtower' || l.type === 'citytower' || l.type === 'airport' || l.type === 'runway' || l.type === 'runway_east',
+    });
   }
 }
 
@@ -446,7 +451,294 @@ const BUILDERS = {
     addMonumentSign(g, 'MAGIC CITY', 'Oilaviy ko\'ngilochar park va qasr', 0, 5.5, 36);
     addCollider(l.x - 24, l.z - 22, l.x + 24, l.z + 4);
   },
+
+  // 9. Islom Karimov nomidagi Toshkent Xalqaro Aeroporti (TAS / Terminal + Dispetcherlik minorasi)
+  airport(g, l) {
+    // Tekis asfalt perron va uchish yo'lagi (bordyursiz, mashinalar erkin kiradi)
+    const tarmacMat = std(0x1b2028, { roughness: 0.85, metalness: 0.1 });
+    const tarmac = new THREE.Mesh(new THREE.PlaneGeometry(220, 220).rotateX(-Math.PI / 2), tarmacMat);
+    tarmac.position.y = 0.025;
+    g.add(tarmac);
+
+    // 2-qavatli oyna-fasadli Xalqaro Terminal binosi (shimoliy tomonda z = -62)
+    const glassMat = std(0x1e3a5f, { metalness: 0.85, roughness: 0.12, emissive: 0x0ea5e9, emissiveIntensity: 0.42 });
+    const frameMat = std(0xe2e8f0, { metalness: 0.45, roughness: 0.35 });
+    const goldMat = std(0xffd740, { metalness: 0.8, roughness: 0.2, emissive: 0x00e5ff, emissiveIntensity: 0.7 });
+    nightMats.push({ mat: glassMat, base: 0.95, day: 0.2 }, { mat: goldMat, base: 1.4, day: 0.4 });
+
+    const termBody = new THREE.Mesh(new THREE.BoxGeometry(164, 18, 44), glassMat);
+    termBody.position.set(0, 9, -64);
+    g.add(termBody);
+
+    // Terminal tomi va old soyabon (Canopy)
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(176, 2.2, 58), frameMat);
+    roof.position.set(0, 19.1, -60);
+    const roofLed = new THREE.Mesh(new THREE.BoxGeometry(177, 0.55, 58.6), goldMat);
+    roofLed.position.set(0, 20.1, -60);
+    g.add(roof, roofLed);
+
+    // Soyabon ustunlari
+    for (let x = -72; x <= 72; x += 24) {
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.8, 18, 10), frameMat);
+      col.position.set(x, 9, -35);
+      g.add(col);
+    }
+
+    // Terminal tepasidagi katta yoritilgan "TASHKENT INTERNATIONAL AIRPORT" peshlavhasi
+    const signTex = signTexture(['✈️ TASHKENT AIRPORT', 'ISLOM KARIMOV · TERMINAL 2 (TAS)'], {
+      bg: '#06152d',
+      accent: '#38bdf8',
+      w: 1024,
+      h: 220,
+    });
+    const signMat = new THREE.MeshStandardMaterial({ map: signTex, emissiveMap: signTex, emissive: 0xffffff, emissiveIntensity: 1.1 });
+    nightMats.push({ mat: signMat, base: 1.8, day: 0.6 });
+    const signFront = new THREE.Mesh(new THREE.PlaneGeometry(54, 10.5), signMat);
+    signFront.position.set(0, 25.5, -38);
+    const signBack = signFront.clone();
+    signBack.rotation.y = Math.PI;
+    signBack.position.set(0, 25.5, -38.4);
+    g.add(signFront, signBack);
+
+    // 68 metrli Dispetcherlik Minorasi (Air Traffic Control Tower) + aylanuvchi radar
+    const towerX = -78, towerZ = -58;
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 4.8, 54, 14), frameMat);
+    shaft.position.set(towerX, 27, towerZ);
+    const cab = new THREE.Mesh(new THREE.CylinderGeometry(7.2, 5.2, 8.5, 16), glassMat);
+    cab.position.set(towerX, 57, towerZ);
+    const cabRoof = new THREE.Mesh(new THREE.CylinderGeometry(7.8, 7.8, 1.4, 16), frameMat);
+    cabRoof.position.set(towerX, 62, towerZ);
+    const radarBar = new THREE.Mesh(
+      new THREE.BoxGeometry(8.5, 0.8, 1.1),
+      std(0x38bdf8, { emissive: 0x00e5ff, emissiveIntensity: 1.4 })
+    );
+    radarBar.position.set(towerX, 64.5, towerZ);
+    g.add(shaft, cab, cabRoof, radarBar);
+    animated.push((t) => {
+      radarBar.rotation.y = t * 2.4;
+    });
+
+    // Janubiy qismda Uchish-Qo'nish yo'lagi boshlanishi (Runway 08L)
+    buildRunwayStrip(g, true, false);
+
+    // Kolliziyalar: faqat terminal binosi va minora uchun (uchish yo'lagi 100% ochiq)
+    addCollider(l.x - 84, l.z - 88, l.x + 84, l.z - 40);
+  },
+
+  // 10. Aeroport Uchish Yo'lagi va Uzbekistan Airways Boeing 787 Dreamliner
+  runway(g, l) {
+    const tarmacMat = std(0x1b2028, { roughness: 0.85, metalness: 0.1 });
+    const tarmac = new THREE.Mesh(new THREE.PlaneGeometry(220, 220).rotateX(-Math.PI / 2), tarmacMat);
+    tarmac.position.y = 0.025;
+    g.add(tarmac);
+
+    buildRunwayStrip(g, false, false);
+
+    // Shimoliy perronda (z = -54) turgan ulkan 3D Boeing 787 Dreamliner samolyoti
+    buildBoeing787(g, l, 0, -54, 0.18);
+
+    // Uchish yo'lagi o'rtasida (z = 35) Speed Trap / Tezlik Darvozasi
+    const archMat = std(0x0f172a, { metalness: 0.7, roughness: 0.3 });
+    const neonMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
+    for (const sx of [-24, 24]) {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(1.4, 13, 1.4), archMat);
+      p.position.set(sx, 6.5, 35);
+      p.rotation.y = Math.PI / 2;
+      g.add(p);
+    }
+    const topBeam = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 50), neonMat);
+    topBeam.position.set(0, 13.2, 35);
+    g.add(topBeam);
+    addMonumentSign(g, '✈️ RUNWAY 08L / 26R', '350+ KM/H MAKS-TEZLIK POLIGONI', 0, 15.8, 35, Math.PI / 2);
+  },
+
+  // 11. Aeroport Sharqiy Uchish Yo'lagi (26R) + VIP Samolyot Angari + Tramplin
+  runway_east(g, l) {
+    const tarmacMat = std(0x1b2028, { roughness: 0.85, metalness: 0.1 });
+    const tarmac = new THREE.Mesh(new THREE.PlaneGeometry(220, 220).rotateX(-Math.PI / 2), tarmacMat);
+    tarmac.position.y = 0.025;
+    g.add(tarmac);
+
+    buildRunwayStrip(g, false, true);
+
+    // Shimoliy qismda Ochiq VIP Aviatsiya Angari va VIP Private Jet (z = -58)
+    const hangarMat = std(0x273244, { metalness: 0.65, roughness: 0.35 });
+    const roofArc = new THREE.Mesh(
+      new THREE.CylinderGeometry(34, 34, 68, 18, 1, true, 0, Math.PI),
+      std(0x1e293b, { side: THREE.DoubleSide, metalness: 0.6, roughness: 0.4 })
+    );
+    roofArc.rotation.z = Math.PI / 2;
+    roofArc.rotation.y = Math.PI / 2;
+    roofArc.position.set(0, 12, -58);
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(66, 22, 1.8), hangarMat);
+    backWall.position.set(0, 11, -91);
+    g.add(roofArc, backWall);
+    addMonumentSign(g, 'VIP AVIATION HANGAR', 'TASHKENT BUSINESS JET TERMINAL', 0, 22, -24);
+
+    // Angar oldida VIP Business Jet
+    buildVipBusinessJet(g, 0, -48, -0.25);
+
+    addCollider(l.x - 35, l.z - 93, l.x + 35, l.z - 89);
+  },
 };
+
+function buildRunwayStrip(g, isWestThreshold, isEastThreshold) {
+  // z = +35 bo'ylab X o'qi yo'nalishida (-110..+110) 44m kenglikdagi yoritilgan uchish-qo'nish yo'lagi
+  const rwZ = 35;
+  const rwMat = std(0x11151c, { roughness: 0.78, metalness: 0.12 });
+  const strip = new THREE.Mesh(new THREE.PlaneGeometry(220, 46).rotateX(-Math.PI / 2), rwMat);
+  strip.position.set(0, 0.04, rwZ);
+  g.add(strip);
+
+  const whiteMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+  const yellowMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+  const greenLed = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+  const blueLed = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+  const redLed = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+
+  // Yon chegara chiziqlari
+  for (const sz of [-21, 21]) {
+    const edge = new THREE.Mesh(new THREE.PlaneGeometry(220, 0.65).rotateX(-Math.PI / 2), whiteMat);
+    edge.position.set(0, 0.055, rwZ + sz);
+    g.add(edge);
+  }
+
+  // Markaziy uzuq-uzuq oq chiziqlar va yon LED chiroqlar
+  const boxGeo = new THREE.BoxGeometry(0.45, 0.35, 0.45);
+  for (let x = -96; x <= 96; x += 24) {
+    const dash = new THREE.Mesh(new THREE.PlaneGeometry(12, 0.9).rotateX(-Math.PI / 2), whiteMat);
+    dash.position.set(x, 0.055, rwZ);
+    g.add(dash);
+
+    const l1 = new THREE.Mesh(boxGeo, blueLed);
+    l1.position.set(x, 0.2, rwZ - 22.2);
+    const l2 = new THREE.Mesh(boxGeo, blueLed);
+    l2.position.set(x, 0.2, rwZ + 22.2);
+    g.add(l1, l2);
+  }
+
+  // Perronga ulovchi sariq taxiway chizig'i
+  const taxi = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 56).rotateX(-Math.PI / 2), yellowMat);
+  taxi.position.set(0, 0.055, -6);
+  g.add(taxi);
+
+  // Uchish yo'lagi boshi / oxiri "Piano Key" belgilari
+  if (isWestThreshold || isEastThreshold) {
+    const tx = isWestThreshold ? -88 : 88;
+    const ledMat = isWestThreshold ? greenLed : redLed;
+    for (let z = -17; z <= 17; z += 3.4) {
+      const keyBar = new THREE.Mesh(new THREE.PlaneGeometry(14, 1.7).rotateX(-Math.PI / 2), whiteMat);
+      keyBar.position.set(tx, 0.06, rwZ + z);
+      const lamp = new THREE.Mesh(boxGeo, ledMat);
+      lamp.position.set(tx + (isWestThreshold ? -10 : 10), 0.25, rwZ + z);
+      g.add(keyBar, lamp);
+    }
+  }
+}
+
+function buildBoeing787(g, l, x, z, rotY = 0) {
+  const plane = new THREE.Group();
+  plane.position.set(x, 0, z);
+  plane.rotation.y = rotY;
+  g.add(plane);
+
+  const white = std(0xf8fafc, { metalness: 0.35, roughness: 0.22 });
+  const uzBlue = std(0x0088cc, { metalness: 0.5, roughness: 0.25, emissive: 0x003366, emissiveIntensity: 0.25 });
+  const uzGreen = std(0x16a34a, { metalness: 0.45, roughness: 0.28 });
+  const darkMetal = std(0x1e293b, { metalness: 0.75, roughness: 0.3 });
+  const cockpitMat = std(0x091526, { metalness: 0.9, roughness: 0.08, emissive: 0x38bdf8, emissiveIntensity: 0.35 });
+
+  // Fyuzelyaj (uzunligi ~52m, balandligi y = 4.6m)
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(2.65, 2.65, 36, 18).rotateZ(Math.PI / 2), white);
+  body.position.set(0, 4.6, 0);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(2.65, 9.5, 18).rotateZ(-Math.PI / 2), white);
+  nose.position.set(22.7, 4.6, 0);
+  const tailCone = new THREE.Mesh(new THREE.ConeGeometry(2.65, 11, 18).rotateZ(Math.PI / 2), white);
+  tailCone.position.set(-23.5, 4.9, 0);
+
+  // Uzbekistan Airways ko'k va yashil chiziqlari
+  const stripeB = new THREE.Mesh(new THREE.BoxGeometry(36.4, 0.55, 5.42), uzBlue);
+  stripeB.position.set(0, 4.75, 0);
+  const stripeG = new THREE.Mesh(new THREE.BoxGeometry(36.4, 0.32, 5.44), uzGreen);
+  stripeG.position.set(0, 4.25, 0);
+
+  // Kabina oynasi
+  const cockpit = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.15, 2.8), cockpitMat);
+  cockpit.position.set(20.2, 5.45, 0);
+  plane.add(body, nose, tailCone, stripeB, stripeG, cockpit);
+
+  // Qanotlar (50m qanot kengligi — balandligi 4.4m, mashinalar qanot tagidan bemalol o'ta oladi!)
+  const wingGeo = new THREE.BoxGeometry(7.2, 0.38, 48);
+  const wings = new THREE.Mesh(wingGeo, white);
+  wings.position.set(-1.2, 4.35, 0);
+  plane.add(wings);
+
+  // 2 ta ulkan Turbofan Dvigatel (qanotlar ostida)
+  for (const sz of [-11.5, 11.5]) {
+    const nacelle = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.45, 4.6, 16).rotateZ(Math.PI / 2), uzBlue);
+    nacelle.position.set(1.2, 3.1, sz);
+    const fan = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, 0.4, 14).rotateZ(Math.PI / 2), darkMetal);
+    fan.position.set(3.35, 3.1, sz);
+    plane.add(nacelle, fan);
+  }
+
+  // Dum qanoti (Vertical Stabilizer) va Gorizontal stabilizator
+  const vTail = new THREE.Mesh(new THREE.BoxGeometry(6.8, 9.5, 0.45), uzBlue);
+  vTail.position.set(-23.5, 9.5, 0);
+  vTail.rotation.z = 0.28;
+  const hTail = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.3, 16), white);
+  hTail.position.set(-24.2, 5.2, 0);
+  plane.add(vTail, hTail);
+
+  // Shassi ustunlari (Landing Gear)
+  for (const [gx, gz] of [[16.5, 0], [-2.5, -3.6], [-2.5, 3.6]]) {
+    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 3.2, 8), darkMetal);
+    strut.position.set(gx, 1.6, gz);
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.68, 0.9, 12).rotateX(Math.PI / 2), darkMetal);
+    wheel.position.set(gx, 0.68, gz);
+    plane.add(strut, wheel);
+  }
+
+  // Qanot uchidagi Navigatsiya va Strob chiroqlari
+  const redWing = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff1744 }));
+  redWing.position.set(-1.2, 4.45, 24.2);
+  const greenWing = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00e676 }));
+  greenWing.position.set(-1.2, 4.45, -24.2);
+  const topBeacon = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff1744 }));
+  topBeacon.position.set(0, 7.45, 0);
+  plane.add(redWing, greenWing, topBeacon);
+  animated.push((t) => {
+    topBeacon.visible = Math.floor(t * 4) % 2 === 0;
+  });
+
+  // Faqat samolyot shassisi atrofida kichik kolliziya (qanot tagidan mashinada o'tish 100% ochiq!)
+  addCollider(l.x + x - 5, l.z + z - 4.5, l.x + x + 18, l.z + z + 4.5);
+}
+
+function buildVipBusinessJet(g, x, z, rotY = 0) {
+  const jet = new THREE.Group();
+  jet.position.set(x, 0, z);
+  jet.rotation.y = rotY;
+  g.add(jet);
+
+  const pearl = std(0xf1f5f9, { metalness: 0.6, roughness: 0.16 });
+  const gold = std(0xf59e0b, { metalness: 0.85, roughness: 0.18, emissive: 0x78350f, emissiveIntensity: 0.3 });
+  const dark = std(0x0f172a, { metalness: 0.9, roughness: 0.1 });
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, 18, 14).rotateZ(Math.PI / 2), pearl);
+  body.position.set(0, 2.5, 0);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(1.35, 4.8, 14).rotateZ(-Math.PI / 2), pearl);
+  nose.position.set(11.4, 2.5, 0);
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(18.2, 0.25, 2.76), gold);
+  stripe.position.set(0, 2.55, 0);
+  const wings = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.22, 22), pearl);
+  wings.position.set(-1, 2.3, 0);
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(3.4, 4.6, 0.28), gold);
+  tail.position.set(-8.8, 4.8, 0);
+  const cockpit = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.72, 1.65), dark);
+  cockpit.position.set(9.4, 3.0, 0);
+  jet.add(body, nose, stripe, wings, tail, cockpit);
+}
 
 function fountain(g, x, z) {
   const bowl = new THREE.Mesh(new THREE.CylinderGeometry(7.2, 7.8, 1, 24), std(0xcfc7b5));

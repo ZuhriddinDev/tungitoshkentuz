@@ -102,6 +102,10 @@ const SPECIAL = {
   '4,10': { type: 'magiccity', name: 'Magic City & Milliy bog\'' },
   '3,10': { type: 'park',      name: 'Alisher Navoiy Milliy bog\'i' },
   '8,7':  { type: 'kokobango', name: 'KOKOBANGO CLUB' },
+  // Toshkent Xalqaro Aeroporti (TAS) va 750m Uchish-Qo'nish Yo'lagi (Runway 08L/26R)
+  '9,13':  { type: 'airport',     name: 'Toshkent Xalqaro Aeroporti (Terminal)' },
+  '10,13': { type: 'runway',      name: 'Aeroport Uchish Yo\'lagi (Boeing 787)' },
+  '11,13': { type: 'runway_east', name: 'Aeroport VIP Angar & Runway 26R' },
   // Zapravkalar va Markaziy Avtosalon/Garaj
   '8,6':  { type: 'garage',    name: 'Markaziy Avtosalon va Tuning' },
   '11,3': { type: 'gas',       name: 'Zapravka — Yunusobod' },
@@ -136,6 +140,7 @@ export const RACES = [
   { name: 'Tashkent City Halqasi', prize: 25_000_000, wps: [[4, 7], [6, 9]] },
   { name: 'Kichik Halqa Tungi Drift', prize: 35_000_000, wps: [[2, 2], [12, 12]] },
   { name: 'Chorsu — Magic City Ekspress', prize: 20_000_000, wps: [[3, 5], [4, 10]] },
+  { name: 'Aeroport Runway Maks-Tezlik Sprinti', prize: 40_000_000, wps: [[9, 13], [12, 13]] },
 ];
 
 // O'yinchi Amir Temur shoh ko'chasi va Islom Karimov ko'chasi chorrahasi yaqinida, Markaziy Avtosalon oldida boshlaydi

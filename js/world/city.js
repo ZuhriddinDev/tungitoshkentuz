@@ -197,7 +197,7 @@ export function buildCity(scene, quality) {
 
   for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
     const bx = blockC(j), bz = blockC(k), info = blockInfo(j, k);
-    if (info.type === 'canal') continue;
+    if (info.type === 'canal' || info.type === 'airport' || info.type === 'runway' || info.type === 'runway_east') continue;
 
     // Trotuar va bordyur hoshiyasi
     const wg = new THREE.BoxGeometry(BLOCK, 0.22, BLOCK).translate(bx, 0.11, bz);

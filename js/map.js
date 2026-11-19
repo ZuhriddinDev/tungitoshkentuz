@@ -135,16 +135,23 @@ export function getAllMapPOIs() {
   for (const l of LANDMARKS) {
     const isPark = l.type === 'park' || l.type === 'magiccity';
     const isClub = l.type === 'kokobango';
+    const isAirport = l.type === 'airport' || l.type === 'runway' || l.type === 'runway_east';
     items.push({
       id: `lm_${l.x}_${l.z}`,
       category: isPark ? 'park' : 'landmark',
-      icon: isClub ? '🎧' : isPark ? '🌳' : '⭐',
-      color: isClub ? '#e879f9' : isPark ? '#4ade80' : '#a78bfa',
+      icon: isClub ? '🎧' : isAirport ? '✈️' : isPark ? '🌳' : '⭐',
+      color: isClub ? '#e879f9' : isAirport ? '#38bdf8' : isPark ? '#4ade80' : '#a78bfa',
       title: isClub ? 'KOKOBANGO' : l.name,
-      sub: isClub ? '🎧 Tungi Klub & VIP Lounge · [X] bilan kirish (PC)' : isPark ? 'Dam olish maskani va yashil bog\' hududi' : 'Toshkentning diqqatga sazovor markaziy maskani',
+      sub: isClub
+        ? '🎧 Tungi Klub & VIP Lounge · [X] bilan kirish (PC)'
+        : isAirport
+          ? '✈️ Toshkent Xalqaro Aeroporti · Boeing 787 va 350+ km/h Uchish Yo\'lagi'
+          : isPark
+            ? 'Dam olish maskani va yashil bog\' hududi'
+            : 'Toshkentning diqqatga sazovor markaziy maskani',
       x: l.x,
       z: l.z,
-      priority: isClub ? 5 : 3,
+      priority: isClub ? 5 : isAirport ? 4 : 3,
       isClub,
     });
   }
@@ -220,6 +227,8 @@ function drawBase() {
         g.fillStyle = '#16243b';
       } else if (info.type === 'kokobango') {
         g.fillStyle = '#1c0f30';
+      } else if (info.type === 'airport' || info.type === 'runway' || info.type === 'runway_east') {
+        g.fillStyle = '#111b2b';
       } else if (info.type === 'garage') {
         g.fillStyle = '#1b2236';
       } else {
@@ -256,7 +265,20 @@ function drawBase() {
       }
 
       // Chorsu gumbazlari
-      if (info.type === 'chorsu') {
+      if (info.type === 'airport' || info.type === 'runway' || info.type === 'runway_east') {
+        // Aeroport uchish-qo'nish yo'lagi chizmasi
+        const rwY = by + bw * 0.65;
+        g.fillStyle = '#0b111c';
+        g.fillRect(bx + 2, rwY - bw * 0.11, bw - 4, bw * 0.22);
+        g.strokeStyle = '#38bdf8';
+        g.lineWidth = 1.5;
+        g.setLineDash([6, 5]);
+        g.beginPath();
+        g.moveTo(bx + 4, rwY);
+        g.lineTo(bx + bw - 4, rwY);
+        g.stroke();
+        g.setLineDash([]);
+      } else if (info.type === 'chorsu') {
         g.fillStyle = '#0ea5e9';
         g.beginPath();
         g.arc(bx + bw * 0.5, by + bw * 0.5, bw * 0.24, 0, Math.PI * 2);

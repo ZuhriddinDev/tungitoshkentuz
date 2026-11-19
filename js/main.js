@@ -184,9 +184,12 @@ function endRental(silent) {
   if (!silent) toast('Ijara muddati tugadi, mashina qaytarildi', 'err');
 }
 
+let runwayTrapCooldown = 0, runwayBestKmh = 0;
+
 function groundY(x, z) {
   if (onRoad(x, z)) return 0;
   const info = blockInfo(nearestBlock(x), nearestBlock(z));
+  if (info.type === 'airport' || info.type === 'runway' || info.type === 'runway_east') return 0;
   return info.type === 'gas' || info.type === 'garage' ? 0.25 : info.type === 'park' || info.type === 'square' ? 0.3 : 0.22;
 }
 const nearestBlock = (v) => Math.max(0, Math.min(N - 1, Math.round((v - blockC(0)) / (blockC(1) - blockC(0)))));
@@ -933,6 +936,21 @@ function step(dt, t) {
 
   g.position.set(vehicle.x, g.position.y + (groundY(vehicle.x, vehicle.z) - g.position.y) * Math.min(1, dt * 14), vehicle.z);
   g.rotation.set(0, vehicle.heading, 0);
+
+  // Aeroport Uchish Yo'lagi (Runway 08L/26R) Tezlik Radari (Speed Trap)
+  if (runwayTrapCooldown > 0) runwayTrapCooldown -= dt;
+  const rwGateX = blockC(10);
+  const rwGateZ = blockC(13) + 35;
+  if (runwayTrapCooldown <= 0 && Math.abs(vehicle.x - rwGateX) < 15 && Math.abs(vehicle.z - rwGateZ) < 23 && vehicle.kmh >= 140) {
+    runwayTrapCooldown = 22;
+    const spd = Math.round(vehicle.kmh);
+    const isRecord = spd > runwayBestKmh;
+    if (isRecord) runwayBestKmh = spd;
+    const bonus = spd >= 300 ? 18_000_000 : spd >= 240 ? 10_000_000 : spd >= 190 ? 6_000_000 : 3_000_000;
+    addMoney(bonus, `Aeroport Runway Tezlik Rekordi (${spd} km/h)`);
+    beep('cash');
+    toast(`✈️ RUNWAY RADAR: ${spd} km/h! ${isRecord ? '🏆 YANGI REKORD! ' : ''}+${fmt(bonus)}`, 'cash');
+  }
   // Mashina to'xtaganda g'ildiraklar aylanmasin
   const signedDist = Math.abs(vehicle.v) > 0.05 ? dist * Math.sign(vehicle.v) : 0;
   model.update(signedDist, vehicle.steer, vehicle.pitch || 0, vehicle.roll || 0, vehicle.wheelSusp);
