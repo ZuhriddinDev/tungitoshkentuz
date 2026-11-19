@@ -563,6 +563,8 @@ async function enterKokobangoClub() {
     $('hud')?.classList.add('club-mode');
     $('clubUi')?.classList.remove('hidden');
     engineOff();
+    remoteAudio.disposeAll();
+    trafficAudio.update(null);
     if (model) model.group.visible = false;
     if (state.vipClubPass) kokobango.setVipUnlocked?.(true);
     kokobango.setInside(true);
@@ -862,14 +864,14 @@ function step(dt, t) {
   const g = model.group;
   let dist = 0;
 
-  physAcc = Math.min(physAcc + dt, FIXED_DT * 4);
+  // Har bir kadrda silliq fizika (0-qadam/2-qadam micro-stutter yo'q!)
+  const clampedDt = Math.min(dt, 0.05);
+  const subSteps = clampedDt > 0.025 ? 2 : 1;
+  const subDt = clampedDt / subSteps;
   let impact = 0;
-  let steps = 0;
-  while (physAcc >= FIXED_DT && steps < 4) {
-    dist += vehicle.step(FIXED_DT, input, othersList, sky?.wetGrip || 1.0);
+  for (let s = 0; s < subSteps; s++) {
+    dist += vehicle.step(subDt, input, othersList, sky?.wetGrip || 1.0);
     impact = Math.max(impact, vehicle.impact);
-    physAcc -= FIXED_DT;
-    steps++;
   }
   vehicle.impact = impact;
   smoke?.update(dt, vehicle, state.settings.smoke !== false, groundY(vehicle.x, vehicle.z));

@@ -590,14 +590,14 @@ class LocalCarVoice {
 
     const hybridIceAtten = isHybrid && kmh < 22 && throttle < 0.3 ? 0.5 : 1.0;
     const baseVol =
-      (0.068 + currentLoad * 0.14 + currentRpm * 0.055 + launchBoost * 0.05 + decelOverrun * 0.025) *
+      (0.16 + currentLoad * 0.28 + currentRpm * 0.14 + launchBoost * 0.10 + decelOverrun * 0.04) *
       idlePulse *
       (prof.gainMul || 1.0) *
       hybridIceAtten;
-    this.engineGain.gain.setTargetAtTime(baseVol, t, 0.05);
+    this.engineGain.gain.setTargetAtTime(baseVol, t, 0.045);
 
-    this.intakeFilter.frequency.setTargetAtTime(340 + currentRpm * 1650, t, 0.05);
-    this.intakeGain.gain.setTargetAtTime(currentLoad * currentRpm * 0.028, t, 0.05);
+    // Oq shovqin (white noise) o'chirildi — faqat sof real motor ovozi eshitilsin
+    this.intakeGain.gain.setTargetAtTime(0, t, 0.05);
   }
 }
 
@@ -731,12 +731,20 @@ export function engineStart() {
 export function engineOff() {
   if (!ctx) return;
   isEngineRunning = false;
+  const now = ctx.currentTime;
   const spec = currentCarId ? getEngineSpec(currentCarId) : null;
   if (spec?.powertrain !== 'electric') {
-    playOneShot('audio/common/shutdown.wav', 0.40, 1.0);
+    playOneShot('audio/common/shutdown.wav', 0.32, 1.0);
   }
-  if (skidGain) skidGain.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
-  if (roadGain) roadGain.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
+  if (localVoice) {
+    localVoice.engineGain.gain.setTargetAtTime(0, now, 0.04);
+    localVoice.sparkGain.gain.setTargetAtTime(0, now, 0.04);
+    localVoice.intakeGain.gain.setTargetAtTime(0, now, 0.04);
+    localVoice.evSynthGain.gain.setTargetAtTime(0, now, 0.04);
+    localVoice.evSampleGain.gain.setTargetAtTime(0, now, 0.04);
+  }
+  if (skidGain) skidGain.gain.setTargetAtTime(0, now, 0.04);
+  if (roadGain) roadGain.gain.setTargetAtTime(0, now, 0.04);
 }
 
 export function updateEngine(rpm, throttle, pitch = 1, slip = 0, kmh = 0, opts = {}) {
@@ -791,17 +799,14 @@ export function updateEngine(rpm, throttle, pitch = 1, slip = 0, kmh = 0, opts =
     localVoice.update(rpm, throttle, pitch, kmh, isInterior, prof, spec, braking, dt);
   }
 
-  // Road rolling + wind rush (yumshoq, motor ovozini bosib ketmaydi)
-  if (roadGain && roadFilter) {
-    const roadVol = kmh > 15 ? Math.min(0.032, ((kmh - 15) / 280) * 0.032) : 0;
-    const roadHz = 180 + Math.min(1200, kmh * 4.5);
-    roadFilter.frequency.setTargetAtTime(roadHz, ctx.currentTime, 0.08);
-    roadGain.gain.setTargetAtTime(roadVol, ctx.currentTime, 0.08);
+  // Shamol va yo'l oq shovqini o'chirildi (tez yurganda motor ovozini bosib ketmasin)
+  if (roadGain) {
+    roadGain.gain.setTargetAtTime(0, ctx.currentTime, 0.06);
   }
 
-  // Shina sirpanishi: oddiy tormozda (ABS) shovqin chiqmaydi, faqat kuchli driftda eshitiladi
+  // Shina sirpanishi: faqat kuchli qo'l tormozi driftida juda yengil
   if (skidGain) {
-    const driftScrub = slip > 0.42 && kmh > 35 ? Math.min(0.14, (slip - 0.42) * 0.25) : 0;
+    const driftScrub = slip > 0.65 && kmh > 45 ? Math.min(0.06, (slip - 0.65) * 0.14) : 0;
     skidGain.gain.setTargetAtTime(driftScrub, ctx.currentTime, 0.06);
   }
 }
