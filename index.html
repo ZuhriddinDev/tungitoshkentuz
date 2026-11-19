@@ -70,7 +70,7 @@
   <meta property="og:image:alt" content="TUNGI TOSHKENT 3D — tungitoshkent.uz Online Multiplayer Mashina O'yini" />
   <meta name="theme-color" content="#05060f" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>" />
-  <link rel="stylesheet" href="css/style.css?v=16.6" />
+  <link rel="stylesheet" href="css/style.css?v=16.7" />
   <!-- Eski iPhone/Android brauzerlarida import map qo'llab-quvvatlanishi uchun -->
   <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.0/dist/es-module-shims.js"></script>
   <script>
@@ -121,7 +121,7 @@
         <div class="hero-particles"><i></i><i></i><i></i><i></i><i></i><i></i></div>
       </div>
 
-      <!-- 1. YUQORI PANEL: Logotip, Live Server va Profil -->
+      <!-- 1. YUQORI PANEL: Logotip va Live Server (Toza, minimal) -->
       <header class="lobby-topbar hero-topbar">
         <div class="hero-brand-bar panel-glass">
           <div class="hero-brand-left">
@@ -148,27 +148,29 @@
             <small id="lobPingMs">(18 ms)</small>
           </span>
         </div>
-
-        <div class="lobby-profile-bar panel-glass">
-          <div class="prof-name-box">
-            <input id="nameInput" maxlength="18" placeholder="Haydovchi ismi..." title="Haydovchi ismini o'zgartirish" autocomplete="off" />
-            <div class="prof-id-row">
-              <small id="menuMyId">TT-......</small>
-              <button type="button" id="copyMenuId" title="ID kodni nusxalash">📋</button>
-              <span class="prof-bal-pill" id="lobMoney">5 000 000 000 so'm</span>
-            </div>
-          </div>
-        </div>
       </header>
 
-      <!-- 2. MARKAZIY 3D SAHNA (Toza, to'siqsiz 3D ko'rinish) -->
+      <!-- 2. MARKAZIY SAHNA (Toza Tungi Toshkent ko'rinishi) -->
       <main class="lobby-center hero-center-stage"></main>
 
-      <!-- 3. PASTKI DOCK: Asosiy Tugmalar va Huquqiy Ma'lumot -->
+      <!-- 3. PASTKI DOCK: Haydovchi Karti, Asosiy Tugmalar va Huquqiy Ma'lumot -->
       <footer class="lobby-bottombar hero-bottombar">
         <div class="malibu-hero-badge">
           <span class="hero-car-dot"></span>
           <span class="hero-car-tag" id="heroCarTag">TUNGI TOSHKENT · 6 TUMAN · OPEN WORLD 3D</span>
+        </div>
+
+        <div class="hero-driver-card panel-glass">
+          <div class="driver-avatar" aria-hidden="true">🏎️</div>
+          <label class="driver-input-wrap" for="nameInput">
+            <span class="driver-input-label">HAYDOVCHI ISMI</span>
+            <input id="nameInput" maxlength="18" placeholder="Ismingizni kiriting..." title="Haydovchi ismini o'zgartirish" autocomplete="off" />
+          </label>
+          <div class="driver-id-chip">
+            <span class="driver-id-label">ID</span>
+            <small id="menuMyId">TT-......</small>
+            <button type="button" id="copyMenuId" class="driver-copy-btn" title="ID kodni nusxalash">📋</button>
+          </div>
         </div>
 
         <div class="hero-main-actions">
