@@ -139,12 +139,12 @@ export const TUNING = {
     name: 'Motor Yangilash (Dvigatel · V8 / V12 / W12)',
     options: [
       { id: 0, name: 'Standart Motor', price: 0 },
-      { id: 1, name: 'Stage 1 Chip (+10% Quvvat)', price: 12_000_000 },
-      { id: 2, name: 'Stage 2 Sport (+20% Quvvat)', price: 28_000_000 },
-      { id: 3, name: 'Stage 3 Forged (+32% Quvvat)', price: 55_000_000 },
-      { id: 4, name: '🔥 V8 Bi-Turbo AMG (+42% · V8 Ovoz)', price: 120_000_000 },
-      { id: 5, name: '🔥 V12 Super-Sport (+54% · V12 Ovoz)', price: 220_000_000 },
-      { id: 6, name: '👑 W12 Twin-Turbo 6.0L (+65% · W12 Ovoz)', price: 340_000_000 },
+      { id: 1, name: 'Stage 1 Chip (+10% Quvvat)', price: 5_000_000 },
+      { id: 2, name: 'Stage 2 Sport (+20% Quvvat)', price: 12_000_000 },
+      { id: 3, name: 'Stage 3 Forged (+32% Quvvat)', price: 22_000_000 },
+      { id: 4, name: '🔥 V8 Bi-Turbo AMG (+42% · V8 Ovoz)', price: 35_000_000 },
+      { id: 5, name: '🔥 V12 Super-Sport (+54% · V12 Ovoz)', price: 55_000_000 },
+      { id: 6, name: '👑 W12 Twin-Turbo 6.0L (+65% · W12 Ovoz)', price: 75_000_000 },
     ],
   },
   turbo: {

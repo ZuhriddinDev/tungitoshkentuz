@@ -329,8 +329,23 @@ class LocalCarVoice {
 
     this.dynamicFilter = ctx.createBiquadFilter();
     this.dynamicFilter.type = 'lowpass';
-    this.dynamicFilter.frequency.value = 350;
-    this.dynamicFilter.Q.value = 2.0;
+    this.dynamicFilter.frequency.value = 650;
+    this.dynamicFilter.Q.value = 0.85;
+
+    // Haqiqiy inomarka glushitel issiqligi: Sub-Bass Shelf + Soft Saturation (Tube Warmth)
+    this.subBass = ctx.createBiquadFilter();
+    this.subBass.type = 'lowshelf';
+    this.subBass.frequency.value = 105;
+    this.subBass.gain.value = 4.5;
+
+    this.warmth = ctx.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const x = (i / 128) - 1;
+      curve[i] = Math.tanh(x * 1.45);
+    }
+    this.warmth.curve = curve;
+    this.warmth.oversample = '2x';
 
     this.engineGain = ctx.createGain();
     this.engineGain.gain.value = 0;
@@ -384,11 +399,13 @@ class LocalCarVoice {
     this.intakeSource.connect(this.intakeFilter).connect(this.intakeGain).connect(this.dynamicFilter);
     this.intakeSource.start();
 
-    this.idleFilter.connect(this.idleGain).connect(this.dynamicFilter);
-    this.midFilter.connect(this.midGain).connect(this.dynamicFilter);
-    this.highFilter.connect(this.highGain).connect(this.dynamicFilter);
+    this.idleFilter.connect(this.idleGain).connect(this.subBass);
+    this.midFilter.connect(this.midGain).connect(this.subBass);
+    this.highFilter.connect(this.highGain).connect(this.subBass);
 
-    this.dynamicFilter.connect(this.engineGain);
+    this.subBass.connect(this.dynamicFilter);
+    this.dynamicFilter.connect(this.warmth);
+    this.warmth.connect(this.engineGain);
     this.engineGain.connect(interiorFilter);
     this.engineGain.connect(exteriorBus);
   }
@@ -421,9 +438,9 @@ class LocalCarVoice {
         this.source = ctx.createBufferSource();
         this.source.buffer = buf;
         this.source.loop = true;
+        // Full-range real sample to'g'ridan-to'g'ri Sub-Bass + Dynamic EQ ga ulanadi (bo'g'ilib qolmaydi!)
+        this.source.connect(this.subBass);
         this.source.connect(this.idleFilter);
-        this.source.connect(this.midFilter);
-        this.source.connect(this.highFilter);
         this.source.start();
         this.isPlaying = true;
       }
@@ -503,11 +520,11 @@ class LocalCarVoice {
       return;
     }
 
-    // ICE / Hybrid Combustion Layer
-    const baseP = (prof.pitchMul || 1.0) / Math.max(0.6, pitchMul || 1.0);
-    const playbackRate = THREE.MathUtils.clamp(baseP * (0.62 + revNorm * 1.04), 0.45, 2.45);
+    // ICE / Hybrid Combustion Layer — tabiiy pitch diapazoni (0.72..1.78, chiyillashsiz!)
+    const baseP = (prof.pitchMul || 1.0) / Math.max(0.75, Math.min(1.25, pitchMul || 1.0));
+    const playbackRate = THREE.MathUtils.clamp(baseP * (0.72 + revNorm * 0.92), 0.65, 1.82);
     if (this.source && this.source.playbackRate) {
-      this.source.playbackRate.setTargetAtTime(playbackRate, t, 0.035);
+      this.source.playbackRate.setTargetAtTime(playbackRate, t, 0.045);
     }
 
     if (prof.is3Cyl || prof.isUnknown) {
@@ -539,48 +556,48 @@ class LocalCarVoice {
       this.evSampleGain.gain.setTargetAtTime(0, t, 0.05);
     }
 
-    // 1. Realistik Idle Lope (to'xtab turganda silindrga mos jonli tebranish)
+    // 1. Realistik Idle (to'xtab turganda sokin, chuqur inomarka g'o'ldirashi)
     const cyl = spec?.cylinderCount || 4;
     const isStandstill = kmh < 3.5 && throttle < 0.08;
-    const lopeHz = cyl >= 8 ? 11.5 : cyl >= 6 ? 14.5 : 17.0;
-    const lopeDepth = isStandstill ? (cyl >= 8 ? 0.14 : 0.07) : 0;
+    const lopeHz = cyl >= 8 ? 10.5 : cyl >= 6 ? 13.5 : 16.0;
+    const lopeDepth = isStandstill ? (cyl >= 8 ? 0.08 : 0.04) : 0;
     const idlePulse = 1 + Math.sin(t * lopeHz) * lopeDepth;
 
-    // 2. Launch Torque Growl (joyidan qo'zg'alganda kuchli tortish)
-    const launchBoost = kmh < 38 && throttle > 0.2 ? (1 - kmh / 38) * throttle * 0.34 : 0;
+    // 2. Launch Torque Growl (joyidan qo'zg'alganda chuqur tortish)
+    const launchBoost = kmh < 42 && throttle > 0.2 ? (1 - kmh / 42) * throttle * 0.38 : 0;
 
-    // 3. Engine Braking / Overrun (gazni qo'yib yuborganda va tormozlaganda)
-    const decelOverrun = throttle < 0.05 && kmh > 16 ? Math.min(0.28, (kmh / 180) * (braking ? 1.25 : 0.75)) : 0;
+    // 3. Engine Braking (gazni qo'yib yuborganda silliq tushish)
+    const decelOverrun = throttle < 0.05 && kmh > 18 ? Math.min(0.20, (kmh / 200) * (braking ? 1.1 : 0.65)) : 0;
 
-    const idleFactor = Math.max(0, 1 - kmh / 18) * (1 - throttle * 0.7);
-    this.idleGain.gain.setTargetAtTime((0.48 + idleFactor * 0.52 + launchBoost * 0.5) * idlePulse, t, 0.045);
+    const idleFactor = Math.max(0, 1 - kmh / 20) * (1 - throttle * 0.7);
+    this.idleGain.gain.setTargetAtTime((0.35 + idleFactor * 0.45 + launchBoost * 0.4) * idlePulse, t, 0.05);
+    this.midGain.gain.setTargetAtTime(0, t, 0.05);
+    this.highGain.gain.setTargetAtTime(0, t, 0.05);
 
-    const midFactor = Math.sin(Math.min(Math.PI, currentRpm * Math.PI));
-    this.midGain.gain.setTargetAtTime(0.38 + midFactor * 0.58 + launchBoost * 0.65 + decelOverrun * 0.45, t, 0.045);
+    // Sub-bass: gaz bosganda va past tezlikda chuqur glushitel bassi
+    const bassDb = 3.5 + currentLoad * 4.2 + launchBoost * 3.5 + (cyl >= 8 ? 1.8 : 0);
+    this.subBass.gain.setTargetAtTime(bassDb, t, 0.06);
 
-    const highFactor = Math.max(0, currentRpm - 0.32) * (0.32 + 0.68 * currentLoad);
-    this.highGain.gain.setTargetAtTime(highFactor * 0.82 + decelOverrun * 0.25, t, 0.045);
-
+    // Dynamic lowpass: pastda bo'g'ilmaydi (460Hz+), gazda to'liq ochiladi (5600Hz gacha)
+    const minHz = Math.max(460, prof.filterBase * 1.9);
+    const maxHz = Math.min(6200, prof.filterMax * 1.45);
     const filterHz = THREE.MathUtils.clamp(
-      prof.filterBase +
-        currentRpm * (prof.filterMax - prof.filterBase) * (0.42 + 0.58 * currentLoad) +
-        launchBoost * 420 +
-        decelOverrun * 350,
-      175,
-      prof.filterMax
+      minHz + currentRpm * (maxHz - minHz) * (0.35 + 0.65 * currentLoad) + launchBoost * 650,
+      minHz,
+      maxHz
     );
-    this.dynamicFilter.frequency.setTargetAtTime(filterHz, t, 0.04);
+    this.dynamicFilter.frequency.setTargetAtTime(filterHz, t, 0.05);
 
-    const hybridIceAtten = isHybrid && kmh < 22 && throttle < 0.3 ? 0.55 : 1.0;
+    const hybridIceAtten = isHybrid && kmh < 22 && throttle < 0.3 ? 0.5 : 1.0;
     const baseVol =
-      (0.052 + currentLoad * 0.145 + currentRpm * 0.065 + launchBoost * 0.055 + decelOverrun * 0.03) *
+      (0.068 + currentLoad * 0.14 + currentRpm * 0.055 + launchBoost * 0.05 + decelOverrun * 0.025) *
       idlePulse *
       (prof.gainMul || 1.0) *
       hybridIceAtten;
-    this.engineGain.gain.setTargetAtTime(baseVol, t, 0.04);
+    this.engineGain.gain.setTargetAtTime(baseVol, t, 0.05);
 
-    this.intakeFilter.frequency.setTargetAtTime(300 + currentRpm * 1850 + launchBoost * 450, t, 0.045);
-    this.intakeGain.gain.setTargetAtTime((currentLoad * currentRpm * 0.052) + launchBoost * 0.035, t, 0.045);
+    this.intakeFilter.frequency.setTargetAtTime(340 + currentRpm * 1650, t, 0.05);
+    this.intakeGain.gain.setTargetAtTime(currentLoad * currentRpm * 0.028, t, 0.05);
   }
 }
 
@@ -598,18 +615,18 @@ async function playOneShot(url, volume = 0.5, pitch = 1.0) {
   src.start();
 }
 
-function triggerPop(intensity = 0.7) {
+function triggerPop(intensity = 0.5) {
   const popFiles = ['audio/common/pop_1.wav', 'audio/common/pop_2.wav', 'audio/common/pop_3.wav'];
   const chosen = popFiles[Math.floor(Math.random() * popFiles.length)];
-  playOneShot(chosen, Math.min(0.85, 0.18 * intensity), 0.88 + Math.random() * 0.28);
+  playOneShot(chosen, Math.min(0.11, 0.08 * intensity), 0.92 + Math.random() * 0.16);
 }
 
-function triggerBlowOff(intensity = 0.6) {
-  playOneShot('audio/common/blowoff.wav', Math.min(0.65, 0.16 * intensity), 1.0 + Math.random() * 0.15);
+function triggerBlowOff(intensity = 0.5) {
+  playOneShot('audio/common/blowoff.wav', Math.min(0.11, 0.09 * intensity), 1.0 + Math.random() * 0.12);
 }
 
 function triggerShiftSound() {
-  playOneShot('audio/common/shift.wav', 0.22, 0.95 + Math.random() * 0.1);
+  playOneShot('audio/common/shift.wav', 0.08, 0.96 + Math.random() * 0.08);
 }
 
 export function initAudio(volume = 0.6) {
@@ -746,30 +763,26 @@ export function updateEngine(rpm, throttle, pitch = 1, slip = 0, kmh = 0, opts =
     localVoice.setSoundProfile(soundKey);
   }
 
-  // Mechanical gear shift only for ICE/Hybrid vehicles
-  if (!isEV && gear !== lastGear && kmh > 15) {
+  // Mechanical gear shift only for ICE/Hybrid vehicles (paqillashsiz, silliq DCT/ZF8 uzatma)
+  if (!isEV && gear !== lastGear && kmh > 18) {
     triggerShiftSound();
     if (gear > lastGear && throttle > 0.3) {
-      currentRpm = Math.max(0.22, currentRpm - 0.16);
-      if (prof.burble > 0.3) triggerPop(prof.burble * 0.8);
+      currentRpm = Math.max(0.24, currentRpm - 0.14);
     } else if (gear < lastGear && braking) {
-      currentRpm = Math.min(0.92, currentRpm + 0.14);
+      currentRpm = Math.min(0.88, currentRpm + 0.11);
     }
     lastGear = gear;
   }
 
-  // Turbo blow-off and exhaust pops (ICE/Hybrid only)
+  // Turbo blow-off & kamdan-kam yumshoq sport burble (faqat juda yuqori tezlik/RPM da, asabga tegmaydi!)
   popCooldown = Math.max(0, popCooldown - dt);
-  if (!isEV) {
-    if (lastThrottle > 0.45 && throttle === 0 && kmh > 30) {
-      if (prof.turbo) triggerBlowOff(currentRpm);
-      if (prof.burble > 0 && popCooldown <= 0) {
-        triggerPop(prof.burble);
-        popCooldown = 0.15;
-      }
-    } else if (throttle === 0 && kmh > 42 && currentRpm > 0.42 && prof.burble > 0.5 && popCooldown <= 0 && Math.random() < 0.22) {
-      triggerPop(prof.burble * 0.7);
-      popCooldown = 0.18 + Math.random() * 0.14;
+  if (!isEV && lastThrottle > 0.65 && throttle === 0 && popCooldown <= 0) {
+    if (prof.turbo && kmh > 70 && currentRpm > 0.68) {
+      triggerBlowOff(0.5);
+      popCooldown = 1.8;
+    } else if (prof.burble >= 0.82 && kmh > 110 && currentRpm > 0.82) {
+      triggerPop(0.5);
+      popCooldown = 3.2;
     }
   }
   lastThrottle = throttle;

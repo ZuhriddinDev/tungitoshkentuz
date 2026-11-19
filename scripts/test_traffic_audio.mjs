@@ -53,7 +53,8 @@ class FakeCtx {
   get currentTime() { return (nowT += 0.016); }
   resume() { return Promise.resolve(); }
   createGain() { return node({ gain: param(1) }); }
-  createBiquadFilter() { return node({ frequency: param(1000), Q: param(1), type: '' }); }
+  createBiquadFilter() { return node({ frequency: param(1000), Q: param(1), gain: param(0), type: '' }); }
+  createWaveShaper() { return node({ curve: null, oversample: 'none' }); }
   createBufferSource() { return node({ playbackRate: param(1), buffer: null, loop: false }); }
   createOscillator() { return node({ frequency: param(440), type: '' }); }
   createDynamicsCompressor() { return node({ threshold: param(), ratio: param() }); }
