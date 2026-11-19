@@ -70,7 +70,7 @@
   <meta property="og:image:alt" content="TUNGI TOSHKENT 3D — tungitoshkent.uz Online Multiplayer Mashina O'yini" />
   <meta name="theme-color" content="#05060f" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>" />
-  <link rel="stylesheet" href="css/style.css?v=16.7" />
+  <link rel="stylesheet" href="css/style.css?v=16.8" />
   <!-- Eski iPhone/Android brauzerlarida import map qo'llab-quvvatlanishi uchun -->
   <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.0/dist/es-module-shims.js"></script>
   <script>
@@ -419,6 +419,19 @@
     </p>
   </article>
 
+  <!-- Foto Rejim (Photo Mode — P tugmasi) -->
+  <div id="photoModeBar" class="photo-mode-bar hidden">
+    <span class="pm-title">📸 FOTO REJIM</span>
+    <div class="pm-filters">
+      <button type="button" class="pm-btn on" data-pfilter="none">Normal</button>
+      <button type="button" class="pm-btn" data-pfilter="neon">Neon</button>
+      <button type="button" class="pm-btn" data-pfilter="cinema">Kino</button>
+      <button type="button" class="pm-btn" data-pfilter="bw">Oq-Qora</button>
+    </div>
+    <button type="button" id="photoCaptureBtn" class="pm-btn pm-shoot">📷 Rasmga olish</button>
+    <button type="button" id="photoExitBtn" class="pm-btn pm-exit">✕ Chiqish (P)</button>
+  </div>
+
   <!-- Modal oynalar -->
   <div id="modal" class="screen">
     <div class="panel3d modal-card">
@@ -427,6 +440,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=16.6"></script>
+  <script type="module" src="js/main.js?v=16.8"></script>
 </body>
 </html>

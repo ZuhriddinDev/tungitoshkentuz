@@ -317,6 +317,7 @@ function renderTunePanel(side, cfg, inst) {
     ['aero',    '🛡️ Kuzov & Spoyler'],
     ['tint',    '🕶️ Tonirovka'],
     ['lights',  '💡 Fara & Neon'],
+    ['plate',   '🪪 Raqam (UZ)'],
     ['power',   '⚡ Motor & Turbo'],
     ['chassis', '🔧 Tormoz & Rul'],
   ];
@@ -350,6 +351,27 @@ function renderTunePanel(side, cfg, inst) {
     bodyHtml = `
       ${renderOptionGrid('headlightColor', inst)}
       ${renderOptionGrid('neon', inst)}`;
+  } else if (tuneCat === 'plate') {
+    const curPlate = (typeof inst.plate === 'string' && inst.plate.includes('|')) ? inst.plate : '01|A 777 AA';
+    const [curReg, curNum] = curPlate.split('|');
+    const regions = ['01','10','20','25','30','40','50','60','70','75','80','85','90','95'];
+    const presets = ['01|777 AAA', '01|001 VIP', '01|010 UZB', '01|707 ZZZ', '01|888 AMG', '01|555 BMW'];
+    bodyHtml = `
+      <div class="section-title" style="margin-top:4px">O'zbekiston Davlat Raqami · <b>${fmt(2_000_000)}</b></div>
+      <div class="uz-plate-preview" id="uzPlatePrev">
+        <span class="uzp-reg" id="uzpReg">${curReg}</span>
+        <span class="uzp-num" id="uzpNum">${curNum}</span>
+        <span class="uzp-uz">🇺🇿<b>UZ</b></span>
+      </div>
+      <div class="uz-plate-form">
+        <select id="plateRegSel">${regions.map((r) => `<option value="${r}" ${r === curReg ? 'selected' : ''}>${r}</option>`).join('')}</select>
+        <input id="plateNumInp" maxlength="9" value="${curNum}" placeholder="A 777 AA" autocomplete="off" />
+        <button type="button" class="btn primary" id="plateApplyBtn">O'rnatish</button>
+      </div>
+      <div class="section-title" style="margin-top:10px">VIP Tayyor Raqamlar</div>
+      <div class="uz-plate-presets">
+        ${presets.map((pr) => `<button type="button" class="btn" data-plate-preset="${pr}">${pr.replace('|', ' | ')}</button>`).join('')}
+      </div>`;
   } else if (tuneCat === 'power') {
     bodyHtml = `
       ${renderOptionGrid('engine', inst)}
@@ -414,6 +436,42 @@ function renderTunePanel(side, cfg, inst) {
     ui.toast(`✔ ${opt.name} o'rnatildi!`, 'ok');
     render(true);
   }));
+
+  // O'zbekiston Davlat Raqami (UZ) o'rnatish
+  const regSel = side.querySelector('#plateRegSel');
+  const numInp = side.querySelector('#plateNumInp');
+  const applyPlateBtn = side.querySelector('#plateApplyBtn');
+  const syncPrev = () => {
+    const r = (regSel?.value || '01').slice(0, 2);
+    const n = (numInp?.value || 'A 777 AA').toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 9);
+    const pr = side.querySelector('#uzpReg');
+    const pn = side.querySelector('#uzpNum');
+    if (pr) pr.textContent = r;
+    if (pn) pn.textContent = n || 'A 777 AA';
+  };
+  if (regSel) regSel.onchange = syncPrev;
+  if (numInp) numInp.oninput = syncPrev;
+  const savePlate = (plateVal) => {
+    if (inst.plate === plateVal) return;
+    if (!spend(2_000_000, `Davlat raqami: ${plateVal.replace('|', ' ')}`)) {
+      return ui.toast("Balansda mablag' yetarli emas!", 'err');
+    }
+    inst.plate = plateVal;
+    touch();
+    beep('cash');
+    preview?.setTuning(inst);
+    if (inst.uid === state.activeUid && !state.rental) ui.game.changeCar(true);
+    ui.toast(`🪪 Davlat raqami: ${plateVal.replace('|', ' | ')} o'rnatildi!`, 'ok');
+    render(true);
+  };
+  if (applyPlateBtn) {
+    applyPlateBtn.onclick = () => {
+      const r = (regSel?.value || '01').slice(0, 2);
+      const n = (numInp?.value || 'A 777 AA').toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim().slice(0, 9) || 'A 777 AA';
+      savePlate(`${r}|${n}`);
+    };
+  }
+  side.querySelectorAll('[data-plate-preset]').forEach((b) => (b.onclick = () => savePlate(b.dataset.platePreset)));
 }
 
 function bindCommon(wrap) {

@@ -4147,6 +4147,140 @@ body.phone .club-prompt.hidden {
   }
 }
 
+/* O'zbekiston Davlat Raqami (UZ Plate) Tuning UI */
+.uz-plate-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  color: #090d16;
+  border: 3px solid #0f172a;
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin: 8px 0 10px;
+  font-family: "Segoe UI", Arial, sans-serif;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.uz-plate-preview .uzp-reg {
+  font-size: 20px;
+  font-weight: 900;
+  padding-right: 10px;
+  border-right: 2.5px solid #0f172a;
+}
+.uz-plate-preview .uzp-num {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  flex: 1;
+  text-align: center;
+}
+.uz-plate-preview .uzp-uz {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 11px;
+  line-height: 1.1;
+  color: #0284c7;
+}
+.uz-plate-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.uz-plate-form select,
+.uz-plate-form input {
+  background: rgba(15, 23, 42, 0.85);
+  color: #f8fafc;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-weight: 700;
+  font-size: 13px;
+}
+.uz-plate-form input {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.uz-plate-presets {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+.uz-plate-presets .btn {
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+/* Foto Rejim (Photo Mode — P tugmasi) */
+body.photo-active #hud,
+body.photo-active #touchControls,
+body.photo-active #clubHud {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.photo-mode-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 16px;
+  background: rgba(8, 12, 24, 0.84);
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+.photo-mode-bar.hidden {
+  display: none !important;
+}
+.photo-mode-bar .pm-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #38bdf8;
+  margin-right: 4px;
+}
+.photo-mode-bar .pm-filters {
+  display: flex;
+  gap: 5px;
+}
+.photo-mode-bar .pm-btn {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.78);
+  color: #e2e8f0;
+  padding: 6px 11px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.photo-mode-bar .pm-btn.on,
+.photo-mode-bar .pm-btn:hover {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.22);
+  color: #ffffff;
+}
+.photo-mode-bar .pm-shoot {
+  background: linear-gradient(135deg, #06b6d4, #2563eb);
+  border-color: rgba(125, 211, 252, 0.6);
+  color: #fff;
+}
+.photo-mode-bar .pm-exit {
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #fda4af;
+}
+
 
 
 

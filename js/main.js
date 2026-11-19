@@ -32,7 +32,7 @@ import { toggleAudioDiagnostic } from './audioDiagnostic.js';
 import { initMissions, updateMission, mission, rivals } from './missions.js';
 import { drawMinimap } from './map.js';
 import { initUI, toggle, open, closeModal, isOpen, toast } from './ui.js';
-import { updateCamera, updateCharCamera, cycleCharZoom, resetCharCamera, menuCamera, addShake, camState } from './camera.js';
+import { updateCamera, updateCharCamera, cycleCharZoom, resetCharCamera, menuCamera, updatePhotoCamera, addShake, camState, CAM_MODE_NAMES } from './camera.js';
 import { drawSpeedo, updateHud, setPrompt, setMissionHud } from './hud.js';
 import { buildKokobangoClub } from './world/kokobango.js';
 import { PlayerCharacter } from './character.js';
@@ -596,12 +596,82 @@ function exitKokobangoClub() {
 
 onKey('KeyH', keyGuard(() => { if (!insideClub) horn(); }));
 onKey('KeyC', keyGuard(() => {
-  if (!insideClub) {
-    camState.mode = (camState.mode + 1) % 3;
-    const names = ['Yaqin kamera', 'Uzoq kamera', 'Salon / Kapot'];
-    toast(`📷 ${names[camState.mode]}`, 'ok');
+  if (!insideClub && !photoMode.active) {
+    camState.mode = (camState.mode + 1) % CAM_MODE_NAMES.length;
+    toast(`📷 ${CAM_MODE_NAMES[camState.mode]}`, 'ok');
   }
 }));
+
+// Foto Rejim (Photo Mode — P tugmasi)
+const PHOTO_FILTERS = {
+  none:   { label: 'Normal', css: 'none' },
+  neon:   { label: 'Tungi Neon', css: 'contrast(1.16) saturate(1.42) brightness(1.04)' },
+  cinema: { label: 'Kinematografik', css: 'contrast(1.22) saturate(0.92) sepia(0.14)' },
+  bw:     { label: 'Oq-Qora', css: 'grayscale(1) contrast(1.25)' },
+};
+const photoMode = { active: false, yaw: 0.65, pitch: 0.22, dist: 5.8, fov: 46, filter: 'none', dragging: false, lx: 0, ly: 0 };
+
+function setPhotoFilter(key) {
+  photoMode.filter = PHOTO_FILTERS[key] ? key : 'none';
+  const cv = $('game');
+  if (cv) cv.style.filter = photoMode.active ? PHOTO_FILTERS[photoMode.filter].css : 'none';
+  document.querySelectorAll('[data-pfilter]').forEach((b) => b.classList.toggle('on', b.dataset.pfilter === photoMode.filter));
+}
+
+function togglePhotoMode(forceVal) {
+  if (!playing) return;
+  const next = typeof forceVal === 'boolean' ? forceVal : !photoMode.active;
+  photoMode.active = next;
+  document.body.classList.toggle('photo-active', next);
+  const bar = $('photoModeBar');
+  if (bar) bar.classList.toggle('hidden', !next);
+  if (next) {
+    const baseH = insideClub ? (playerChar?.heading || 0) : (vehicle?.heading || 0);
+    photoMode.yaw = baseH + 0.65;
+    photoMode.pitch = 0.20;
+    photoMode.dist = insideClub ? 3.8 : 5.8;
+    setPhotoFilter(photoMode.filter);
+    toast('📸 Foto Rejim yoqildi! Sichqoncha bilan aylantiring, g\'ildirak bilan zoom qiling.', 'ok');
+  } else {
+    const cv = $('game');
+    if (cv) cv.style.filter = 'none';
+  }
+}
+
+function capturePhotoShot() {
+  const cv = $('game');
+  if (!cv) return;
+  R.render(sky.night);
+  const out = document.createElement('canvas');
+  out.width = cv.width;
+  out.height = cv.height;
+  const g = out.getContext('2d');
+  if (PHOTO_FILTERS[photoMode.filter]?.css && PHOTO_FILTERS[photoMode.filter].css !== 'none') {
+    g.filter = PHOTO_FILTERS[photoMode.filter].css;
+  }
+  g.drawImage(cv, 0, 0);
+  g.filter = 'none';
+  // Chiroyli tungitoshkent.uz watermark
+  const pad = Math.max(18, Math.round(out.width * 0.018));
+  g.font = `800 ${Math.max(16, Math.round(out.width * 0.016))}px "Segoe UI", Arial, sans-serif`;
+  g.textAlign = 'right';
+  g.textBaseline = 'bottom';
+  g.shadowColor = 'rgba(0,0,0,0.85)';
+  g.shadowBlur = 10;
+  g.fillStyle = 'rgba(255,255,255,0.92)';
+  g.fillText('TUNGI TOSHKENT 3D  ·  tungitoshkent.uz', out.width - pad, out.height - pad);
+  const a = document.createElement('a');
+  a.download = `tungi-toshkent-${Date.now()}.jpg`;
+  a.href = out.toDataURL('image/jpeg', 0.92);
+  a.click();
+  toast('📸 Rasm saqlandi!', 'ok');
+}
+
+onKey('KeyP', () => {
+  if (!playing) return;
+  if (document.activeElement?.tagName === 'INPUT') return;
+  togglePhotoMode();
+});
 onKey('F8', () => toggleAudioDiagnostic());
 onKey('KeyV', keyGuard(() => {
   if (!isTouch() && insideClub) {
@@ -806,7 +876,7 @@ function step(dt, t) {
     sound: vehicle.cfg.sound,
     braking: vehicle.braking,
     gear: vehicle.gear,
-    isInterior: camState.mode === 2,
+    isInterior: camState.mode === 3,
     dt,
   });
   updateCamera(camera, vehicle, input.boost, dt);
@@ -1006,7 +1076,12 @@ function loop() {
 
   if (playing && !paused) {
     model.group.visible = !insideClub;
-    step(dt, t);
+    if (photoMode.active) {
+      const target = insideClub ? playerChar : vehicle;
+      updatePhotoCamera(camera, { x: target.x, y: target.y || 0, z: target.z }, photoMode, dt);
+    } else {
+      step(dt, t);
+    }
   } else if (!playing) {
     // 1-Variant: Kinematografik HD fon rejimida 3D render butunlay pauzada (0% GPU qotish!)
     return;
@@ -1107,6 +1182,36 @@ async function boot() {
       heroBg.style.setProperty('--py', `${ny.toFixed(1)}px`);
     }, { passive: true });
   }
+  // Foto Rejim (Photo Mode) boshqaruvlari: 360° aylantirish, zoom, filtrlar va skrinshot
+  const gameCv = $('game');
+  if (gameCv) {
+    gameCv.addEventListener('pointerdown', (e) => {
+      if (!photoMode.active) return;
+      photoMode.dragging = true;
+      photoMode.lx = e.clientX;
+      photoMode.ly = e.clientY;
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!photoMode.active || !photoMode.dragging) return;
+      const dx = e.clientX - photoMode.lx;
+      const dy = e.clientY - photoMode.ly;
+      photoMode.lx = e.clientX;
+      photoMode.ly = e.clientY;
+      photoMode.yaw -= dx * 0.0065;
+      photoMode.pitch = Math.max(-0.04, Math.min(1.12, photoMode.pitch + dy * 0.005));
+    }, { passive: true });
+    window.addEventListener('pointerup', () => { photoMode.dragging = false; });
+    gameCv.addEventListener('wheel', (e) => {
+      if (!photoMode.active) return;
+      e.preventDefault();
+      photoMode.dist = Math.max(2.6, Math.min(18, photoMode.dist + e.deltaY * 0.004));
+    }, { passive: false });
+  }
+  $('photoCaptureBtn')?.addEventListener('click', capturePhotoShot);
+  $('photoExitBtn')?.addEventListener('click', () => togglePhotoMode(false));
+  document.querySelectorAll('[data-pfilter]').forEach((b) => {
+    b.addEventListener('click', () => setPhotoFilter(b.dataset.pfilter));
+  });
   await progress(92, 'Shahar transporti va 3D NPC lar...');
   traffic = new Traffic(scene, preset.traffic);
   peds = new Pedestrians(scene, preset.peds);

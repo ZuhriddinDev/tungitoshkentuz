@@ -4,9 +4,16 @@ import * as THREE from 'three';
 import { cam } from './input.js';
 import { queryColliders } from './world/layout.js';
 
-const tmp = new THREE.Vector3(), look = new THREE.Vector3();
-let followH = null, fov = 62, shake = 0, curDist = 9;
-export const camState = { mode: 0 }; // 0 — yaqin, 1 — uzoq, 2 — kapotdan
+const tmp = new THREE.Vector3(), look = new THREE.Vector3(), smoothPos = new THREE.Vector3(), smoothLook = new THREE.Vector3();
+let followH = null, fov = 62, shake = 0, curDist = 9, camInited = false, cinPhase = 0;
+export const CAM_MODE_NAMES = [
+  'Orqa kamera (Chase)',
+  'Keng sport kamera (Far)',
+  'Kapot kamerasi (Hood)',
+  'Salon kamerasi (Cockpit)',
+  'Kinematografik (Cinematic)',
+];
+export const camState = { mode: 0 }; // 0..4
 export const addShake = (s) => { shake = Math.max(shake, s); };
 
 const CHAR_ZOOM_MODES = [
@@ -49,40 +56,108 @@ export function updateCamera(camera, v, boost, dt) {
   const cfg = v.cfg;
   if (followH === null) followH = v.heading;
   let dh = v.heading - followH; dh = Math.atan2(Math.sin(dh), Math.cos(dh));
-  // Tezlik va rul burilishiga mos sezgir kamera ergashishi (ortiqcha kechikishsiz)
-  const followSpeed = 7.5 + Math.min(4.5, Math.abs(v.steer || 0) * 6);
+  const followSpeed = 8.0 + Math.min(5.0, Math.abs(v.steer || 0) * 6.5);
   followH += dh * Math.min(1, dt * followSpeed);
 
-  const targetFov = 60 + Math.min(16, v.kmh * 0.07) + (boost && v.kmh > 20 ? 6 : 0);
-  fov += (targetFov - fov) * Math.min(1, dt * 4);
+  const baseFov = camState.mode === 3 ? 68 : camState.mode === 4 ? 48 : camState.mode === 1 ? 64 : 60;
+  const targetFov = baseFov + Math.min(15, v.kmh * 0.068) + (boost && v.kmh > 20 ? 6 : 0);
+  fov += (targetFov - fov) * Math.min(1, dt * 4.5);
   camera.fov = fov; camera.updateProjectionMatrix();
 
-  // Sichqoncha qo'yib yuborilgach, kamera asta-sekin orqaga qaytadi
   if (performance.now() - cam.lastMove > 2200) cam.yaw *= Math.pow(0.04, dt);
 
-  if (camState.mode === 2) {
-    // Salon / Kapot (Cabin/Hood) perspektivasi
-    const eyeY = Math.max(0.88, (cfg.hei || 1.45) * 0.78);
-    const hoodOff = (cfg.len || 4.5) * 0.14;
-    tmp.set(v.x + v.fwdX * hoodOff, eyeY, v.z + v.fwdZ * hoodOff);
-    if (shake > 0.01) { tmp.x += (Math.random() - 0.5) * shake * 0.5; tmp.y += (Math.random() - 0.5) * shake * 0.5; shake *= Math.pow(0.02, dt); }
+  const shakeAmp = shake > 0.01 ? shake : 0;
+  if (shake > 0.01) shake *= Math.pow(0.02, dt);
+
+  if (camState.mode === 2 || camState.mode === 3) {
+    // 2: Kapot (Hood) | 3: Salon (Cockpit)
+    const isCockpit = camState.mode === 3;
+    const eyeY = isCockpit
+      ? Math.max(0.84, (cfg.hei || 1.45) * 0.72)
+      : Math.max(0.92, (cfg.hei || 1.45) * 0.80);
+    const fwdOff = isCockpit ? -(cfg.len || 4.5) * 0.04 : (cfg.len || 4.5) * 0.19;
+    const sideOff = isCockpit ? -(cfg.wid || 1.85) * 0.19 : 0;
+    const rightX = Math.cos(v.heading), rightZ = -Math.sin(v.heading);
+
+    tmp.set(
+      v.x + v.fwdX * fwdOff + rightX * sideOff,
+      eyeY,
+      v.z + v.fwdZ * fwdOff + rightZ * sideOff
+    );
+    if (shakeAmp) { tmp.x += (Math.random() - 0.5) * shakeAmp * 0.4; tmp.y += (Math.random() - 0.5) * shakeAmp * 0.4; }
     camera.position.copy(tmp);
-    const lookYaw = v.heading + cam.yaw;
-    look.set(v.x + Math.sin(lookYaw) * 18, eyeY - 0.12, v.z + Math.cos(lookYaw) * 18);
+    const lookYaw = v.heading + cam.yaw + (v.steer || 0) * (isCockpit ? 0.14 : 0.08);
+    look.set(v.x + Math.sin(lookYaw) * 20, eyeY - (isCockpit ? 0.08 : 0.14), v.z + Math.cos(lookYaw) * 20);
     camera.lookAt(look);
+    smoothPos.copy(tmp);
+    smoothLook.copy(look);
+    camInited = true;
     return;
   }
 
-  let dist = cam.dist * (camState.mode === 1 ? 1.65 : 0.96) * Math.sqrt(cfg.len / 4.5) + v.kmh * 0.011;
-  const yaw = followH + Math.PI + cam.yaw, horiz = Math.cos(cam.pitch);
+  if (camState.mode === 4) {
+    // 4: Kinematografik (Cinematic Low-Angle Drift/TV Camera)
+    cinPhase += dt * 0.35;
+    const sideSign = Math.sin(cinPhase) >= 0 ? 1 : -1;
+    const cinAngle = followH + Math.PI + sideSign * (0.42 + Math.sin(cinPhase * 1.4) * 0.18) + cam.yaw;
+    let dist = 7.4 * Math.sqrt(cfg.len / 4.5) + v.kmh * 0.008;
+    const dx = Math.sin(cinAngle), dz = Math.cos(cinAngle);
+    for (const t of [0.4, 0.75, 1]) if (blocked(v.x + dx * dist * t, v.z + dz * dist * t)) { dist *= Math.max(0.35, t - 0.18); break; }
+    tmp.set(v.x + dx * dist, 1.38 + Math.sin(cinPhase * 0.9) * 0.22, v.z + dz * dist);
+    look.set(v.x + v.fwdX * 3.0, 0.92, v.z + v.fwdZ * 3.0);
+    if (!camInited) { smoothPos.copy(tmp); smoothLook.copy(look); camInited = true; }
+    smoothPos.lerp(tmp, Math.min(1, dt * 5.5));
+    smoothLook.lerp(look, Math.min(1, dt * 8.0));
+    camera.position.copy(smoothPos);
+    camera.lookAt(smoothLook);
+    return;
+  }
+
+  // 0: Yaqin (Chase) | 1: Keng sport (Far Chase)
+  const isFar = camState.mode === 1;
+  let dist = cam.dist * (isFar ? 1.55 : 0.94) * Math.sqrt(cfg.len / 4.5) + v.kmh * 0.011;
+  const yaw = followH + Math.PI + cam.yaw - (v.steer || 0) * 0.12;
+  const horiz = Math.cos(cam.pitch);
   const dx = Math.sin(yaw) * horiz, dz = Math.cos(yaw) * horiz;
   for (const t of [0.35, 0.6, 0.85, 1]) if (blocked(v.x + dx * dist * t, v.z + dz * dist * t)) { dist *= Math.max(0.3, t - 0.2); break; }
-  curDist += (dist - curDist) * Math.min(1, dt * (dist < curDist ? 22 : 5));
+  curDist += (dist - curDist) * Math.min(1, dt * (dist < curDist ? 22 : 6));
 
-  tmp.set(v.x + dx * curDist, Math.max(0.6, 1.32 + Math.sin(cam.pitch) * curDist), v.z + dz * curDist);
-  if (shake > 0.01) { tmp.x += (Math.random() - 0.5) * shake; tmp.y += (Math.random() - 0.5) * shake; shake *= Math.pow(0.02, dt); }
-  camera.position.copy(tmp);
-  look.set(v.x + v.fwdX * 2.4, 1.08, v.z + v.fwdZ * 2.4);
+  tmp.set(v.x + dx * curDist, Math.max(0.65, (isFar ? 1.55 : 1.28) + Math.sin(cam.pitch) * curDist), v.z + dz * curDist);
+  const rightX = Math.cos(v.heading), rightZ = -Math.sin(v.heading);
+  const lookAheadSide = (v.steer || 0) * 1.1;
+  look.set(v.x + v.fwdX * 2.6 + rightX * lookAheadSide, 1.06, v.z + v.fwdZ * 2.6 + rightZ * lookAheadSide);
+
+  if (!camInited || smoothPos.distanceToSquared(tmp) > 400) {
+    smoothPos.copy(tmp);
+    smoothLook.copy(look);
+    camInited = true;
+  } else {
+    smoothPos.lerp(tmp, Math.min(1, dt * 14));
+    smoothLook.lerp(look, Math.min(1, dt * 16));
+  }
+  camera.position.copy(smoothPos);
+  if (shakeAmp) { camera.position.x += (Math.random() - 0.5) * shakeAmp; camera.position.y += (Math.random() - 0.5) * shakeAmp; }
+  camera.lookAt(smoothLook);
+}
+
+// Foto Rejim (Photo Mode) uchun 360° erkin orbit kamera
+export function updatePhotoCamera(camera, target, ps, dt = 0.016) {
+  const targetFov = ps.fov || 46;
+  fov += (targetFov - fov) * Math.min(1, dt * 8);
+  camera.fov = fov;
+  camera.updateProjectionMatrix();
+
+  const dist = THREE.MathUtils.clamp(ps.dist || 6.0, 2.6, 18.0);
+  const pitch = THREE.MathUtils.clamp(ps.pitch || 0.22, -0.05, 1.15);
+  const yaw = ps.yaw || 0;
+  const horiz = Math.cos(pitch);
+  tmp.set(
+    target.x + Math.sin(yaw) * horiz * dist,
+    Math.max(0.42, (target.y || 0) + 1.05 + Math.sin(pitch) * dist),
+    target.z + Math.cos(yaw) * horiz * dist
+  );
+  camera.position.lerp(tmp, Math.min(1, dt * 12));
+  look.set(target.x, (target.y || 0) + 0.95, target.z);
   camera.lookAt(look);
 }
 

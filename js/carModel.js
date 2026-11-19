@@ -1224,6 +1224,96 @@ function applyTuning(extras, cfg, rearTop, t) {
     n.position.y = 0.06;
     extras.add(n);
   }
+
+  // 4. Haqiqiy O'zbekiston Davlat Raqami (UZ 01 | A 777 AA) — old va orqa bamperda
+  if (t.plate !== 'none') {
+    const plateStr = (typeof t.plate === 'string' && t.plate.trim()) ? t.plate.trim() : '01|A 777 AA';
+    const plateTex = createUzPlateTexture(plateStr);
+    const plateMat = new THREE.MeshStandardMaterial({
+      map: plateTex,
+      roughness: 0.25,
+      metalness: 0.15,
+      emissive: 0xffffff,
+      emissiveMap: plateTex,
+      emissiveIntensity: 0.18,
+    });
+    const pGeo = new THREE.PlaneGeometry(0.54, 0.125);
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x0a0c10, roughness: 0.5, metalness: 0.6 });
+    const fGeo = new THREE.BoxGeometry(0.57, 0.145, 0.014);
+
+    // Orqa raqam
+    const rearY = Math.max(0.46, (cfg.hei || 1.45) * 0.36);
+    const rearZ = -L / 2 - 0.015;
+    const rFrame = new THREE.Mesh(fGeo, frameMat);
+    rFrame.position.set(0, rearY, rearZ);
+    const rPlate = new THREE.Mesh(pGeo, plateMat);
+    rPlate.position.set(0, rearY, rearZ - 0.009);
+    rPlate.rotation.y = Math.PI;
+    extras.add(rFrame, rPlate);
+
+    // Old raqam
+    const frontY = Math.max(0.36, (cfg.hei || 1.45) * 0.27);
+    const frontZ = L / 2 + 0.015;
+    const fFrame = new THREE.Mesh(fGeo, frameMat);
+    fFrame.position.set(0, frontY, frontZ);
+    const fPlate = new THREE.Mesh(pGeo, plateMat);
+    fPlate.position.set(0, frontY, frontZ + 0.009);
+    extras.add(fFrame, fPlate);
+  }
+}
+
+const _plateTexCache = new Map();
+function createUzPlateTexture(raw) {
+  const key = String(raw || '01|A 777 AA').toUpperCase().slice(0, 16);
+  if (_plateTexCache.has(key)) return _plateTexCache.get(key);
+
+  const parts = key.split('|');
+  const region = (parts[0] || '01').replace(/[^0-9]/g, '').slice(0, 2) || '01';
+  const num = (parts[1] || 'A 777 AA').trim().slice(0, 10) || 'A 777 AA';
+
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 120;
+  const g = c.getContext('2d');
+
+  // Oq plastina va qora tashqi ramka
+  g.fillStyle = '#f8fafc';
+  g.fillRect(0, 0, 512, 120);
+  g.strokeStyle = '#0f172a';
+  g.lineWidth = 8;
+  g.strokeRect(4, 4, 504, 112);
+
+  // Viloyat ajratuvchi chiziq
+  g.fillStyle = '#0f172a';
+  g.fillRect(102, 6, 5, 108);
+
+  // Viloyat kodi (01, 10, 30, ...)
+  g.fillStyle = '#090d16';
+  g.font = '900 66px "Segoe UI", Arial, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(region, 54, 64);
+
+  // Asosiy raqam (A 777 AA)
+  g.font = '900 66px "Segoe UI", Arial, sans-serif';
+  g.fillText(num, 272, 64);
+
+  // O'ng tarafda O'zbekiston bayrog'i va UZ yozuvi
+  g.fillStyle = '#0099b5'; g.fillRect(442, 18, 52, 16);
+  g.fillStyle = '#ce1126'; g.fillRect(442, 34, 52, 3);
+  g.fillStyle = '#ffffff'; g.fillRect(442, 37, 52, 14);
+  g.fillStyle = '#ce1126'; g.fillRect(442, 51, 52, 3);
+  g.fillStyle = '#1eb53a'; g.fillRect(442, 54, 52, 16);
+  g.fillStyle = '#0099b5';
+  g.font = '900 28px "Segoe UI", Arial, sans-serif';
+  g.fillText('UZ', 468, 92);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  if (_plateTexCache.size > 40) _plateTexCache.clear();
+  _plateTexCache.set(key, tex);
+  return tex;
 }
 
 export { TUNING };
