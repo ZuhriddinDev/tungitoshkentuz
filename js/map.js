@@ -1,8 +1,29 @@
 // TUNGI TOSHKENT — OpenStreetMap & GTA Online uslubidagi Professional GPS Xarita Tizimi
 // HUD Minimap va Katta Interaktiv Xarita (Zoom, Pan, Kategoriya filtri, GPS marshrut va POI tanlash)
-import { N, BLOCK, ROAD, HALF, roadC, blockC, blockInfo, nearestRoad, POIS, LANDMARKS, DISTRICTS, TASHKENT_DISTRICTS_OSM, OSM_ATTRIBUTION, districtAt, STREETS_X, STREETS_Z, RACES, AIRPORT_BOUNDS, isAirportBlock } from './world/layout.js';
+import { N, BLOCK, ROAD, HALF, roadC, blockC, blockInfo, nearestRoad, POIS, LANDMARKS, DISTRICTS, TASHKENT_DISTRICTS_OSM, OSM_ATTRIBUTION, districtAt, STREETS_X, STREETS_Z, RACES } from './world/layout.js';
+import { OSM_ROADS, OSM_WATERWAYS, OSM_LAKES, OSM_PARKS, OSM_BUILDINGS, TASHKENT_GIS_META, worldToLatLon } from './world/tashkentRealGis.js';
 
-export { TASHKENT_DISTRICTS_OSM, districtAt };
+export { TASHKENT_DISTRICTS_OSM, districtAt, TASHKENT_GIS_META, worldToLatLon };
+
+export function nearestOsmRoadName(wx, wz) {
+  let bestName = '';
+  let bestD2 = 160 * 160;
+  for (let i = 0; i < OSM_ROADS.length; i++) {
+    const r = OSM_ROADS[i];
+    if (!r.name) continue;
+    const pts = r.pts;
+    for (let p = 0; p < pts.length; p++) {
+      const dx = pts[p][0] - wx;
+      const dz = pts[p][1] - wz;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        bestName = r.name;
+      }
+    }
+  }
+  return bestName;
+}
 
 const IS_MOB = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900));
 const BASE_SIZE = IS_MOB ? 1024 : 1280;
@@ -135,23 +156,16 @@ export function getAllMapPOIs() {
   for (const l of LANDMARKS) {
     const isPark = l.type === 'park' || l.type === 'magiccity';
     const isClub = l.type === 'kokobango';
-    const isAirport = l.type === 'airport' || l.type === 'runway' || l.type === 'runway_east';
     items.push({
       id: `lm_${l.x}_${l.z}`,
       category: isPark ? 'park' : 'landmark',
-      icon: isClub ? '🎧' : isAirport ? '✈️' : isPark ? '🌳' : '⭐',
-      color: isClub ? '#e879f9' : isAirport ? '#38bdf8' : isPark ? '#4ade80' : '#a78bfa',
+      icon: isClub ? '🎧' : isPark ? '🌳' : '⭐',
+      color: isClub ? '#e879f9' : isPark ? '#4ade80' : '#a78bfa',
       title: isClub ? 'KOKOBANGO' : l.name,
-      sub: isClub
-        ? '🎧 Tungi Klub & VIP Lounge · [X] bilan kirish (PC)'
-        : isAirport
-          ? '✈️ Toshkent Xalqaro Aeroporti · Boeing 787 va 350+ km/h Uchish Yo\'lagi'
-          : isPark
-            ? 'Dam olish maskani va yashil bog\' hududi'
-            : 'Toshkentning diqqatga sazovor markaziy maskani',
+      sub: isClub ? '🎧 Tungi Klub & VIP Lounge · [X] bilan kirish (PC)' : isPark ? 'Dam olish maskani va yashil bog\' hududi' : 'Toshkentning diqqatga sazovor markaziy maskani',
       x: l.x,
       z: l.z,
-      priority: isClub ? 5 : isAirport ? 4 : 3,
+      priority: isClub ? 5 : 3,
       isClub,
     });
   }
@@ -266,9 +280,28 @@ function drawBase() {
   g.restore();
 
   // 3. Organik parklar, diqqatga sazovor maskanlar va bino siluetlari (HECH QANDAY 4-BURCHAKLI KVARTAL RAMKASI YO'Q!)
+  // 3A. Haqiqiy OpenStreetMap (ODbL) Park Poligonlari (30 ta haqiqiy bog')
+  g.save();
+  for (const pk of OSM_PARKS) {
+    if (!pk.pts || pk.pts.length < 3) continue;
+    g.beginPath();
+    pk.pts.forEach(([wx, wz], idx) => {
+      const px = (wx + HALF) * k;
+      const py = (wz + HALF) * k;
+      if (idx === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    });
+    g.closePath();
+    g.fillStyle = 'rgba(19, 62, 42, 0.72)';
+    g.strokeStyle = 'rgba(74, 222, 128, 0.25)';
+    g.lineWidth = 1.2;
+    g.fill();
+    g.stroke();
+  }
+  g.restore();
+
   for (let j = 0; j < N; j++) {
     for (let kk = 0; kk < N; kk++) {
-      if (isAirportBlock(j, kk)) continue;
       const info = blockInfo(j, kk);
       const bx = (blockC(j) - BLOCK / 2 + HALF) * k;
       const by = (blockC(kk) - BLOCK / 2 + HALF) * k;
@@ -510,85 +543,77 @@ function drawBase() {
     g.stroke();
   }
 
-  // 6. GTA 5 (LSIA) USLUBIDAGI 1000m x 480m YAGONA TOSHKENT XALQARO AEROPORTI MAJMUASI (j=8..11, k=13..14)
-  // Yo'llarning ustidan chiziladi — ichida hech qanday shahar ko'chasi kesib o'tmaydi!
-  const ax0 = (AIRPORT_BOUNDS.minX + HALF) * k;
-  const ay0 = (AIRPORT_BOUNDS.minZ + HALF) * k;
-  const aw = (AIRPORT_BOUNDS.maxX - AIRPORT_BOUNDS.minX) * k;
-  const ah = (AIRPORT_BOUNDS.maxZ - AIRPORT_BOUNDS.minZ) * k;
-
-  // Aeroport yagona beton hududi (yumaloq burchakli yarim-orol shakli)
-  g.fillStyle = '#0f1722';
-  g.strokeStyle = '#38bdf8';
-  g.lineWidth = 2.4;
-  g.beginPath();
-  g.roundRect(ax0 - 6, ay0 - 4, aw + 12, ah + 8, 26);
-  g.fill();
-  g.stroke();
-
-  // Shimoliy perron va Wave-Roof Terminal 2 + 3 ta Teletrap
-  g.fillStyle = '#1e293b';
-  g.fillRect(ax0 + aw * 0.08, ay0 + ah * 0.06, aw * 0.84, ah * 0.36);
-  g.fillStyle = '#0284c7';
-  g.strokeStyle = '#7dd3fc';
-  g.lineWidth = 1.8;
-  g.beginPath();
-  g.roundRect(ax0 + aw * 0.20, ay0 + ah * 0.08, aw * 0.36, ah * 0.14, 10);
-  g.fill();
-  g.stroke();
-
-  // 3 ta Teletrap va VIP Angarlar
-  for (const jf of [0.25, 0.38, 0.51]) {
-    g.fillStyle = '#e2e8f0';
-    g.fillRect(ax0 + aw * jf, ay0 + ah * 0.22, 4, ah * 0.10);
+  // 6. HAQIQIY OPENSTREETMAP (ODbL) DARYO, KANAL VA KO'LLAR GEOMETRIYASI (139 ta kanal + 11 ta ko'l)
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  for (const ww of OSM_WATERWAYS) {
+    if (!ww.pts || ww.pts.length < 2) continue;
+    g.strokeStyle = ww.type === 'river' ? '#09527a' : '#0c6899';
+    g.lineWidth = ww.type === 'river' ? 9 : 4.5;
+    g.beginPath();
+    ww.pts.forEach(([wx, wz], idx) => {
+      const px = (wx + HALF) * k;
+      const py = (wz + HALF) * k;
+      if (idx === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    });
+    g.stroke();
   }
-  g.fillStyle = '#334155';
-  g.fillRect(ax0 + aw * 0.66, ay0 + ah * 0.08, aw * 0.11, ah * 0.16);
-  g.fillRect(ax0 + aw * 0.80, ay0 + ah * 0.08, aw * 0.11, ah * 0.16);
-
-  // Parallel Taxiway Alpha va 4 ta Diagonal Exit Taxiways
-  const txY = ay0 + ah * 0.49;
-  const rwY = ay0 + ah * 0.76;
-  g.strokeStyle = '#334155';
-  g.lineWidth = 10;
-  g.beginPath();
-  g.moveTo(ax0 + 18, txY);
-  g.lineTo(ax0 + aw - 18, txY);
-  for (const ef of [0.20, 0.40, 0.60, 0.80]) {
-    g.moveTo(ax0 + aw * ef, txY);
-    g.lineTo(ax0 + aw * ef + 14, rwY);
+  for (const lk of OSM_LAKES) {
+    if (!lk.pts || lk.pts.length < 3) continue;
+    g.fillStyle = '#095985';
+    g.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+    g.lineWidth = 1.4;
+    g.beginPath();
+    lk.pts.forEach(([wx, wz], idx) => {
+      const px = (wx + HALF) * k;
+      const py = (wz + HALF) * k;
+      if (idx === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    });
+    g.closePath();
+    g.fill();
+    g.stroke();
   }
-  g.stroke();
 
-  g.strokeStyle = '#facc15';
-  g.lineWidth = 1.3;
-  g.beginPath();
-  g.moveTo(ax0 + 18, txY);
-  g.lineTo(ax0 + aw - 18, txY);
-  g.stroke();
+  // 7. HAQIQIY OPENSTREETMAP (ODbL) YO'L GEOMETRIYASI (567 ta egri ko'cha segmenti · 54.0 km!)
+  for (const rd of OSM_ROADS) {
+    if (!rd.pts || rd.pts.length < 2) continue;
+    const isMajorOsm = rd.type === 'trunk' || rd.type === 'primary';
+    const isSecOsm = rd.type === 'secondary';
+    g.strokeStyle = isMajorOsm
+      ? 'rgba(251, 191, 36, 0.62)'
+      : isSecOsm
+        ? 'rgba(148, 163, 184, 0.48)'
+        : 'rgba(100, 116, 139, 0.34)';
+    g.lineWidth = isMajorOsm ? 4.2 : isSecOsm ? 2.8 : 1.8;
+    g.beginPath();
+    rd.pts.forEach(([wx, wz], idx) => {
+      const px = (wx + HALF) * k;
+      const py = (wz + HALF) * k;
+      if (idx === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    });
+    g.stroke();
+  }
 
-  // 920m Bosh Uchish-Qo'nish Yo'lagi (RUNWAY 08L / 26R)
-  const rwH = ah * 0.18;
-  g.fillStyle = '#070a0f';
-  g.strokeStyle = '#e2e8f0';
-  g.lineWidth = 1.8;
-  g.fillRect(ax0 + 14, rwY - rwH / 2, aw - 28, rwH);
-  g.strokeRect(ax0 + 14, rwY - rwH / 2, aw - 28, rwH);
-
-  // Runway markaziy oq punktir chizig'i va Threshold belgilari
-  g.strokeStyle = '#ffffff';
-  g.lineWidth = 2.2;
-  g.setLineDash([12, 8]);
-  g.beginPath();
-  g.moveTo(ax0 + 34, rwY);
-  g.lineTo(ax0 + aw - 34, rwY);
-  g.stroke();
-  g.setLineDash([]);
-
-  g.fillStyle = '#38bdf8';
-  g.font = '900 13px "Segoe UI", Arial, sans-serif';
-  g.textAlign = 'center';
-  g.fillText('✈️ TASHKENT INTERNATIONAL AIRPORT · RUNWAY 08L / 26R (920M)', ax0 + aw * 0.5, ay0 + ah * 0.62);
+  // 8. HAQIQIY OPENSTREETMAP (ODbL) BINO KONTURLARI (695 ta haqiqiy Toshkent binosi poligonlari!)
+  for (const b of OSM_BUILDINGS) {
+    if (!b.pts || b.pts.length < 3) continue;
+    g.fillStyle = b.h >= 35 ? '#2c476e' : '#24354f';
+    g.strokeStyle = b.name ? 'rgba(56, 189, 248, 0.55)' : 'rgba(148, 163, 184, 0.32)';
+    g.lineWidth = b.name ? 1.3 : 0.9;
+    g.beginPath();
+    b.pts.forEach(([wx, wz], idx) => {
+      const px = (wx + HALF) * k;
+      const py = (wz + HALF) * k;
+      if (idx === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    });
+    g.closePath();
+    g.fill();
+    g.stroke();
+  }
   g.restore();
 
   baseCanvas = c;
@@ -1140,13 +1165,15 @@ export function drawBigMap(canvas, player, extra = {}) {
   g.stroke();
   g.restore();
 
-  // 8. OpenStreetMap Attribution (ODbL)
-  g.fillStyle = 'rgba(9, 14, 26, 0.82)';
-  g.fillRect(S - 295, S - 24, 288, 18);
-  g.fillStyle = 'rgba(148, 163, 184, 0.9)';
+  // 8. OpenStreetMap Attribution (ODbL) + O'yinchining Real WGS84 Geografik Koordinatasi
+  const ll = worldToLatLon(player.x, player.z);
+  const osmBadge = `${OSM_ATTRIBUTION} · 📍 ${ll.lat}° N, ${ll.lon}° E · ${TASHKENT_GIS_META.totalRoadKm} km OSM yo'l`;
+  g.fillStyle = 'rgba(9, 14, 26, 0.86)';
+  g.fillRect(S - 460, S - 24, 452, 18);
+  g.fillStyle = 'rgba(148, 163, 184, 0.94)';
   g.font = '600 10px "Segoe UI", sans-serif';
   g.textAlign = 'right';
-  g.fillText(`${OSM_ATTRIBUTION} · 6 Tuman`, S - 12, S - 11);
+  g.fillText(osmBadge, S - 12, S - 11);
 
   g.restore();
 }
@@ -1160,10 +1187,12 @@ export function bigMapToWorld(mx, mz, S) {
 }
 
 export function streetAt(x, z) {
+  const osmStreet = nearestOsmRoadName(x, z);
   const ix = nearestRoad(x), iz = nearestRoad(z);
   const dx = Math.abs(x - roadC(ix)), dz = Math.abs(z - roadC(iz));
   const dist = districtAt(x, z);
   const dName = dist ? dist.name : 'Toshkent';
+  if (osmStreet) return `${osmStreet} · ${dName}`;
   if (dx < ROAD && dx <= dz && STREETS_X[ix]) return `${STREETS_X[ix]} · ${dName}`;
   if (dz < ROAD && STREETS_Z[iz]) return `${STREETS_Z[iz]} · ${dName}`;
   return dist ? dist.uz : dName;

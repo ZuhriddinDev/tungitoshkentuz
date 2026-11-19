@@ -3,8 +3,9 @@
 // Anhor kanali va sektorlar bo'yicha bosqichma-bosqich ko'rinish (LOD / Frustum Culling)
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, addCollider, CANAL_COL, MAIN_ROADS_X, MAIN_ROADS_Z, isInsideAirportZone, isAirportBlock } from './layout.js';
+import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, addCollider, CANAL_COL, MAIN_ROADS_X, MAIN_ROADS_Z } from './layout.js';
 import { facadeTextures, asphaltPBR, tileTexture, grassTexture, waterBumpTexture } from './textures.js';
+import { OSM_BUILDINGS } from './tashkentRealGis.js';
 
 export const nightMats = []; // { mat, base, day } — tunda yorug'ligi oshadigan materiallar
 export const citySectors = []; // { group, detailGroup, cx, cz, radius } — masofa bo'yicha 2-bosqichli LOD
@@ -87,24 +88,19 @@ export function buildCity(scene, quality) {
       const f = ((s + HALF) % CELL + CELL) % CELL;
       if (f < ROAD + 4 || f > CELL - 3) continue;
       // X bo'ylab yo'l (Z = roadC(i))
-      if (!isInsideAirportZone(s, roadC(i), 16)) {
-        marks.push([s, roadC(i), 4.2, isMainX ? 0.36 : 0.22]);
-        if (isMainX) {
-          marks.push([s, roadC(i) - 5.2, 2.6, 0.16], [s, roadC(i) + 5.2, 2.6, 0.16]);
-        }
+      marks.push([s, roadC(i), 4.2, isMainX ? 0.36 : 0.22]);
+      if (isMainX) {
+        marks.push([s, roadC(i) - 5.2, 2.6, 0.16], [s, roadC(i) + 5.2, 2.6, 0.16]);
       }
       // Z bo'ylab yo'l (X = roadC(i))
-      if (!isInsideAirportZone(roadC(i), s, 16)) {
-        marks.push([roadC(i), s, isMainZ ? 0.36 : 0.22, 4.2]);
-        if (isMainZ) {
-          marks.push([roadC(i) - 5.2, s, 0.16, 2.6], [roadC(i) + 5.2, s, 0.16, 2.6]);
-        }
+      marks.push([roadC(i), s, isMainZ ? 0.36 : 0.22, 4.2]);
+      if (isMainZ) {
+        marks.push([roadC(i) - 5.2, s, 0.16, 2.6], [roadC(i) + 5.2, s, 0.16, 2.6]);
       }
     }
   }
   for (let i = 0; i <= N; i++) for (let k = 0; k <= N; k++) for (let q = -4; q <= 4; q++) {
     const cx = roadC(i), cz = roadC(k), o = q * 2.1;
-    if (isInsideAirportZone(cx, cz, 22)) continue;
     marks.push(
       [cx + o, cz + ROAD / 2 + 2.2, 1.0, 3.2],
       [cx + o, cz - ROAD / 2 - 2.2, 1.0, 3.2],
@@ -200,9 +196,20 @@ export function buildCity(scene, quality) {
     }
   }
 
+  // Real OpenStreetMap (ODbL) 695 ta Toshkent binolarini kvartallar bo'yicha indekslash
+  const osmByBlock = new Map();
+  for (let bIdx = 0; bIdx < OSM_BUILDINGS.length; bIdx++) {
+    const b = OSM_BUILDINGS[bIdx];
+    const bj = Math.max(0, Math.min(N - 1, Math.round((b.cx + HALF - ROAD - BLOCK / 2) / CELL)));
+    const bk = Math.max(0, Math.min(N - 1, Math.round((b.cz + HALF - ROAD - BLOCK / 2) / CELL)));
+    const bKey = `${bj},${bk}`;
+    if (!osmByBlock.has(bKey)) osmByBlock.set(bKey, []);
+    osmByBlock.get(bKey).push(b);
+  }
+
   for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
     const bx = blockC(j), bz = blockC(k), info = blockInfo(j, k);
-    if (info.type === 'canal' || isAirportBlock(j, k)) continue;
+    if (info.type === 'canal') continue;
 
     // Trotuar va bordyur hoshiyasi
     const wg = new THREE.BoxGeometry(BLOCK, 0.22, BLOCK).translate(bx, 0.11, bz);
@@ -224,6 +231,44 @@ export function buildCity(scene, quality) {
 
     const sec = getSector(j, k);
     const center = 1 - Math.min(1, Math.hypot(bx, bz) / (HALF * 0.85));
+
+    // 0) Agar ushbu kvartalda haqiqiy OpenStreetMap (OSM) binolari mavjud bo'lsa, ularni haqiqiy o'lcham va balandlikda quramiz!
+    const realOsmList = osmByBlock.get(`${j},${k}`);
+    if (realOsmList && realOsmList.length > 0) {
+      const maxPerBlock = Math.min(realOsmList.length, 10);
+      for (let m = 0; m < maxPerBlock; m++) {
+        const ob = realOsmList[m];
+        const w = Math.max(12, Math.min(BLOCK * 0.42, ob.w || 24));
+        const d = Math.max(12, Math.min(BLOCK * 0.42, ob.d || 22));
+        const h = Math.max(8, Math.min(130, ob.h || (ob.lvl ? ob.lvl * 3.5 : 14 + (m % 4) * 5)));
+        const minBx = bx - BLOCK / 2 + w / 2 + 5;
+        const maxBx = bx + BLOCK / 2 - w / 2 - 5;
+        const minBz = bz - BLOCK / 2 + d / 2 + 5;
+        const maxBz = bz + BLOCK / 2 - d / 2 - 5;
+        const x = Math.max(minBx, Math.min(maxBx, ob.cx));
+        const z = Math.max(minBz, Math.min(maxBz, ob.cz));
+
+        const kind = String(ob.kind || '').toLowerCase();
+        const isGlass = /office|commercial|hotel|bank|civic/.test(kind) || h >= 38;
+        const isPanel = /apartments|residential|dormitory/.test(kind);
+        const isShop = /retail|supermarket|mall|marketplace|shop/.test(kind);
+        const si = isGlass ? (m % 2 === 0 ? 3 : 4) : isPanel ? 2 : isShop ? 5 : m % 2;
+
+        sec.bGeos[si].push(buildingGeo(w, h, d, x, z));
+        addRoofDetail(sec, x, z, w, h, d, isGlass);
+        if (isPanel || si === 0) addBalconies(sec, x, z, w * 0.6, h, d);
+        if (isShop || (!isGlass && m % 3 === 0)) {
+          sec.shopGeos.push(new THREE.BoxGeometry(w * 0.72, 2.6, d + 0.3).translate(x, 1.6, z));
+        }
+        addCollider(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 'building');
+      }
+      if (realOsmList.length >= 3) {
+        const courtGrass = new THREE.BoxGeometry(BLOCK - 42, 0.26, BLOCK - 42).translate(bx, 0.13, bz);
+        scaleUV(courtGrass, 5, 5);
+        grassGeos.push(courtGrass);
+        continue;
+      }
+    }
 
     // Kvartal ichida: hovlili ko'p qavatli mavze, biznes-markaz yoki savdo do'konlari
     const blockArchetype = sRnd();

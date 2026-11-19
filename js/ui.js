@@ -602,7 +602,6 @@ function bigMap() {
       <div class="gps-quick-row">
         <button type="button" class="btn sm-btn primary" id="gpsNearGas">⛽ Eng yaqin Zapravka</button>
         <button type="button" class="btn sm-btn gold" id="gpsNearGarage">🚘 Eng yaqin Garaj</button>
-        <button type="button" class="btn sm-btn primary" id="gpsAirportBtn">✈️ Aeroport (Runway)</button>
         <button type="button" class="btn sm-btn" id="gpsCenterMe">🎯 Mening joyim</button>
         <button type="button" class="btn sm-btn" id="gpsZoomIn" title="Yaqinlashtirish">➕</button>
         <button type="button" class="btn sm-btn" id="gpsZoomOut" title="Uzoqlashtirish">➖</button>
@@ -737,22 +736,6 @@ function bigMap() {
     beep('ok');
     draw();
   };
-
-  const airBtn = body.querySelector('#gpsAirportBtn');
-  if (airBtn) {
-    airBtn.onclick = () => {
-      const ax = blockC(9) + 125;
-      const az = blockC(13) + 125;
-      mapState.panX = ax;
-      mapState.panZ = az;
-      mapState.zoom = 1.85;
-      game.setWaypoint({ x: ax, z: az });
-      syncClearBtn();
-      beep('ok');
-      toast('✈️ Toshkent Xalqaro Aeroporti (Runway 08L/26R) GPS yo\'nalishi belgilandi!', 'ok');
-      draw();
-    };
-  }
 
   body.querySelector('#gpsZoomIn').onclick = () => {
     mapState.zoom = Math.min(3.5, (mapState.zoom || 1) + 0.45);
