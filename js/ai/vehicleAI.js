@@ -59,7 +59,7 @@ export function buildCityVehicleRegistry() {
   return registry.length > 0 ? registry : [CARS[0]];
 }
 
-const validNode = (i, k) => i >= 0 && k >= 0 && i <= N && k <= N;
+const validNode = (i, k) => i >= 0 && k >= 0 && i <= N && k <= N && !(i >= 9 && i <= 11 && k === 14);
 
 export class VehicleAIManager {
   constructor(scene, count, sharedGrid) {

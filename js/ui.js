@@ -741,8 +741,8 @@ function bigMap() {
   const airBtn = body.querySelector('#gpsAirportBtn');
   if (airBtn) {
     airBtn.onclick = () => {
-      const ax = blockC(10);
-      const az = blockC(13) + 35;
+      const ax = blockC(9) + 125;
+      const az = blockC(13) + 125;
       mapState.panX = ax;
       mapState.panZ = az;
       mapState.zoom = 1.85;

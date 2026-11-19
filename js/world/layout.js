@@ -102,10 +102,9 @@ const SPECIAL = {
   '4,10': { type: 'magiccity', name: 'Magic City & Milliy bog\'' },
   '3,10': { type: 'park',      name: 'Alisher Navoiy Milliy bog\'i' },
   '8,7':  { type: 'kokobango', name: 'KOKOBANGO CLUB' },
-  // Toshkent Xalqaro Aeroporti (TAS) va 750m Uchish-Qo'nish Yo'lagi (Runway 08L/26R)
-  '9,13':  { type: 'airport',     name: 'Toshkent Xalqaro Aeroporti (Terminal)' },
-  '10,13': { type: 'runway',      name: 'Aeroport Uchish Yo\'lagi (Boeing 787)' },
-  '11,13': { type: 'runway_east', name: 'Aeroport VIP Angar & Runway 26R' },
+  // Toshkent Xalqaro Aeroporti (TAS) — 1000m x 480m Yagona GTA 5 uslubidagi Aeroport Majmuasi (j=8..11, k=13..14)
+  '9,13':  { type: 'airport',     name: 'Toshkent Xalqaro Aeroporti (TAS Terminal)' },
+  '10,14': { type: 'runway',      name: 'Aeroport Runway 08L/26R (Boeing 787)' },
   // Zapravkalar va Markaziy Avtosalon/Garaj
   '8,6':  { type: 'garage',    name: 'Markaziy Avtosalon va Tuning' },
   '11,3': { type: 'gas',       name: 'Zapravka — Yunusobod' },
@@ -115,9 +114,38 @@ const SPECIAL = {
   '7,9':  { type: 'gas',       name: 'Zapravka — Markaz' },
 };
 
+// 1000m x 480m Yagona Aeroport Majmuasi chegarasi (ichida svetofor/ustun/chorraha bo'lmaydi!)
+export const AIRPORT_BOUNDS = {
+  minJ: 8,
+  maxJ: 11,
+  minK: 13,
+  maxK: 14,
+  minX: blockC(8) - BLOCK / 2 - 4,
+  maxX: blockC(11) + BLOCK / 2 + 4,
+  minZ: blockC(13) - BLOCK / 2 - 4,
+  maxZ: blockC(14) + BLOCK / 2 + 4,
+  cx: (blockC(8) + blockC(11)) / 2,
+  cz: (blockC(13) + blockC(14)) / 2,
+};
+
+export function isInsideAirportZone(x, z, pad = 0) {
+  return (
+    x >= AIRPORT_BOUNDS.minX - pad &&
+    x <= AIRPORT_BOUNDS.maxX + pad &&
+    z >= AIRPORT_BOUNDS.minZ - pad &&
+    z <= AIRPORT_BOUNDS.maxZ + pad
+  );
+}
+
+export function isAirportBlock(j, k) {
+  return j >= AIRPORT_BOUNDS.minJ && j <= AIRPORT_BOUNDS.maxJ && k >= AIRPORT_BOUNDS.minK && k <= AIRPORT_BOUNDS.maxK;
+}
+
 export function blockInfo(j, k) {
   if (j === CANAL_COL) return { type: 'canal', name: 'Anhor kanali' };
-  return SPECIAL[`${j},${k}`] || { type: 'city' };
+  if (SPECIAL[`${j},${k}`]) return SPECIAL[`${j},${k}`];
+  if (isAirportBlock(j, k)) return { type: 'airport_zone', name: 'Toshkent Xalqaro Aeroporti' };
+  return { type: 'city' };
 }
 
 // Interaktiv nuqtalar (zapravka, garaj)

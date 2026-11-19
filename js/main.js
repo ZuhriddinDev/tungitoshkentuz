@@ -20,7 +20,7 @@ import { buildCity, updateCitySectors, nightMats, waterMat, roadMat } from './wo
 import { buildProps, updateProps } from './world/props.js';
 import { buildLandmarks, updateLandmarks, animated } from './world/landmarks.js';
 import { createSky } from './world/sky.js';
-import { SPAWN, POIS, N, onRoad, blockC, blockInfo } from './world/layout.js';
+import { SPAWN, POIS, N, onRoad, blockC, blockInfo, isInsideAirportZone } from './world/layout.js';
 import { buildCar, preloadCar, isCarReady, disposeCarGroup } from './carModel.js';
 import { withBusy } from './busy.js';
 import { Vehicle } from './physics.js';
@@ -187,9 +187,9 @@ function endRental(silent) {
 let runwayTrapCooldown = 0, runwayBestKmh = 0;
 
 function groundY(x, z) {
-  if (onRoad(x, z)) return 0;
+  if (onRoad(x, z) || isInsideAirportZone(x, z, 12)) return 0;
   const info = blockInfo(nearestBlock(x), nearestBlock(z));
-  if (info.type === 'airport' || info.type === 'runway' || info.type === 'runway_east') return 0;
+  if (info.type === 'airport' || info.type === 'runway' || info.type === 'airport_zone') return 0;
   return info.type === 'gas' || info.type === 'garage' ? 0.25 : info.type === 'park' || info.type === 'square' ? 0.3 : 0.22;
 }
 const nearestBlock = (v) => Math.max(0, Math.min(N - 1, Math.round((v - blockC(0)) / (blockC(1) - blockC(0)))));
@@ -937,11 +937,11 @@ function step(dt, t) {
   g.position.set(vehicle.x, g.position.y + (groundY(vehicle.x, vehicle.z) - g.position.y) * Math.min(1, dt * 14), vehicle.z);
   g.rotation.set(0, vehicle.heading, 0);
 
-  // Aeroport Uchish Yo'lagi (Runway 08L/26R) Tezlik Radari (Speed Trap)
+  // Aeroport Uchish Yo'lagi (Runway 08L/26R — 920m) Tezlik Radari (Speed Trap)
   if (runwayTrapCooldown > 0) runwayTrapCooldown -= dt;
-  const rwGateX = blockC(10);
-  const rwGateZ = blockC(13) + 35;
-  if (runwayTrapCooldown <= 0 && Math.abs(vehicle.x - rwGateX) < 15 && Math.abs(vehicle.z - rwGateZ) < 23 && vehicle.kmh >= 140) {
+  const rwGateX = blockC(9) + 125;
+  const rwGateZ = blockC(13) + 243;
+  if (runwayTrapCooldown <= 0 && Math.abs(vehicle.x - rwGateX) < 18 && Math.abs(vehicle.z - rwGateZ) < 30 && vehicle.kmh >= 140) {
     runwayTrapCooldown = 22;
     const spd = Math.round(vehicle.kmh);
     const isRecord = spd > runwayBestKmh;

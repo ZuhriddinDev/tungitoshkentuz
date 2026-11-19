@@ -3,7 +3,7 @@
 // Anhor kanali va sektorlar bo'yicha bosqichma-bosqich ko'rinish (LOD / Frustum Culling)
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, addCollider, CANAL_COL, MAIN_ROADS_X, MAIN_ROADS_Z } from './layout.js';
+import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, addCollider, CANAL_COL, MAIN_ROADS_X, MAIN_ROADS_Z, isInsideAirportZone, isAirportBlock } from './layout.js';
 import { facadeTextures, asphaltPBR, tileTexture, grassTexture, waterBumpTexture } from './textures.js';
 
 export const nightMats = []; // { mat, base, day } — tunda yorug'ligi oshadigan materiallar
@@ -87,19 +87,24 @@ export function buildCity(scene, quality) {
       const f = ((s + HALF) % CELL + CELL) % CELL;
       if (f < ROAD + 4 || f > CELL - 3) continue;
       // X bo'ylab yo'l (Z = roadC(i))
-      marks.push([s, roadC(i), 4.2, isMainX ? 0.36 : 0.22]);
-      if (isMainX) {
-        marks.push([s, roadC(i) - 5.2, 2.6, 0.16], [s, roadC(i) + 5.2, 2.6, 0.16]);
+      if (!isInsideAirportZone(s, roadC(i), 16)) {
+        marks.push([s, roadC(i), 4.2, isMainX ? 0.36 : 0.22]);
+        if (isMainX) {
+          marks.push([s, roadC(i) - 5.2, 2.6, 0.16], [s, roadC(i) + 5.2, 2.6, 0.16]);
+        }
       }
       // Z bo'ylab yo'l (X = roadC(i))
-      marks.push([roadC(i), s, isMainZ ? 0.36 : 0.22, 4.2]);
-      if (isMainZ) {
-        marks.push([roadC(i) - 5.2, s, 0.16, 2.6], [roadC(i) + 5.2, s, 0.16, 2.6]);
+      if (!isInsideAirportZone(roadC(i), s, 16)) {
+        marks.push([roadC(i), s, isMainZ ? 0.36 : 0.22, 4.2]);
+        if (isMainZ) {
+          marks.push([roadC(i) - 5.2, s, 0.16, 2.6], [roadC(i) + 5.2, s, 0.16, 2.6]);
+        }
       }
     }
   }
   for (let i = 0; i <= N; i++) for (let k = 0; k <= N; k++) for (let q = -4; q <= 4; q++) {
     const cx = roadC(i), cz = roadC(k), o = q * 2.1;
+    if (isInsideAirportZone(cx, cz, 22)) continue;
     marks.push(
       [cx + o, cz + ROAD / 2 + 2.2, 1.0, 3.2],
       [cx + o, cz - ROAD / 2 - 2.2, 1.0, 3.2],
@@ -197,7 +202,7 @@ export function buildCity(scene, quality) {
 
   for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
     const bx = blockC(j), bz = blockC(k), info = blockInfo(j, k);
-    if (info.type === 'canal' || info.type === 'airport' || info.type === 'runway' || info.type === 'runway_east') continue;
+    if (info.type === 'canal' || isAirportBlock(j, k)) continue;
 
     // Trotuar va bordyur hoshiyasi
     const wg = new THREE.BoxGeometry(BLOCK, 0.22, BLOCK).translate(bx, 0.11, bz);
@@ -333,6 +338,7 @@ export function buildCity(scene, quality) {
   }
 
   buildCanal(group);
+  buildGtaNaturalSurroundings(group);
 
   // Shahar tashqi chegarasi (yumshoq chegara nazorati physics.js da ishlaydi, bu esa oxirgi himoya)
   const E = HALF + 35;
@@ -397,4 +403,50 @@ function buildCanal(group) {
       rails.push(new THREE.BoxGeometry(W + 4, 1.15, 0.4).translate(cx, 0.58, roadC(i) + s * (ROAD / 2 - 0.2)));
   group.add(new THREE.Mesh(mergeGeometries(banks), bankMat));
   group.add(new THREE.Mesh(mergeGeometries([...walls, ...rails]), stone));
+}
+
+// GTA 5 uslubidagi tabiiy Toshkent relefi: Chimyon/Tyan-Shan tog' tizmasi, Chirchiq daryosi va Toshkent dengizi qirg'og'i
+function buildGtaNaturalSurroundings(group) {
+  const mtnGeos = [];
+  const snowGeos = [];
+  const mtnMat = new THREE.MeshStandardMaterial({ color: 0x1e2836, roughness: 0.92, metalness: 0.08 });
+  const snowMat = new THREE.MeshStandardMaterial({
+    color: 0xdbeafe,
+    roughness: 0.55,
+    metalness: 0.15,
+    emissive: 0x1e3a8a,
+    emissiveIntensity: 0.18,
+  });
+
+  // Shimol, Shimoliy-Sharq va Sharq ufqida Chimyon / Chorvoq tog' tizmalari (360 daraja tabiiy siluet)
+  const peaks = [
+    [-2200, -3100, 620, 420], [-1450, -3250, 780, 560], [-650, -3180, 710, 490],
+    [150, -3300, 880, 640],   [980, -3220, 820, 590],   [1820, -3150, 940, 710],
+    [2680, -2950, 1050, 790], [3220, -2150, 920, 680],  [3300, -1250, 860, 610],
+    [3250, -350, 760, 520],   [3180, 520, 680, 440],    [-2950, -2400, 580, 360],
+    [-3150, -1400, 520, 310], [-3100, 1600, 540, 320],
+  ];
+  for (let i = 0; i < peaks.length; i++) {
+    const [px, pz, r, h] = peaks[i];
+    const cone = new THREE.ConeGeometry(r, h, 7);
+    cone.rotateY((i * 1.17) % Math.PI);
+    cone.translate(px, h * 0.45 - 12, pz);
+    mtnGeos.push(cone);
+
+    if (h > 460) {
+      const capH = h * 0.34;
+      const capR = r * 0.36;
+      const cap = new THREE.ConeGeometry(capR, capH, 7);
+      cap.rotateY((i * 1.17) % Math.PI);
+      cap.translate(px, h * 0.9 - capH * 0.48 - 12, pz);
+      snowGeos.push(cap);
+    }
+  }
+  if (mtnGeos.length) group.add(new THREE.Mesh(mergeGeometries(mtnGeos), mtnMat));
+  if (snowGeos.length) group.add(new THREE.Mesh(mergeGeometries(snowGeos), snowMat));
+
+  // Janub va Janubiy-Sharqda Chirchiq daryosi va Rohat / Toshkent Dengizi ko'rfazi
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(6800, 1800).rotateX(-Math.PI / 2), waterMat);
+  sea.position.set(600, -0.015, HALF + 920);
+  group.add(sea);
 }

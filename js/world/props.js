@@ -1,7 +1,7 @@
 // Ko'cha jihozlari: chiroqlar, svetoforlar, daraxtlar, reklama, zapravka, garaj
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, POIS, addCollider } from './layout.js';
+import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, POIS, addCollider, isInsideAirportZone } from './layout.js';
 import { signTexture, ADS } from './textures.js';
 import { GLOW_TEX } from '../carModel.js';
 import { nightMats } from './city.js';
@@ -66,6 +66,7 @@ export function buildProps(scene, quality) {
     for (const side of [-1, 1]) {
       const off = side * (ROAD / 2 + 1.2), c = roadC(i);
       for (const [x, z, dx, dz] of [[s, c + off, 0, -side * 1.5], [c + off, s, -side * 1.5, 0]]) {
+        if (isInsideAirportZone(x, z, 18)) continue;
         const ch = getChunk(x, z);
         ch.poles.push({ x, y: 4, z, sx: 0.18, sy: 8, sz: 0.18 });
         ch.heads.push({ x: x + dx, y: 7.9, z: z + dz, sx: dx ? 1.6 : 0.5, sy: 0.18, sz: dz ? 1.6 : 0.5 });
@@ -81,6 +82,7 @@ export function buildProps(scene, quality) {
   for (let i = 0; i <= N; i++) for (let k = 0; k <= N; k++) {
     if (i === 0 || k === 0 || i === N || k === N) continue;
     const cx = roadC(i), cz = roadC(k), o = ROAD / 2 + 0.8;
+    if (isInsideAirportZone(cx, cz, 22)) continue;
     for (const [px, pz, axis, face] of [[cx + o, cz + o, 'z', 0], [cx - o, cz - o, 'z', Math.PI], [cx - o, cz + o, 'x', -Math.PI / 2], [cx + o, cz - o, 'x', Math.PI / 2]]) {
       tPoles.push({ x: px, y: 2.2, z: pz, sx: 0.2, sy: 4.4, sz: 0.2 });
       tPoles.push({ x: px, y: 4.9, z: pz, sx: 0.5, sy: 1.5, sz: 0.5, r: face });
@@ -119,6 +121,7 @@ export function buildProps(scene, quality) {
   // Yo'l belgilari (Tezlik 60/70 va Piyodalar o'tish joyi)
   for (let i = 1; i < N; i += 2) for (let k = 1; k < N; k += 2) {
     const cx = roadC(i), cz = roadC(k), o = ROAD / 2 + 1.4;
+    if (isInsideAirportZone(cx, cz, 22)) continue;
     const ch1 = getChunk(cx + o, cz - o - 3);
     ch1.signPoles.push({ x: cx + o, y: 1.5, z: cz - o - 3, sx: 0.08, sy: 3.0, sz: 0.08 });
     ch1.signDiscs.push({ x: cx + o, y: 3.1, z: cz - o - 3, sx: 0.65, sy: 0.65, sz: 0.08 });
