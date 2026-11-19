@@ -527,9 +527,6 @@ function instantiateGlb(cached, spec, cfg, highSpec = true) {
   const headMats = [];
   const tailMats = [];
   const glassMats = [];
-  const steeringNodes = [];
-  const seatMeshes = [];
-  let hasInterior = false;
 
   const isPaint = new Set(spec.paintMats || []);
   const isRim = new Set(spec.rimMats || []);
@@ -537,16 +534,7 @@ function instantiateGlb(cached, spec, cfg, highSpec = true) {
   const isTail = new Set(spec.tailMats || []);
 
   root.traverse((o) => {
-    const fullName = `${o.name || ''} ${o.material?.name || ''}`;
-    if (/interior|cockpit|dash|salon|cabin/i.test(fullName)) hasInterior = true;
-    if (/steering|steer_wheel|volant|rul/i.test(o.name || '')) {
-      steeringNodes.push({ node: o, baseRotZ: o.rotation.z });
-      hasInterior = true;
-    }
-    if (o.isMesh && /seat|headrest|chair|siden/i.test(fullName) && !/seatbelt|seat_belt/i.test(fullName)) {
-      seatMeshes.push(o);
-    }
-    if (o.isMesh && /engine|seatbelt|seat_belt|undercarriage|underbody/i.test(fullName)) {
+    if (o.isMesh && /engine|seatbelt|seat_belt|undercarriage|underbody/i.test(`${o.name} ${o.material?.name || ''}`)) {
       o.visible = false;
       return;
     }
@@ -640,9 +628,6 @@ function instantiateGlb(cached, spec, cfg, highSpec = true) {
     headMats,
     tailMats,
     glassMats,
-    steeringNodes,
-    seatMeshes,
-    hasInterior,
     wheels: glbWheels,
     radius: glbRadius || cached.radius,
     rearTop: cached.rearTop,
@@ -977,11 +962,6 @@ export function buildCar(cfg, look = {}, opts = {}) {
     _glbHeadMats: [],
     _glbTailMats: [],
     _glbGlassMats: [],
-    _glbSteering: [],
-    _glbSeatMeshes: [],
-    _hasGlbInterior: false,
-    _cockpitActive: false,
-    _cockpitRig: null,
 
     setColor(c) {
       if (!c) return;
@@ -1143,61 +1123,11 @@ export function buildCar(cfg, look = {}, opts = {}) {
       api._glbHeadMats = inst.headMats;
       api._glbTailMats = inst.tailMats;
       api._glbGlassMats = inst.glassMats || [];
-      api._glbSteering = inst.steeringNodes || [];
-      api._glbSeatMeshes = inst.seatMeshes || [];
-      api._hasGlbInterior = !!inst.hasInterior;
       api.radius = inst.radius;
       api.rearTop = inst.rearTop;
       api.setTuning(currentLook);
       api.setLights(api.lightsOn);
       api.setBrake(api.braking);
-    },
-
-    setCockpitView(active, kmh = 0, rpm = 0.2, gear = 1, steer = 0) {
-      const on = !!active;
-      if (on !== api._cockpitActive) {
-        api._cockpitActive = on;
-        // 1. Old oynani salondan tiniq ko'rinadigan qilish (tonirovka bo'lsa ham)
-        if (on) {
-          const makeClear = (gm) => {
-            if (!gm) return;
-            gm.transparent = true;
-            gm.opacity = 0.14;
-            gm.depthWrite = false;
-          };
-          makeClear(procGlassMat);
-          for (const gm of api._glbGlassMats) makeClear(gm);
-        } else {
-          for (const gm of api._glbGlassMats) {
-            if (gm) gm.depthWrite = true;
-          }
-          api.setTuning(currentLook);
-        }
-        // 2. O'rindiq kamerani to'sib qo'ymasligi uchun salon rejimida yashirish
-        for (const sm of api._glbSeatMeshes) sm.visible = !on;
-      }
-
-      // 3. GLB ichidagi real 3D rulni aylantirish
-      if (on && api._glbSteering.length > 0) {
-        for (const st of api._glbSteering) {
-          st.node.rotation.z = st.baseRotZ + steer * 3.4;
-        }
-      }
-
-      // 4. Universal 3D Sport Kokpit (saloni yo'q 4 ta model yoki rulsiz modellarda 100% ishlaydi)
-      if (isPriority) {
-        if (on && !api._cockpitRig) {
-          api._cockpitRig = buildUniversalCockpit(cfg);
-          chassisTilt.add(api._cockpitRig.group);
-        }
-        if (api._cockpitRig) {
-          const needUniversal = on && (!api._hasGlbInterior || api._glbSteering.length === 0);
-          api._cockpitRig.group.visible = needUniversal;
-          if (needUniversal) {
-            api._cockpitRig.update(kmh, rpm, gear, steer);
-          }
-        }
-      }
     },
   };
 
@@ -1384,109 +1314,6 @@ function createUzPlateTexture(raw) {
   if (_plateTexCache.size > 40) _plateTexCache.clear();
   _plateTexCache.set(key, tex);
   return tex;
-}
-
-/**
- * 100% barcha mashinalar uchun Universal 3D Sport Kokpit (Aylanuvchi rul + Jonli Raqamli Spidometr/RPM)
- * Faqat Salon (Cockpit) kamerasida va faqat o'yinchi mashinasida ko'rinadi.
- */
-function buildUniversalCockpit(cfg) {
-  const group = new THREE.Group();
-  group.name = 'UniversalCockpit3D';
-  group.visible = false;
-
-  const H = cfg.hei || 1.45;
-  const W = cfg.wid || 1.85;
-  const L = cfg.len || 4.6;
-  const isSuv = cfg.body === 'suv';
-  const isSuper = cfg.body === 'super';
-  const dashY = isSuv ? H * 0.56 : isSuper ? H * 0.58 : H * 0.56;
-  const dashZ = L * 0.14;
-  const driverX = -W * 0.21;
-
-  const mDash = new THREE.MeshStandardMaterial({ color: 0x0e1118, roughness: 0.72, metalness: 0.18 });
-  const mTrim = new THREE.MeshStandardMaterial({ color: 0x262c3a, roughness: 0.32, metalness: 0.78 });
-  const mRedMark = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0x991b1b, emissiveIntensity: 0.5, roughness: 0.35 });
-
-  // Torpeda (Dashboard)
-  const dash = new THREE.Mesh(new THREE.BoxGeometry(W * 0.78, 0.24, 0.44), mDash);
-  dash.position.set(0, dashY - 0.04, dashZ + 0.18);
-  const dashHood = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.13, 0.26), mDash);
-  dashHood.position.set(driverX, dashY + 0.11, dashZ + 0.14);
-  group.add(dash, dashHood);
-
-  // Jonli Raqamli Spidometr / RPM Displeyi (CanvasTexture)
-  const cv = document.createElement('canvas');
-  cv.width = 256;
-  cv.height = 96;
-  const ctx = cv.getContext('2d');
-  const scrTex = new THREE.CanvasTexture(cv);
-  scrTex.colorSpace = THREE.SRGBColorSpace;
-  const scrMat = new THREE.MeshBasicMaterial({ map: scrTex });
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.13), scrMat);
-  screen.position.set(driverX, dashY + 0.10, dashZ + 0.02);
-  screen.rotation.y = Math.PI;
-  screen.rotation.x = 0.14;
-  group.add(screen);
-
-  // Aylanuvchi 3D Sport Rul (Steering Wheel)
-  const wheelPivot = new THREE.Group();
-  wheelPivot.position.set(driverX, dashY + 0.06, dashZ - 0.14);
-  wheelPivot.rotation.x = 0.32;
-
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.165, 0.019, 10, 28), mDash);
-  const topMark = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.042, 0.042), mRedMark);
-  topMark.position.set(0, 0.165, 0);
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.058, 0.04, 16), mTrim);
-  hub.rotation.x = Math.PI / 2;
-  const spokeL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.026, 0.02), mTrim);
-  spokeL.position.set(-0.08, -0.01, 0);
-  const spokeR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.026, 0.02), mTrim);
-  spokeR.position.set(0.08, -0.01, 0);
-  const spokeB = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.14, 0.02), mTrim);
-  spokeB.position.set(0, -0.08, 0);
-  wheelPivot.add(rim, topMark, hub, spokeL, spokeR, spokeB);
-  group.add(wheelPivot);
-
-  let lastDraw = 0;
-  const update = (kmh, rpm, gear, steer) => {
-    wheelPivot.rotation.z = steer * 3.5;
-    const now = performance.now();
-    if (now - lastDraw < 75) return;
-    lastDraw = now;
-
-    ctx.fillStyle = '#060a14';
-    ctx.fillRect(0, 0, 256, 96);
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(2, 2, 252, 92);
-
-    // RPM chizig'i
-    const rpmClamped = Math.max(0.05, Math.min(1, rpm || 0.15));
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(14, 12, 228, 12);
-    ctx.fillStyle = rpmClamped > 0.82 ? '#ef4444' : rpmClamped > 0.6 ? '#f59e0b' : '#00e5ff';
-    ctx.fillRect(14, 12, Math.round(228 * rpmClamped), 12);
-
-    // Tezlik (km/h)
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = '900 42px "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(String(Math.round(kmh || 0)), 118, 56);
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '700 13px "Segoe UI", Arial, sans-serif';
-    ctx.fillText('KM/H', 118, 82);
-
-    // Vites (Gear)
-    ctx.fillStyle = '#facc15';
-    ctx.font = '900 28px "Segoe UI", Arial, sans-serif';
-    ctx.fillText(gear === 0 ? 'R' : String(gear || 1), 214, 58);
-
-    scrTex.needsUpdate = true;
-  };
-
-  return { group, update };
 }
 
 export { TUNING };

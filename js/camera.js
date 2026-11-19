@@ -62,8 +62,6 @@ export function updateCamera(camera, v, boost, dt) {
   const baseFov = camState.mode === 3 ? 68 : camState.mode === 4 ? 48 : camState.mode === 1 ? 64 : 60;
   const targetFov = baseFov + Math.min(15, v.kmh * 0.068) + (boost && v.kmh > 20 ? 6 : 0);
   fov += (targetFov - fov) * Math.min(1, dt * 4.5);
-  const wantNear = camState.mode === 3 ? 0.08 : 0.3;
-  if (Math.abs(camera.near - wantNear) > 0.01) camera.near = wantNear;
   camera.fov = fov; camera.updateProjectionMatrix();
 
   if (performance.now() - cam.lastMove > 2200) cam.yaw *= Math.pow(0.04, dt);
@@ -72,18 +70,13 @@ export function updateCamera(camera, v, boost, dt) {
   if (shake > 0.01) shake *= Math.pow(0.02, dt);
 
   if (camState.mode === 2 || camState.mode === 3) {
-    // 2: Kapot (Hood) | 3: Salon (Cockpit — 100% barcha mashinalar uchun chap haydovchi o'rindig'i)
+    // 2: Kapot (Hood) | 3: Salon (Cockpit)
     const isCockpit = camState.mode === 3;
-    const isSuv = cfg.body === 'suv';
-    const isSuper = cfg.body === 'super';
-    const H = cfg.hei || 1.45;
-    const L = cfg.len || 4.6;
-    const W = cfg.wid || 1.85;
     const eyeY = isCockpit
-      ? Math.max(0.82, H * (isSuper ? 0.76 : isSuv ? 0.74 : 0.74))
-      : Math.max(0.92, H * 0.80);
-    const fwdOff = isCockpit ? -L * 0.03 : L * 0.19;
-    const sideOff = isCockpit ? -W * 0.21 : 0;
+      ? Math.max(0.84, (cfg.hei || 1.45) * 0.72)
+      : Math.max(0.92, (cfg.hei || 1.45) * 0.80);
+    const fwdOff = isCockpit ? -(cfg.len || 4.5) * 0.04 : (cfg.len || 4.5) * 0.19;
+    const sideOff = isCockpit ? -(cfg.wid || 1.85) * 0.19 : 0;
     const rightX = Math.cos(v.heading), rightZ = -Math.sin(v.heading);
 
     tmp.set(
@@ -91,11 +84,10 @@ export function updateCamera(camera, v, boost, dt) {
       eyeY,
       v.z + v.fwdZ * fwdOff + rightZ * sideOff
     );
-    if (shakeAmp) { tmp.x += (Math.random() - 0.5) * shakeAmp * 0.35; tmp.y += (Math.random() - 0.5) * shakeAmp * 0.35; }
+    if (shakeAmp) { tmp.x += (Math.random() - 0.5) * shakeAmp * 0.4; tmp.y += (Math.random() - 0.5) * shakeAmp * 0.4; }
     camera.position.copy(tmp);
-    const clampedYaw = THREE.MathUtils.clamp(cam.yaw, -1.9, 1.9);
-    const lookYaw = v.heading + clampedYaw + (v.steer || 0) * (isCockpit ? 0.15 : 0.08);
-    look.set(v.x + Math.sin(lookYaw) * 20, eyeY - (isCockpit ? 0.12 : 0.14), v.z + Math.cos(lookYaw) * 20);
+    const lookYaw = v.heading + cam.yaw + (v.steer || 0) * (isCockpit ? 0.14 : 0.08);
+    look.set(v.x + Math.sin(lookYaw) * 20, eyeY - (isCockpit ? 0.08 : 0.14), v.z + Math.cos(lookYaw) * 20);
     camera.lookAt(look);
     smoothPos.copy(tmp);
     smoothLook.copy(look);

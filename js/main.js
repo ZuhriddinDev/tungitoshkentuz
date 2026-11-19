@@ -1076,8 +1076,6 @@ function loop() {
 
   if (playing && !paused) {
     model.group.visible = !insideClub;
-    const inCockpit = camState.mode === 3 && !insideClub && !photoMode.active;
-    model.setCockpitView?.(inCockpit, player.kmh, vehicle.rpm, vehicle.gear, vehicle.steer);
     if (photoMode.active) {
       const target = insideClub ? playerChar : vehicle;
       updatePhotoCamera(camera, { x: target.x, y: target.y || 0, z: target.z }, photoMode, dt);
