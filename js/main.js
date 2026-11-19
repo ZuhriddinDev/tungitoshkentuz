@@ -14,6 +14,9 @@ import {
   canClaimDaily,
   onChange,
   syncEconomyWithServer,
+  setGameMode,
+  getGameMode,
+  getSpSlot,
 } from './state.js';
 import { createRenderer, PRESETS } from './render.js';
 import { buildCity, updateCitySectors, nightMats, waterMat, roadMat } from './world/city.js';
@@ -39,6 +42,7 @@ import { PlayerCharacter } from './character.js';
 import {
   goOnline,
   joinPublicServer,
+  leave as leaveOnline,
   tick as tickOnline,
   list as onlineList,
   info as onlineInfo,
@@ -52,6 +56,7 @@ import {
   MAX_PLAYERS,
 } from './online.js';
 import { RemoteCars } from './remoteCars.js';
+import { buildHousing3D, getActiveProperty } from './lifeSim.js';
 
 const $ = (s) => document.getElementById(s);
 const canvas = $('game');
@@ -732,10 +737,17 @@ onKey('KeyB', keyGuard(() => {
   }
 }));
 onKey('F3', () => window.__togglePerfAudit?.());
+onKey('KeyK', keyGuard(() => toggle('phone')));
 
 // Real-vaqt online sinxronizatsiya
 function syncOnlineNow(dt) {
   if (!vehicle || !model) return;
+  if (getGameMode() === 'single') {
+    remotes?.clear?.();
+    if ($('hudOnline')) $('hudOnline').textContent = '🏙️ Single Player';
+    if ($('hudMyId')) $('hudMyId').textContent = 'HAYOT + SYUJET';
+    return;
+  }
   const night = sky ? sky.night : 0.8;
   const lightsOn = lightsMode === 'on' || (lightsMode === 'auto' && night > 0.35);
   const inClubNow = insideClub && !!playerChar;
@@ -1190,6 +1202,7 @@ async function boot() {
   buildProps(scene, q);
   await progress(70, 'Teleminora, Chorsu, Toshkent Siti...');
   buildLandmarks(scene);
+  buildHousing3D(scene);
   kokobango = buildKokobangoClub(scene);
   playerChar = new PlayerCharacter(scene, state.look?.color || '#00e5ff');
   await progress(82, 'Sizning avtomobilingiz tayyorlanmoqda...');
@@ -1442,12 +1455,14 @@ async function boot() {
 }
 
 async function play(openFriendsModal = false) {
+  const isMulti = !!openFriendsModal;
+  setGameMode(isMulti ? 'multi' : 'single', getSpSlot());
   let name = $('nameInput').value.trim();
   if (!name) {
     name = 'Haydovchi';
     $('nameInput').value = name;
   }
-  const claimRes = await claimUsernameServer(name);
+  const claimRes = isMulti ? await claimUsernameServer(name) : { ok: true, name };
   if (!claimRes.ok) {
     beep('err');
     toast(claimRes.error || `❌ «${name}» nomi allaqachon band! Boshqa ism tanlang.`, 'err');
@@ -1465,7 +1480,20 @@ async function play(openFriendsModal = false) {
     screen.orientation?.lock?.('landscape').catch(() => {});
   } catch { /* */ }
   R.resize();
-  joinPublicServer().catch(() => {});
+  if (isMulti) {
+    joinPublicServer().catch(() => {});
+    syncEconomyWithServer().catch(() => {});
+  } else {
+    leaveOnline();
+    remotes?.clear?.();
+    setCar();
+    const home = getActiveProperty();
+    if (home && vehicle) {
+      vehicle.place(home.spawnX, home.spawnZ, 0);
+    }
+    if ($('hudOnline')) $('hudOnline').textContent = '🏙️ Single Player';
+    if ($('hudMyId')) $('hudMyId').textContent = 'HAYOT + SYUJET';
+  }
   const cfg0 = carById(activeCar().id);
   if (!isCarReady(cfg0)) {
     try {
@@ -1484,11 +1512,16 @@ async function play(openFriendsModal = false) {
   $('hudName').textContent = name;
   playing = true;
   clock.getDelta();
-  toast(`Xush kelibsiz, ${name}! Balans: ${fmt(state.money)}`, 'cash');
+  toast(
+    isMulti
+      ? `🌐 Multiplayer Server: Xush kelibsiz, ${name}! Balans: ${fmt(state.money)}`
+      : `🏙️ Single Player (Hayot Simulyatori): ${name}! Balans: ${fmt(state.money)} · [K] Smartfon`,
+    'cash'
+  );
   if (openFriendsModal) {
     setTimeout(() => open('online'), 250);
   } else if (canClaimDaily()) {
-    setTimeout(() => toast('🎁 7 Kunlik Bonus tayyor! Yuqoridagi «🎁 Bonus» tugmasini bosing', 'ok'), 1200);
+    setTimeout(() => toast('📱 [K] yoki «📱 Telefon» tugmasini bosib Syujet, 9 ta Ish va 5 ta Uyni oching!', 'ok'), 1200);
   }
 }
 

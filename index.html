@@ -175,14 +175,19 @@
 
         <div class="hero-main-actions">
           <button type="button" id="playBtn" class="lobby-enter-btn hero-start-btn hero-shimmer">
-            <span>🏁 O‘YINNI BOSHLASH</span>
+            <span>🏁 SINGLE PLAYER</span>
           </button>
           <button type="button" id="playFriendsBtn" class="lobby-enter-btn hero-friends-btn">
-            <span>🌐 ONLINE SERVER</span>
+            <span>🌐 MULTIPLAYER</span>
           </button>
           <button type="button" id="autoLandscapeBtn" class="lobby-enter-btn hero-landscape-btn">
             <span>⛶ GORIZONTAL</span>
           </button>
+        </div>
+        <div class="hero-sub-actions">
+          <button type="button" class="hero-sub-btn" data-open="phone">📱 SMARTFON & SYUJET</button>
+          <button type="button" class="hero-sub-btn" data-open="pause">👤 PROFIL</button>
+          <button type="button" class="hero-sub-btn" data-open="settings">⚙️ SOZLAMALAR</button>
         </div>
 
         <div class="hero-legal-bar">
@@ -247,6 +252,7 @@
       <div class="chip player"><b id="hudName">—</b><small id="hudFps">60 FPS</small></div>
       <button class="chip online-chip" data-hotkey="KeyO" title="Online xona va Do'stlar (O)"><b id="hudOnline">🌐 Online: 1/30</b><small id="hudMyId">OMMAVIY SERVER</small></button>
       <button type="button" class="chip money" id="hudMoney" data-open="transfer" title="Pul o'tkazish va Balans">5 000 000 000 so'm</button>
+      <button type="button" class="chip" id="hudPhoneBtn" data-open="phone" title="Smartfon va Hayot Simulyatori (K)">📱 Telefon <small>[K]</small></button>
       <button type="button" class="chip gift-chip" id="hudDailyBtn" data-open="daily" title="7 Kunlik Kundalik Bonus">🎁 Bonus</button>
       <div class="chip clock"><span id="hudTime">00:00</span><small id="hudStreet">—</small></div>
       <button type="button" class="chip iconbtn mob-hud-menu-btn" id="hudMobileMenuBtn" title="O'yin Menyusi">☰</button>
@@ -440,6 +446,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=17.6"></script>
+  <script type="module" src="js/main.js?v=18.0"></script>
 </body>
 </html>

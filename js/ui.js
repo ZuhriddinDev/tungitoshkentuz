@@ -1495,12 +1495,15 @@ function leaderboard() {
   `);
 }
 
+import { openSmartphoneModal } from './lifeSim.js';
+
 const PANELS = {
   gas: gasStation,
   service,
   daily: dailyRewardsModal,
   transfer: transferModal,
   garage: () => openGarage({ showModal, toast, closeModal, game }),
+  phone: () => openSmartphoneModal({ showModal, open, closeModal, toast }, game),
   map: bigMap,
   race: races,
   jobs,

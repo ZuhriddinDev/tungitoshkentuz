@@ -4281,6 +4281,115 @@ body.photo-active #clubHud {
   color: #fda4af;
 }
 
+/* =========================================================
+   TUNGI TOSHKENT V18 — LIFE SIMULATOR, SMARTPHONE & MAIN MENU
+   ========================================================= */
+.hero-sub-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 6px auto 0;
+}
+.hero-sub-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  color: #e2e8f0;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.15s ease;
+}
+.hero-sub-btn:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.ph-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ph-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.65);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  font-size: 12px;
+}
+.ph-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ph-tab {
+  padding: 7px 11px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+.ph-tab.on,
+.ph-tab:hover {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.28), rgba(37, 99, 235, 0.28));
+  border-color: #38bdf8;
+  color: #fff;
+}
+.ph-hero-card {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.85));
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+.ph-app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.ph-app-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ph-app-tile:hover {
+  border-color: #38bdf8;
+  background: rgba(30, 41, 59, 0.92);
+  transform: translateY(-2px);
+}
+.ph-app-icon {
+  font-size: 22px;
+}
+.ph-app-tile small {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+
 
 
 

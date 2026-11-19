@@ -2,6 +2,12 @@
 import { START_MONEY, CARS, carById, DAILY_BONUS, DAILY_REWARDS_7, fmt } from './config.js';
 
 const KEY = 'tungi-toshkent-save-v3';
+const SP_KEY_PREFIX = 'tungi-toshkent-sp-save-v1-slot';
+const SP_START_MONEY = 18_000_000;
+export let currentGameMode = 'multi'; // 'single' | 'multi'
+export let currentSpSlot = 0;         // 0 | 1 | 2
+export const getGameMode = () => currentGameMode;
+export const getSpSlot = () => currentSpSlot;
 const IS_PHONE = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1);
 try { localStorage.removeItem('tungi-toshkent-save-v1'); localStorage.removeItem('tungi-toshkent-save-v2'); } catch (e) {}
 const listeners = new Set();
@@ -132,6 +138,28 @@ function fresh() {
     mapVer: 2,
     gfxVer: 4,
     pos: null,
+    bankBalance: 0,
+    ownedProperties: ['apt_chilonzor'],
+    activeProperty: 'apt_chilonzor',
+    storyStep: 0,
+    storyHistory: [],
+  };
+}
+
+function freshSinglePlayer() {
+  const base = fresh();
+  const starter = newCar('spark', '#f5f5f5');
+  return {
+    ...base,
+    gameMode: 'single',
+    money: SP_START_MONEY,
+    bankBalance: 5_000_000,
+    cars: [starter],
+    activeUid: starter.uid,
+    ownedProperties: ['apt_chilonzor'],
+    activeProperty: 'apt_chilonzor',
+    storyStep: 0,
+    storyHistory: [],
   };
 }
 
@@ -207,16 +235,75 @@ function setMoneyInternal(nextVal) {
 }
 
 let saveTimer = 0;
+const activeStorageKey = () => (currentGameMode === 'single' ? `${SP_KEY_PREFIX}${currentSpSlot}` : KEY);
 const doSave = () => {
   saveTimer = 0;
   try {
-    const snapshot = { ...state, money: _authoritativeMoney };
-    localStorage.setItem(KEY, JSON.stringify(snapshot));
+    const snapshot = { ...state, money: _authoritativeMoney, gameMode: currentGameMode };
+    localStorage.setItem(activeStorageKey(), JSON.stringify(snapshot));
   } catch (e) { /* xotira to'la */ }
 };
 export function save(now = false) {
   if (now) { clearTimeout(saveTimer); doSave(); return; }
   if (!saveTimer) saveTimer = setTimeout(doSave, 800);
+}
+
+export function getSpSlotSummary(slotIdx = 0) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(`${SP_KEY_PREFIX}${slotIdx}`) || 'null');
+    if (!raw || !raw.cars?.length) return { slot: slotIdx, exists: false, label: `Slot #${slotIdx + 1} — Yangi hayot boshlash` };
+    return {
+      slot: slotIdx,
+      exists: true,
+      money: raw.money || SP_START_MONEY,
+      carsCount: raw.cars.length,
+      storyStep: raw.storyStep || 0,
+      home: raw.activeProperty || 'apt_chilonzor',
+      label: `Slot #${slotIdx + 1} · Bob ${(raw.storyStep || 0) + 1} · ${fmt(raw.money || 0)}`,
+    };
+  } catch {
+    return { slot: slotIdx, exists: false, label: `Slot #${slotIdx + 1} — Yangi hayot boshlash` };
+  }
+}
+
+export function setGameMode(mode = 'multi', slotIdx = 0) {
+  save(true);
+  currentGameMode = mode === 'single' ? 'single' : 'multi';
+  if (currentGameMode === 'single') {
+    currentSpSlot = Math.max(0, Math.min(2, Number(slotIdx) || 0));
+    let spData = null;
+    try {
+      spData = JSON.parse(localStorage.getItem(`${SP_KEY_PREFIX}${currentSpSlot}`) || 'null');
+    } catch { spData = null; }
+    const base = freshSinglePlayer();
+    const validIds = new Set(CARS.map((c) => c.id));
+    const cars = (spData?.cars || []).filter((c) => validIds.has(c.id)).map(normalizeCar);
+    const merged = {
+      ...base,
+      ...(spData || {}),
+      name: state.name || spData?.name || 'Haydovchi',
+      settings: state.settings || base.settings,
+      cars: cars.length ? cars : base.cars,
+      ownedProperties: Array.isArray(spData?.ownedProperties) && spData.ownedProperties.length ? spData.ownedProperties : ['apt_chilonzor'],
+      activeProperty: spData?.activeProperty || 'apt_chilonzor',
+      storyStep: Number(spData?.storyStep) || 0,
+      storyHistory: Array.isArray(spData?.storyHistory) ? spData.storyHistory : [],
+      bankBalance: Math.max(0, Number(spData?.bankBalance) ?? 5_000_000),
+    };
+    if (!merged.cars.some((c) => c.uid === merged.activeUid)) merged.activeUid = merged.cars[0].uid;
+    const nextMoney = Math.max(0, Number(spData?.money ?? SP_START_MONEY));
+    Object.assign(state, merged);
+    setMoneyInternal(nextMoney);
+    emit();
+    return state;
+  }
+
+  // Multiplayer mode
+  const mpData = load();
+  Object.assign(state, mpData);
+  setMoneyInternal(mpData.money);
+  emit();
+  return state;
 }
 
 export function onChange(fn) { listeners.add(fn); }
@@ -257,8 +344,10 @@ export function addMoney(amount, reason = '') {
   state.tx.unshift({ t: Date.now(), amount: delta, reason });
   if (state.tx.length > 200) state.tx.length = 200;
   emit();
-  const opId = `op_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  syncEconomyWithServer({ delta, opId, reason }).catch(() => {});
+  if (currentGameMode === 'multi') {
+    const opId = `op_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    syncEconomyWithServer({ delta, opId, reason }).catch(() => {});
+  }
   return true;
 }
 
@@ -473,6 +562,7 @@ export function claimDaily() {
 // SERVER BILAN SINXRONIZATSIYA, PUL O'TKAZISH VA PROMOKOD API
 // ============================================================================
 export async function syncEconomyWithServer(extra = {}) {
+  if (currentGameMode === 'single') return state;
   try {
     const res = await fetch('/api/economy/sync', {
       method: 'POST',
