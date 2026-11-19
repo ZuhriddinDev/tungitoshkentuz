@@ -652,8 +652,8 @@ export function initAudio(volume = 0.6) {
   skidSrc.loop = true;
   const skidBp = ctx.createBiquadFilter();
   skidBp.type = 'bandpass';
-  skidBp.frequency.value = 1650;
-  skidBp.Q.value = 3.2;
+  skidBp.frequency.value = 1150;
+  skidBp.Q.value = 2.4;
   skidGain = ctx.createGain();
   skidGain.gain.value = 0;
   skidSrc.connect(skidBp).connect(skidGain).connect(masterGain);
@@ -778,19 +778,18 @@ export function updateEngine(rpm, throttle, pitch = 1, slip = 0, kmh = 0, opts =
     localVoice.update(rpm, throttle, pitch, kmh, isInterior, prof, spec, braking, dt);
   }
 
-  // Road rolling + wind rush
+  // Road rolling + wind rush (yumshoq, motor ovozini bosib ketmaydi)
   if (roadGain && roadFilter) {
-    const roadVol = kmh > 5 ? Math.min(0.065, (kmh / 260) * 0.055) : 0;
-    const roadHz = 180 + Math.min(1800, kmh * 6.5);
+    const roadVol = kmh > 15 ? Math.min(0.032, ((kmh - 15) / 280) * 0.032) : 0;
+    const roadHz = 180 + Math.min(1200, kmh * 4.5);
     roadFilter.frequency.setTargetAtTime(roadHz, ctx.currentTime, 0.08);
     roadGain.gain.setTargetAtTime(roadVol, ctx.currentTime, 0.08);
   }
 
-  // Tire skid & hard brake scrub
+  // Shina sirpanishi: oddiy tormozda (ABS) shovqin chiqmaydi, faqat kuchli driftda eshitiladi
   if (skidGain) {
-    const brakeScrub = braking && kmh > 45 ? 0.07 : 0;
-    const driftScrub = slip > 0.16 && kmh > 20 ? Math.min(0.35, slip * 0.6) : 0;
-    skidGain.gain.setTargetAtTime(Math.max(brakeScrub, driftScrub), ctx.currentTime, 0.05);
+    const driftScrub = slip > 0.42 && kmh > 35 ? Math.min(0.14, (slip - 0.42) * 0.25) : 0;
+    skidGain.gain.setTargetAtTime(driftScrub, ctx.currentTime, 0.06);
   }
 }
 
