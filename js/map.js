@@ -1,29 +1,8 @@
 // TUNGI TOSHKENT — OpenStreetMap & GTA Online uslubidagi Professional GPS Xarita Tizimi
 // HUD Minimap va Katta Interaktiv Xarita (Zoom, Pan, Kategoriya filtri, GPS marshrut va POI tanlash)
 import { N, BLOCK, ROAD, HALF, roadC, blockC, blockInfo, nearestRoad, POIS, LANDMARKS, DISTRICTS, TASHKENT_DISTRICTS_OSM, OSM_ATTRIBUTION, districtAt, STREETS_X, STREETS_Z, RACES } from './world/layout.js';
-import { OSM_ROADS, OSM_WATERWAYS, OSM_LAKES, OSM_PARKS, OSM_BUILDINGS, TASHKENT_GIS_META, worldToLatLon } from './world/tashkentRealGis.js';
 
-export { TASHKENT_DISTRICTS_OSM, districtAt, TASHKENT_GIS_META, worldToLatLon };
-
-export function nearestOsmRoadName(wx, wz) {
-  let bestName = '';
-  let bestD2 = 160 * 160;
-  for (let i = 0; i < OSM_ROADS.length; i++) {
-    const r = OSM_ROADS[i];
-    if (!r.name) continue;
-    const pts = r.pts;
-    for (let p = 0; p < pts.length; p++) {
-      const dx = pts[p][0] - wx;
-      const dz = pts[p][1] - wz;
-      const d2 = dx * dx + dz * dz;
-      if (d2 < bestD2) {
-        bestD2 = d2;
-        bestName = r.name;
-      }
-    }
-  }
-  return bestName;
-}
+export { TASHKENT_DISTRICTS_OSM, districtAt };
 
 const IS_MOB = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900));
 const BASE_SIZE = IS_MOB ? 1024 : 1280;
@@ -209,7 +188,7 @@ function hash2(j, k, s = 1) {
 }
 
 // ============================================================================
-// GTA 5 (LOS SANTOS / TASHKENT SATELLITE & TOPOGRAPHIC) USLUBIDAGI XARITA QATLAMI
+// OPENSTREETMAP DARK VECTOR USLUBIDAGI ASOSIY XARITA QATLAMI (2048x2048)
 // ============================================================================
 function drawBase() {
   const S = BASE_SIZE;
@@ -218,357 +197,249 @@ function drawBase() {
   c.width = c.height = S;
   const g = c.getContext('2d');
 
-  // 1. Tashqi tabiiy fon: Janubda Chirchiq daryosi / Toshkent dengizi, Shimolda Chimyon tog' relefi
-  const bgGrad = g.createLinearGradient(0, 0, S, S);
-  bgGrad.addColorStop(0, '#0c1922');
-  bgGrad.addColorStop(0.55, '#0e1726');
-  bgGrad.addColorStop(1, '#062034');
-  g.fillStyle = bgGrad;
+  // 1. Asosiy tungi shahar zamini (OSM Carto Dark / GTA Radar fon)
+  g.fillStyle = '#0f1724';
   g.fillRect(0, 0, S, S);
 
-  // Shimoliy-Sharq va G'arbda GTA 5 uslubidagi tog' va tepalik topografik kontur chiziqlari
-  g.save();
-  const topoCenters = [
-    [S * 0.88, S * 0.10, S * 0.34, S * 0.22, -0.35],
-    [S * 0.56, S * 0.04, S * 0.38, S * 0.16, 0.12],
-    [S * 0.14, S * 0.08, S * 0.28, S * 0.18, 0.28],
-    [S * 0.94, S * 0.42, S * 0.22, S * 0.30, -0.45],
-  ];
-  for (const [cx, cy, rx, ry, rot] of topoCenters) {
-    for (let ring = 6; ring >= 1; ring--) {
-      const f = ring / 6;
-      g.fillStyle = ring % 2 === 0 ? 'rgba(22, 46, 38, 0.28)' : 'rgba(18, 38, 34, 0.24)';
-      g.strokeStyle = 'rgba(74, 222, 128, 0.11)';
-      g.lineWidth = 1.2;
-      g.beginPath();
-      g.ellipse(cx, cy, rx * f, ry * f, rot, 0, Math.PI * 2);
-      g.fill();
-      g.stroke();
-    }
-  }
-
-  // Janub va Janubiy-Sharqda Chirchiq Daryosi vodiysi va Toshkent Dengizi (Rohat) qirg'oq chizig'i
-  g.fillStyle = '#072b45';
-  g.strokeStyle = 'rgba(56, 189, 248, 0.38)';
-  g.lineWidth = 3;
-  g.beginPath();
-  g.moveTo(0, S * 0.90);
-  g.bezierCurveTo(S * 0.22, S * 0.87, S * 0.44, S * 0.95, S * 0.68, S * 0.91);
-  g.bezierCurveTo(S * 0.84, S * 0.88, S * 0.92, S * 0.74, S, S * 0.66);
-  g.lineTo(S, S);
-  g.lineTo(0, S);
-  g.closePath();
-  g.fill();
-  g.stroke();
-  g.restore();
-
-  // 2. Toshkent 6 tumanining organik poligonlari (4 burchakli quti EMAS — haqiqiy OSM geografik shakli!)
-  g.save();
-  for (const d of TASHKENT_DISTRICTS_OSM) {
-    if (!d.polygon || d.polygon.length < 3) continue;
-    g.beginPath();
-    d.polygon.forEach(([wx, wz], idx) => {
-      const px = (wx + HALF) * k;
-      const py = (wz + HALF) * k;
-      if (idx === 0) g.moveTo(px, py);
-      else g.lineTo(px, py);
-    });
-    g.closePath();
-    g.fillStyle = '#151f2e';
-    g.fill();
-  }
-  g.restore();
-
-  // 3. Organik parklar, diqqatga sazovor maskanlar va bino siluetlari (HECH QANDAY 4-BURCHAKLI KVARTAL RAMKASI YO'Q!)
-  // 3A. Haqiqiy OpenStreetMap (ODbL) Park Poligonlari (30 ta haqiqiy bog')
-  g.save();
-  for (const pk of OSM_PARKS) {
-    if (!pk.pts || pk.pts.length < 3) continue;
-    g.beginPath();
-    pk.pts.forEach(([wx, wz], idx) => {
-      const px = (wx + HALF) * k;
-      const py = (wz + HALF) * k;
-      if (idx === 0) g.moveTo(px, py);
-      else g.lineTo(px, py);
-    });
-    g.closePath();
-    g.fillStyle = 'rgba(19, 62, 42, 0.72)';
-    g.strokeStyle = 'rgba(74, 222, 128, 0.25)';
-    g.lineWidth = 1.2;
-    g.fill();
-    g.stroke();
-  }
-  g.restore();
-
+  // Kvartallar, parklar va binolar izlari (Building footprints)
   for (let j = 0; j < N; j++) {
     for (let kk = 0; kk < N; kk++) {
       const info = blockInfo(j, kk);
       const bx = (blockC(j) - BLOCK / 2 + HALF) * k;
       const by = (blockC(kk) - BLOCK / 2 + HALF) * k;
       const bw = BLOCK * k;
-      const isEdge = j === 0 || j === N - 1 || kk === 0 || kk === N - 1;
 
-      if (info.type === 'park' || info.type === 'magiccity' || info.type === 'square' || info.type === 'minor') {
-        // GTA 5 uslubidagi egri qirrali yashil bog' va xiyobonlar
-        g.fillStyle = info.type === 'park' || info.type === 'magiccity' ? '#133826' : '#18303b';
+      // Kvartal trotuar / hovli asosi
+      if (info.type === 'park' || info.type === 'magiccity') {
+        g.fillStyle = '#123123';
+      } else if (info.type === 'square' || info.type === 'minor') {
+        g.fillStyle = '#182b34';
+      } else if (info.type === 'chorsu') {
+        g.fillStyle = '#1b283b';
+      } else if (info.type === 'citytower') {
+        g.fillStyle = '#16243b';
+      } else if (info.type === 'kokobango') {
+        g.fillStyle = '#1c0f30';
+      } else if (info.type === 'garage') {
+        g.fillStyle = '#1b2236';
+      } else {
+        g.fillStyle = '#162030';
+      }
+
+      // Yumaloq burchakli kvartal bloki
+      g.beginPath();
+      g.roundRect(bx + 2, by + 2, bw - 4, bw - 4, 8);
+      g.fill();
+      g.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+      g.lineWidth = 1.2;
+      g.stroke();
+
+      // Parklarda daraxtlar va xiyobon yo'laklari
+      if (info.type === 'park' || info.type === 'magiccity' || info.type === 'square') {
+        g.strokeStyle = 'rgba(74, 222, 128, 0.18)';
+        g.lineWidth = 2;
         g.beginPath();
-        g.ellipse(bx + bw * 0.5, by + bw * 0.5, bw * 0.48, bw * 0.45, (hash2(j, kk, 1) - 0.5) * 0.5, 0, Math.PI * 2);
-        g.fill();
+        g.moveTo(bx + 10, by + bw / 2);
+        g.lineTo(bx + bw - 10, by + bw / 2);
+        g.moveTo(bx + bw / 2, by + 10);
+        g.lineTo(bx + bw / 2, by + bw - 10);
+        g.stroke();
 
-        g.fillStyle = '#1c5236';
-        for (let t = 0; t < 8; t++) {
-          const tx = bx + (0.16 + 0.68 * hash2(j, kk, t + 1)) * bw;
-          const ty = by + (0.16 + 0.68 * hash2(j, kk, t + 11)) * bw;
+        g.fillStyle = '#194932';
+        for (let t = 0; t < 7; t++) {
+          const tx = bx + (0.18 + 0.64 * hash2(j, kk, t + 1)) * bw;
+          const ty = by + (0.18 + 0.64 * hash2(j, kk, t + 11)) * bw;
           g.beginPath();
-          g.arc(tx, ty, 4 + (t % 3) * 2.2, 0, Math.PI * 2);
+          g.arc(tx, ty, 5 + (t % 3) * 2, 0, Math.PI * 2);
           g.fill();
         }
-      } else if (info.type === 'chorsu') {
+      }
+
+      // Chorsu gumbazlari
+      if (info.type === 'chorsu') {
         g.fillStyle = '#0ea5e9';
         g.beginPath();
-        g.arc(bx + bw * 0.5, by + bw * 0.5, bw * 0.28, 0, Math.PI * 2);
+        g.arc(bx + bw * 0.5, by + bw * 0.5, bw * 0.24, 0, Math.PI * 2);
         g.fill();
         g.strokeStyle = '#38bdf8';
-        g.lineWidth = 2.2;
+        g.lineWidth = 2;
         g.stroke();
       } else if (info.type === 'citytower') {
+        // Tashkent City osmono'par binolarining chizmasi
         g.fillStyle = '#253b5e';
         g.strokeStyle = '#38bdf8';
-        g.lineWidth = 1.6;
+        g.lineWidth = 1.5;
         g.fillRect(bx + bw * 0.16, by + bw * 0.16, bw * 0.28, bw * 0.28);
         g.strokeRect(bx + bw * 0.16, by + bw * 0.16, bw * 0.28, bw * 0.28);
         g.fillRect(bx + bw * 0.54, by + bw * 0.22, bw * 0.26, bw * 0.24);
         g.fillRect(bx + bw * 0.24, by + bw * 0.56, bw * 0.48, bw * 0.24);
       } else if (info.type === 'kokobango') {
+        // KOKOBANGO tungi klubi konturi va neon VIP maydoni
         g.fillStyle = '#281145';
         g.strokeStyle = '#e879f9';
         g.lineWidth = 2.2;
         g.beginPath();
-        g.roundRect(bx + bw * 0.14, by + bw * 0.18, bw * 0.72, bw * 0.56, 8);
+        g.roundRect(bx + bw * 0.14, by + bw * 0.18, bw * 0.72, bw * 0.56, 6);
         g.fill();
         g.stroke();
+        g.strokeStyle = '#22d3ee';
+        g.lineWidth = 1.4;
+        g.strokeRect(bx + bw * 0.22, by + bw * 0.26, bw * 0.56, bw * 0.36);
       } else if (info.type === 'garage') {
+        // Zamonaviy Flagship Avtosalon & Tuning binosi konturi
         g.fillStyle = '#263450';
         g.strokeStyle = '#ffd740';
         g.lineWidth = 2.2;
         g.beginPath();
-        g.roundRect(bx + bw * 0.12, by + bw * 0.14, bw * 0.76, bw * 0.44, 8);
+        g.roundRect(bx + bw * 0.12, by + bw * 0.14, bw * 0.76, bw * 0.44, 6);
         g.fill();
         g.stroke();
-      } else if (isEdge) {
-        // Shahar chekkasida tabiiy yashil tepalik va daraxtzorlar
-        g.fillStyle = 'rgba(22, 68, 46, 0.45)';
-        for (let t = 0; t < 4; t++) {
-          const tx = bx + (0.2 + 0.6 * hash2(j, kk, t + 5)) * bw;
-          const ty = by + (0.2 + 0.6 * hash2(j, kk, t + 15)) * bw;
-          g.beginPath();
-          g.arc(tx, ty, 8 + (t % 3) * 4, 0, Math.PI * 2);
-          g.fill();
-        }
+        g.strokeStyle = '#38bdf8';
+        g.lineWidth = 1.4;
+        g.strokeRect(bx + bw * 0.20, by + bw * 0.62, bw * 0.60, bw * 0.22);
+      } else if (info.type === 'city') {
+        // Oddiy shahar kvartallarida 3D-soyali OpenStreetMap bino konturlari
+        const pad = bw * 0.12;
+        const w1 = bw * (0.26 + 0.08 * hash2(j, kk, 2));
+        const h1 = bw * (0.28 + 0.08 * hash2(j, kk, 3));
+        const w2 = bw * (0.28 + 0.06 * hash2(j, kk, 4));
+        const h2 = bw * (0.24 + 0.08 * hash2(j, kk, 5));
+        const w3 = bw * (0.62 + 0.1 * hash2(j, kk, 6));
+        const h3 = bw * 0.22;
+
+        // Yumshoq bino soyalari (depth)
+        g.fillStyle = 'rgba(4, 8, 18, 0.55)';
+        g.fillRect(bx + pad + 3, by + pad + 3, w1, h1);
+        g.fillRect(bx + bw - pad - w2 + 3, by + pad + 3, w2, h2);
+        g.fillRect(bx + pad + 3, by + bw - pad - h3 + 3, w3, h3);
+
+        g.fillStyle = '#24354f';
+        g.strokeStyle = 'rgba(148, 163, 184, 0.28)';
+        g.lineWidth = 1.1;
+        g.fillRect(bx + pad, by + pad, w1, h1);
+        g.strokeRect(bx + pad, by + pad, w1, h1);
+        g.fillRect(bx + bw - pad - w2, by + pad, w2, h2);
+        g.strokeRect(bx + bw - pad - w2, by + pad, w2, h2);
+        g.fillRect(bx + pad, by + bw - pad - h3, w3, h3);
+        g.strokeRect(bx + pad, by + bw - pad - h3, w3, h3);
       }
     }
   }
 
-  // 4. Anhor, Bo'zsuv va Qorasuv kanallari — tabiiy egri daryo tarmoqlari
+  // 2. Anhor va Bo'zsuv kanali — tabiiy egri oqim
   g.save();
   g.lineCap = 'round';
   g.lineJoin = 'round';
   const canalX = (blockC(6) + HALF) * k;
-  g.strokeStyle = 'rgba(56, 189, 248, 0.28)';
+  g.strokeStyle = 'rgba(56, 189, 248, 0.30)';
   g.lineWidth = 34;
   g.beginPath();
-  g.moveTo(canalX - 24, 0);
-  g.bezierCurveTo(canalX + 34, S * 0.3, canalX - 32, S * 0.65, canalX + 18, S);
+  g.moveTo(canalX - 18, 0);
+  g.bezierCurveTo(canalX + 26, S * 0.3, canalX - 28, S * 0.65, canalX + 12, S);
   g.stroke();
 
   g.strokeStyle = '#0a5e8c';
   g.lineWidth = 20;
   g.beginPath();
-  g.moveTo(canalX - 24, 0);
-  g.bezierCurveTo(canalX + 34, S * 0.3, canalX - 32, S * 0.65, canalX + 18, S);
+  g.moveTo(canalX - 18, 0);
+  g.bezierCurveTo(canalX + 26, S * 0.3, canalX - 28, S * 0.65, canalX + 12, S);
   g.stroke();
 
-  g.strokeStyle = 'rgba(125, 211, 252, 0.42)';
-  g.lineWidth = 4.5;
+  g.strokeStyle = 'rgba(125, 211, 252, 0.38)';
+  g.lineWidth = 5;
   g.beginPath();
-  g.moveTo(canalX - 24, 0);
-  g.bezierCurveTo(canalX + 34, S * 0.3, canalX - 32, S * 0.65, canalX + 18, S);
+  g.moveTo(canalX - 18, 0);
+  g.bezierCurveTo(canalX + 26, S * 0.3, canalX - 28, S * 0.65, canalX + 12, S);
   g.stroke();
 
-  // Bo'zsuv (g'arbiy daryo tarmog'i) va Salor (sharqiy daryo tarmog'i)
-  g.strokeStyle = '#0a5e8c';
-  g.lineWidth = 13;
+  // Bo'zsuv (shimoliy-g'arbiy tarmoq)
+  g.lineWidth = 12;
   g.beginPath();
   g.moveTo(canalX + 4, S * 0.22);
-  g.quadraticCurveTo(S * 0.22, S * 0.36, 0, S * 0.52);
-  g.moveTo(canalX - 6, S * 0.44);
-  g.bezierCurveTo(S * 0.55, S * 0.52, S * 0.75, S * 0.72, S * 0.88, S * 0.92);
+  g.quadraticCurveTo(S * 0.24, S * 0.34, 0, S * 0.48);
   g.stroke();
   g.restore();
 
-  // 5. GTA 5 Yo'l Tarmog'i: Egri burchakli Halqa Magistrali + Shoh ko'chalar (chekka to'rtburchaksiz!)
-  const majorRows = new Set([2, 4, 6, 7, 8, 11, 13, 16]);
-  const majorCols = new Set([2, 4, 6, 7, 8, 9, 10, 12, 15]);
-  const rMin = (roadC(1) + HALF) * k;
-  const rMax = (roadC(N - 1) + HALF) * k;
+  // 3. Yo'l iyerarxiyasi (Katta shoh ko'chalar va ichki ko'chalar)
+  const majorRows = new Set([0, 4, 6, 7, 9, 11, 14]);
+  const majorCols = new Set([0, 3, 5, 8, 10, 14]);
 
-  // Ichki va shoh ko'chalar (faqat halqa yo'li ichida chiziladi — xarita cheti 4-burchak bo'lib qolmaydi!)
-  for (let i = 2; i <= N - 2; i++) {
+  for (let i = 0; i <= N; i++) {
     const ry = (roadC(i) + HALF) * k;
     const isMaj = majorRows.has(i);
-    g.fillStyle = isMaj ? '#3b4a61' : '#253142';
-    g.fillRect(rMin, ry - (ROAD * k) * (isMaj ? 0.48 : 0.34), rMax - rMin, ROAD * k * (isMaj ? 0.96 : 0.68));
+    // Yo'l cheti (casing)
+    g.fillStyle = '#0b111d';
+    g.fillRect(0, ry - (ROAD * k) * 0.54, S, ROAD * k * 1.08);
+    // Yo'l qoplamasi
+    g.fillStyle = isMaj ? '#334155' : '#263244';
+    g.fillRect(0, ry - (ROAD * k) * 0.45, S, ROAD * k * 0.9);
   }
-  for (let i = 2; i <= N - 2; i++) {
+
+  for (let i = 0; i <= N; i++) {
     const rx = (roadC(i) + HALF) * k;
     const isMaj = majorCols.has(i);
-    g.fillStyle = isMaj ? '#3b4a61' : '#253142';
-    g.fillRect(rx - (ROAD * k) * (isMaj ? 0.48 : 0.34), rMin, ROAD * k * (isMaj ? 0.96 : 0.68), rMax - rMin);
+    g.fillStyle = isMaj ? '#334155' : '#263244';
+    g.fillRect(rx - (ROAD * k) * 0.45, 0, ROAD * k * 0.9, S);
   }
 
-  // Shoh ko'cha markaziy chiziqlari
-  g.save();
-  for (let i = 2; i <= N - 2; i++) {
+  // Markaziy yo'l chiziqlari (Shoh ko'chalarda sariq ikki chiziq, oddiy ko'chalarda oq uzuq chiziq)
+  for (let i = 0; i <= N; i++) {
     const ry = (roadC(i) + HALF) * k;
     const rx = (roadC(i) + HALF) * k;
+
+    g.save();
     if (majorRows.has(i)) {
-      g.strokeStyle = 'rgba(251, 191, 36, 0.48)';
+      g.strokeStyle = 'rgba(251, 191, 36, 0.42)';
       g.lineWidth = 1.6;
-      g.beginPath();
-      g.moveTo(rMin, ry);
-      g.lineTo(rMax, ry);
-      g.stroke();
+      g.setLineDash([]);
+    } else {
+      g.strokeStyle = 'rgba(226, 232, 240, 0.22)';
+      g.lineWidth = 1.1;
+      g.setLineDash([8, 8]);
     }
+    g.beginPath();
+    g.moveTo(0, ry);
+    g.lineTo(S, ry);
+    g.stroke();
+
     if (majorCols.has(i)) {
-      g.strokeStyle = 'rgba(251, 191, 36, 0.48)';
+      g.strokeStyle = 'rgba(251, 191, 36, 0.42)';
       g.lineWidth = 1.6;
-      g.beginPath();
-      g.moveTo(rx, rMin);
-      g.lineTo(rx, rMax);
-      g.stroke();
+      g.setLineDash([]);
+    } else {
+      g.strokeStyle = 'rgba(226, 232, 240, 0.22)';
+      g.lineWidth = 1.1;
+      g.setLineDash([8, 8]);
     }
+    g.beginPath();
+    g.moveTo(rx, 0);
+    g.lineTo(rx, S);
+    g.stroke();
+    g.restore();
   }
 
-  // Kichik Halqa va Tashqi Halqa Magistrali — GTA 5 uslubida silliq yumaloq burchakli avtomagistral!
-  const ringCornerR = 115;
-  g.strokeStyle = '#0b111d';
-  g.lineWidth = ROAD * k * 1.35;
+  // Amir Temur xiyoboni doiraviy halqasi (j=9, k=7)
+  const skverX = (blockC(9) + HALF) * k;
+  const skverY = (blockC(7) + HALF) * k;
+  g.save();
+  g.fillStyle = 'rgba(22, 101, 52, 0.45)';
   g.beginPath();
-  g.roundRect(rMin, rMin, rMax - rMin, rMax - rMin, ringCornerR);
+  g.arc(skverX, skverY, BLOCK * k * 0.34, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = '#38bdf8';
+  g.lineWidth = 2.6;
+  g.beginPath();
+  g.arc(skverX, skverY, BLOCK * k * 0.38, 0, Math.PI * 2);
   g.stroke();
 
-  g.strokeStyle = '#475569';
-  g.lineWidth = ROAD * k * 0.95;
-  g.beginPath();
-  g.roundRect(rMin, rMin, rMax - rMin, rMax - rMin, ringCornerR);
-  g.stroke();
-
-  g.strokeStyle = 'rgba(250, 204, 21, 0.68)';
-  g.lineWidth = 2.4;
-  g.beginPath();
-  g.roundRect(rMin, rMin, rMax - rMin, rMax - rMin, ringCornerR);
-  g.stroke();
-
-  // Ichki Kichik Halqa (yumaloq burchakli)
-  const inMin = (roadC(3) + HALF) * k;
-  const inMax = (roadC(N - 3) + HALF) * k;
-  g.strokeStyle = 'rgba(250, 204, 21, 0.35)';
-  g.lineWidth = 2.8;
-  g.beginPath();
-  g.roundRect(inMin, inMin, inMax - inMin, inMax - inMin, 85);
-  g.stroke();
-
-  // Asosiy chorrahalarda GTA 5 uslubidagi aylana ko'prik / razvyazka halqalari
-  const interchanges = [
-    [9, 7],  // Amir Temur Xiyoboni
-    [4, 7],  // Tashkent City
-    [8, 1],  // Teleminora
-    [2, 5],  // Chorsu
-    [4, 10], // Magic City
-  ];
-  for (const [ij, ik] of interchanges) {
-    const ix = (blockC(ij) + HALF) * k;
-    const iy = (blockC(ik) + HALF) * k;
-    g.fillStyle = 'rgba(22, 101, 52, 0.42)';
-    g.strokeStyle = '#38bdf8';
-    g.lineWidth = 2.4;
-    g.beginPath();
-    g.arc(ix, iy, BLOCK * k * 0.36, 0, Math.PI * 2);
-    g.fill();
-    g.stroke();
-  }
-
-  // 6. HAQIQIY OPENSTREETMAP (ODbL) DARYO, KANAL VA KO'LLAR GEOMETRIYASI (139 ta kanal + 11 ta ko'l)
-  g.lineCap = 'round';
-  g.lineJoin = 'round';
-  for (const ww of OSM_WATERWAYS) {
-    if (!ww.pts || ww.pts.length < 2) continue;
-    g.strokeStyle = ww.type === 'river' ? '#09527a' : '#0c6899';
-    g.lineWidth = ww.type === 'river' ? 9 : 4.5;
-    g.beginPath();
-    ww.pts.forEach(([wx, wz], idx) => {
-      const px = (wx + HALF) * k;
-      const py = (wz + HALF) * k;
-      if (idx === 0) g.moveTo(px, py);
-      else g.lineTo(px, py);
-    });
-    g.stroke();
-  }
-  for (const lk of OSM_LAKES) {
-    if (!lk.pts || lk.pts.length < 3) continue;
-    g.fillStyle = '#095985';
-    g.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-    g.lineWidth = 1.4;
-    g.beginPath();
-    lk.pts.forEach(([wx, wz], idx) => {
-      const px = (wx + HALF) * k;
-      const py = (wz + HALF) * k;
-      if (idx === 0) g.moveTo(px, py);
-      else g.lineTo(px, py);
-    });
-    g.closePath();
-    g.fill();
-    g.stroke();
-  }
-
-  // 7. HAQIQIY OPENSTREETMAP (ODbL) YO'L GEOMETRIYASI (567 ta egri ko'cha segmenti · 54.0 km!)
-  for (const rd of OSM_ROADS) {
-    if (!rd.pts || rd.pts.length < 2) continue;
-    const isMajorOsm = rd.type === 'trunk' || rd.type === 'primary';
-    const isSecOsm = rd.type === 'secondary';
-    g.strokeStyle = isMajorOsm
-      ? 'rgba(251, 191, 36, 0.62)'
-      : isSecOsm
-        ? 'rgba(148, 163, 184, 0.48)'
-        : 'rgba(100, 116, 139, 0.34)';
-    g.lineWidth = isMajorOsm ? 4.2 : isSecOsm ? 2.8 : 1.8;
-    g.beginPath();
-    rd.pts.forEach(([wx, wz], idx) => {
-      const px = (wx + HALF) * k;
-      const py = (wz + HALF) * k;
-      if (idx === 0) g.moveTo(px, py);
-      else g.lineTo(px, py);
-    });
-    g.stroke();
-  }
-
-  // 8. HAQIQIY OPENSTREETMAP (ODbL) BINO KONTURLARI (695 ta haqiqiy Toshkent binosi poligonlari!)
-  for (const b of OSM_BUILDINGS) {
-    if (!b.pts || b.pts.length < 3) continue;
-    g.fillStyle = b.h >= 35 ? '#2c476e' : '#24354f';
-    g.strokeStyle = b.name ? 'rgba(56, 189, 248, 0.55)' : 'rgba(148, 163, 184, 0.32)';
-    g.lineWidth = b.name ? 1.3 : 0.9;
-    g.beginPath();
-    b.pts.forEach(([wx, wz], idx) => {
-      const px = (wx + HALF) * k;
-      const py = (wz + HALF) * k;
-      if (idx === 0) g.moveTo(px, py);
-      else g.lineTo(px, py);
-    });
-    g.closePath();
-    g.fill();
-    g.stroke();
-  }
+  // Kichik Halqa Yo'li konturi (Toshkent shahrining real halqa trassasi)
+  const khLeft = (roadC(1) + HALF) * k;
+  const khRight = (roadC(N - 1) + HALF) * k;
+  const khTop = (roadC(3) + HALF) * k;
+  const khBot = (roadC(N - 1) + HALF) * k;
+  g.strokeStyle = 'rgba(250, 204, 21, 0.28)';
+  g.lineWidth = 3.2;
+  g.strokeRect(khLeft, khTop, khRight - khLeft, khBot - khTop);
   g.restore();
 
   baseCanvas = c;
@@ -1120,15 +991,13 @@ export function drawBigMap(canvas, player, extra = {}) {
   g.stroke();
   g.restore();
 
-  // 8. OpenStreetMap Attribution (ODbL) + O'yinchining Real WGS84 Geografik Koordinatasi
-  const ll = worldToLatLon(player.x, player.z);
-  const osmBadge = `${OSM_ATTRIBUTION} · 📍 ${ll.lat}° N, ${ll.lon}° E · ${TASHKENT_GIS_META.totalRoadKm} km OSM yo'l`;
-  g.fillStyle = 'rgba(9, 14, 26, 0.86)';
-  g.fillRect(S - 460, S - 24, 452, 18);
-  g.fillStyle = 'rgba(148, 163, 184, 0.94)';
+  // 8. OpenStreetMap Attribution (ODbL)
+  g.fillStyle = 'rgba(9, 14, 26, 0.82)';
+  g.fillRect(S - 295, S - 24, 288, 18);
+  g.fillStyle = 'rgba(148, 163, 184, 0.9)';
   g.font = '600 10px "Segoe UI", sans-serif';
   g.textAlign = 'right';
-  g.fillText(osmBadge, S - 12, S - 11);
+  g.fillText(`${OSM_ATTRIBUTION} · 6 Tuman`, S - 12, S - 11);
 
   g.restore();
 }
@@ -1142,12 +1011,10 @@ export function bigMapToWorld(mx, mz, S) {
 }
 
 export function streetAt(x, z) {
-  const osmStreet = nearestOsmRoadName(x, z);
   const ix = nearestRoad(x), iz = nearestRoad(z);
   const dx = Math.abs(x - roadC(ix)), dz = Math.abs(z - roadC(iz));
   const dist = districtAt(x, z);
   const dName = dist ? dist.name : 'Toshkent';
-  if (osmStreet) return `${osmStreet} · ${dName}`;
   if (dx < ROAD && dx <= dz && STREETS_X[ix]) return `${STREETS_X[ix]} · ${dName}`;
   if (dz < ROAD && STREETS_Z[iz]) return `${STREETS_Z[iz]} · ${dName}`;
   return dist ? dist.uz : dName;
