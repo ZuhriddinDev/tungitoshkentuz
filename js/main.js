@@ -27,7 +27,7 @@ import { Vehicle } from './physics.js';
 import { Traffic, Pedestrians } from './traffic.js';
 import { initInput, readDrive, onKey, setEnabled, applyControl, isTouch, cam } from './input.js';
 import { TireSmoke } from './smoke.js';
-import { initAudio, updateEngine, engineStart, engineOff, remoteAudio, trafficAudio, thump, horn, beep, suspend } from './audio.js';
+import { initAudio, updateEngine, engineStart, engineOff, remoteAudio, trafficAudio, thump, horn, beep, suspend, sguQuack, toggleSguSiren, stopSguSiren } from './audio.js';
 import { toggleAudioDiagnostic } from './audioDiagnostic.js';
 import { initMissions, updateMission, mission, rivals } from './missions.js';
 import { drawMinimap } from './map.js';
@@ -74,7 +74,7 @@ let pendingDepositInvite = null;
 const FIXED_DT = 1 / 60;
 let physAcc = 0;
 let speedoT = 0, lastNightVal = -1;
-let hour = 21.75, waypoint = null, lightsMode = 'auto', kmAcc = 0, fuelWarned = false;
+let hour = 21.75, waypoint = null, lightsMode = 'auto', strobeOn = false, kmAcc = 0, fuelWarned = false;
 const progress = (p, t) => {
   if ($('loadBar')) $('loadBar').style.width = p + '%';
   if ($('loadText')) $('loadText').textContent = t;
@@ -93,6 +93,7 @@ const player = {
   get vehicle() { return vehicle; },
   get len() { return vehicle.cfg.len; },
   get inClub() { return insideClub; },
+  get strobeOn() { return !insideClub && strobeOn; },
   locked: false,
 };
 
@@ -136,6 +137,7 @@ function setCar(soft = false) {
   updateMenuCarInfo();
   if (soft && model && model.cfg.id === cfg.id) {
     model.setTuning(inst);
+    model.setStrobe?.(strobeOn);
     return;
   }
   const prev = vehicle;
@@ -144,6 +146,7 @@ function setCar(soft = false) {
     scene.remove(model.group);
   }
   model = buildCar(cfg, inst);
+  model.setStrobe?.(strobeOn);
   model.group.rotation.order = 'YXZ';
   model.group.traverse((o) => {
     if (o.isMesh && o.material !== undefined && !o.material.transparent) o.castShadow = true;
@@ -606,7 +609,52 @@ function exitKokobangoClub() {
   }, 280);
 }
 
-onKey('KeyH', keyGuard(() => { if (!insideClub) horn(); }));
+onKey('KeyH', keyGuard(() => {
+  if (insideClub) return;
+  if (strobeOn || (vehicle?.inst?.strobe && vehicle.inst.strobe !== 'none')) {
+    sguQuack();
+  } else {
+    horn();
+  }
+}));
+onKey('KeyU', keyGuard(() => {
+  if (insideClub || !vehicle || !model) return;
+  if (!vehicle.inst.strobe || vehicle.inst.strobe === 'none') {
+    vehicle.inst.strobe = 'grille_rb';
+    touch();
+    model.setTuning(vehicle.inst);
+  }
+  strobeOn = !strobeOn;
+  model.setStrobe?.(strobeOn);
+  if (strobeOn) {
+    sguQuack();
+    toast('🚨 Stroboskop (Migalka) yoqildi! [J] — SGU Sirena / Крякалка', 'ok');
+  } else {
+    stopSguSiren();
+    toast('🚨 Stroboskop va SGU o\'chirildi', 'ok');
+  }
+}));
+onKey('KeyJ', keyGuard(() => {
+  if (insideClub || !vehicle || !model) return;
+  if (!vehicle.inst.strobe || vehicle.inst.strobe === 'none') {
+    vehicle.inst.strobe = 'grille_rb';
+    touch();
+    model.setTuning(vehicle.inst);
+  }
+  sguQuack();
+  const mode = toggleSguSiren();
+  if (mode > 0 && !strobeOn) {
+    strobeOn = true;
+    model.setStrobe?.(true);
+  }
+  if (mode === 1) {
+    toast('📢 SGU Крякалка + Tezkor YPX Sirena yoqildi!', 'ok');
+  } else if (mode === 2) {
+    toast('🚓 SGU Asosiy YPX Sirena rejimi!', 'ok');
+  } else {
+    toast('📢 SGU Кря-Кря! (Sirena o\'chirildi)', 'ok');
+  }
+}));
 onKey('KeyC', keyGuard(() => {
   if (!insideClub && !photoMode.active) {
     camState.mode = (camState.mode + 1) % CAM_MODE_NAMES.length;
@@ -752,6 +800,9 @@ function syncOnlineNow(dt) {
     tint: vehicle.inst.tint || 'none',
     headlightColor: vehicle.inst.headlightColor || '#fff3d0',
     neon: vehicle.inst.neon || 'none',
+    strobe: vehicle.inst.strobe || 'none',
+    strobeOn: !inClubNow && strobeOn,
+    plate: vehicle.inst.plate || '01|A 777 AA',
     x: inClubNow ? playerChar.x : vehicle.x,
     y: inClubNow ? kokobango.interiorY : model.group.position.y,
     z: inClubNow ? playerChar.z : vehicle.z,

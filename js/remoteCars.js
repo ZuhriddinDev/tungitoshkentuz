@@ -132,6 +132,8 @@ export class RemoteCars {
         p.tint || 'none',
         p.headlightColor || '#fff3d0',
         p.neon || 'none',
+        p.strobe || 'none',
+        p.plate || '',
       ].join('|');
 
       // Yangi o'yinchi mashinasini yaratish
@@ -148,6 +150,8 @@ export class RemoteCars {
           tint: p.tint || 'none',
           headlightColor: p.headlightColor || '#fff3d0',
           neon: p.neon || 'none',
+          strobe: p.strobe || 'none',
+          plate: p.plate || '01|A 777 AA',
         };
 
         const model = buildCar(cfg, look, { beam: true, priority: true });
@@ -249,6 +253,8 @@ export class RemoteCars {
             tint: p.tint || 'none',
             headlightColor: p.headlightColor || '#fff3d0',
             neon: p.neon || 'none',
+            strobe: p.strobe || 'none',
+            plate: p.plate || '01|A 777 AA',
           });
         }
       }
@@ -368,6 +374,7 @@ export class RemoteCars {
         if (showFullCar) {
           const isNearby = distToMe < 120;
           const stepDist = isNearby && Math.abs(targetV) > 0.1 ? targetV * dt : 0;
+          r.model.setStrobe?.(isNearby && !!p.strobeOn);
           r.model.update(stepDist, isNearby ? r.steer : 0);
           r.model.setLights?.(isNearby ? (p.lights !== undefined ? p.lights : night > 0.35) : false);
           r.model.setBrake?.(!!p.braking);

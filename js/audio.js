@@ -745,6 +745,7 @@ export function engineOff() {
   }
   if (skidGain) skidGain.gain.setTargetAtTime(0, now, 0.04);
   if (roadGain) roadGain.gain.setTargetAtTime(0, now, 0.04);
+  stopSguSiren();
 }
 
 export function updateEngine(rpm, throttle, pitch = 1, slip = 0, kmh = 0, opts = {}) {
@@ -838,6 +839,119 @@ export function horn(dur = 0.4) {
     o.start(t);
     o.stop(t + dur + 0.1);
   }
+}
+
+// ============================================================================
+// SGU «КРЯКАЛКА» (VIP AIRHORN QUACK) VA YPX / GAI SIRENA TIZIMI
+// ============================================================================
+let _sguMode = 0; // 0 = off, 1 = Yelp (tezkor), 2 = Wail (cho'ziq)
+let _sguNodes = null;
+
+export function getSguSirenMode() {
+  return _sguMode;
+}
+
+export function sguQuack() {
+  if (!ctx || !masterGain) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  const t = ctx.currentTime;
+
+  // Ikki zarbli haqiqiy SGU "Кря-Кря!" (Airhorn Quack) + qisqa GAI chirp
+  const pulses = [
+    { start: 0.0, dur: 0.11 },
+    { start: 0.15, dur: 0.14 },
+  ];
+  for (const p of pulses) {
+    const t0 = t + p.start;
+    const t1 = t0 + p.dur;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(740, t0);
+    bp.Q.setValueAtTime(1.8, t0);
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.001, t0);
+    g.gain.linearRampToValueAtTime(0.22, t0 + 0.01);
+    g.gain.setValueAtTime(0.22, t1 - 0.015);
+    g.gain.linearRampToValueAtTime(0.001, t1);
+    bp.connect(g).connect(masterGain);
+
+    for (const freq of [116, 145, 232, 348]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, t0);
+      // Tezkor FM vibrato ("xirillagan" SGU tembri)
+      const lfo = ctx.createOscillator();
+      const lfoG = ctx.createGain();
+      lfo.type = 'square';
+      lfo.frequency.setValueAtTime(54, t0);
+      lfoG.gain.setValueAtTime(freq * 0.18, t0);
+      lfo.connect(lfoG).connect(osc.frequency);
+      osc.connect(bp);
+      lfo.start(t0);
+      osc.start(t0);
+      lfo.stop(t1 + 0.02);
+      osc.stop(t1 + 0.02);
+    }
+  }
+}
+
+export function stopSguSiren() {
+  _sguMode = 0;
+  if (_sguNodes) {
+    try {
+      _sguNodes.osc.stop();
+      _sguNodes.lfo.stop();
+      _sguNodes.gain.disconnect();
+    } catch (_) {}
+    _sguNodes = null;
+  }
+}
+
+export function toggleSguSiren() {
+  if (!ctx || !masterGain) return 0;
+  if (ctx.state === 'suspended') ctx.resume();
+  const nextMode = (_sguMode + 1) % 3;
+  stopSguSiren();
+  _sguMode = nextMode;
+  if (_sguMode === 0) return 0;
+
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  const bp = ctx.createBiquadFilter();
+  const gain = ctx.createGain();
+
+  osc.type = 'sawtooth';
+  bp.type = 'bandpass';
+  bp.frequency.setValueAtTime(1050, t);
+  bp.Q.setValueAtTime(1.4, t);
+
+  if (_sguMode === 1) {
+    // 1-rejim: Tezkor YPX "Yelp" sirena (Уи-уи-уи-уи)
+    osc.frequency.setValueAtTime(920, t);
+    lfo.type = 'triangle';
+    lfo.frequency.setValueAtTime(3.6, t);
+    lfoGain.gain.setValueAtTime(360, t);
+  } else {
+    // 2-rejim: Asosiy cho'ziq YPX "Wail" sirena (Ууууу-иииии)
+    osc.frequency.setValueAtTime(840, t);
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(0.42, t);
+    lfoGain.gain.setValueAtTime(340, t);
+  }
+
+  gain.gain.setValueAtTime(0.001, t);
+  gain.gain.linearRampToValueAtTime(0.14, t + 0.08);
+
+  lfo.connect(lfoGain).connect(osc.frequency);
+  osc.connect(bp).connect(gain).connect(masterGain);
+  lfo.start(t);
+  osc.start(t);
+
+  _sguNodes = { osc, lfo, gain };
+  return _sguMode;
 }
 
 export function beep(type = 'ok') {

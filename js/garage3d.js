@@ -119,6 +119,7 @@ export function showCar(canvas, cfg, look) {
         Math.cos(angle) * fit * 1.48
       );
       camera.lookAt(0, cfg.hei * 0.42, 0);
+      built.updateStrobe?.(performance.now() * 0.001, true);
       renderer.render(scene, camera);
       const ctx2d = canvas.getContext('2d');
       ctx2d.clearRect(0, 0, tw, th);

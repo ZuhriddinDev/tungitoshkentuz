@@ -316,7 +316,7 @@ function renderTunePanel(side, cfg, inst) {
     ['rims',    '🛞 Diska'],
     ['aero',    '🛡️ Kuzov & Spoyler'],
     ['tint',    '🕶️ Tonirovka'],
-    ['lights',  '💡 Fara & Neon'],
+    ['lights',  '🚨 Migalka, Fara & Neon'],
     ['plate',   '🪪 Raqam (UZ)'],
     ['power',   '⚡ Motor & Turbo'],
     ['chassis', '🔧 Tormoz & Rul'],
@@ -349,6 +349,7 @@ function renderTunePanel(side, cfg, inst) {
     bodyHtml = renderOptionGrid('tint', inst);
   } else if (tuneCat === 'lights') {
     bodyHtml = `
+      ${renderOptionGrid('strobe', inst)}
       ${renderOptionGrid('headlightColor', inst)}
       ${renderOptionGrid('neon', inst)}`;
   } else if (tuneCat === 'plate') {

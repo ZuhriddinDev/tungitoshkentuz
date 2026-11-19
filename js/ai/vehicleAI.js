@@ -358,12 +358,17 @@ export class VehicleAIManager {
         outerLaneClear = false;
       }
 
-      // Safe overtaking on main multi-lane roads only
+      // Safe overtaking on main multi-lane roads only (yoki o'yinchi Migalka / Stroboskop yoqib kelayotganda yo'l bo'shatish)
+      const playerSirenBehind = !!player.strobeOn && pAhead < 6 && pAhead > -55 && Math.abs(pSide) < 5.0;
       const onMainRoad = car.dx ? MAIN_ROADS_X.has(car.nk) : MAIN_ROADS_Z.has(car.ni);
-      if (blockedAhead && !atRed && onMainRoad && toT > 26 && outerLaneClear && car.lane === 0 && !car.turning) {
+      if (playerSirenBehind && outerLaneClear && !car.turning) {
+        car.lane = 1;
+        car.aiState = 'yield_vip';
+        car.model.setBlinker?.('hazard', t);
+      } else if (blockedAhead && !atRed && onMainRoad && toT > 26 && outerLaneClear && car.lane === 0 && !car.turning) {
         car.lane = 1;
         car.aiState = 'overtaking';
-      } else if (!blockedAhead && car.lane === 1 && outerLaneClear) {
+      } else if (!blockedAhead && !playerSirenBehind && car.lane === 1 && outerLaneClear) {
         car.lane = 0;
       }
 

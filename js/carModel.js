@@ -955,6 +955,7 @@ export function buildCar(cfg, look = {}, opts = {}) {
     rearTop: proc.rearTop,
     headMat, tailMat,
     lightsOn: false,
+    strobeOn: false,
     braking: false,
     _glbLoaded: false,
     _glbPaintMats: [],
@@ -1086,7 +1087,38 @@ export function buildCar(cfg, look = {}, opts = {}) {
       chassisTilt.position.y = Math.abs(roll) * 0.035;
     },
 
+    setStrobe(on) {
+      api.strobeOn = !!on;
+      api.updateStrobe(performance.now() * 0.001, false);
+    },
+
+    updateStrobe(timeSec = performance.now() * 0.001, forceOn = false) {
+      const st = extras.userData.strobe;
+      if (!st) return;
+      const active = forceOn || api.strobeOn;
+      if (!active) {
+        st.group.visible = false;
+        return;
+      }
+      st.group.visible = true;
+      const step = Math.floor(timeSec * 16) % 16;
+      let leftOn = false;
+      let rightOn = false;
+      if (step < 8) {
+        leftOn = step === 0 || step === 2;
+        rightOn = step === 4 || step === 6;
+      } else {
+        leftOn = step === 8 || step === 10 || step === 12 || step === 14;
+        rightOn = step === 9 || step === 11 || step === 13 || step === 14;
+      }
+      st.leftMat.opacity = leftOn ? 1.0 : 0.14;
+      st.rightMat.opacity = rightOn ? 1.0 : 0.14;
+      st.glowL.opacity = leftOn ? 0.95 : 0.0;
+      st.glowR.opacity = rightOn ? 0.95 : 0.0;
+    },
+
     update(dist, steer, pitch = 0, roll = 0, wheelSusp = null) {
+      api.updateStrobe(performance.now() * 0.001, false);
       const r = Math.max(api.radius, 0.2);
       // Mashina to'xtaganda g'ildiraklar 100% to'xtaydi (harakat paytida esa tezlikka mos aylanadi)
       const spinAngle = Math.abs(dist) > 1e-4 ? dist / r : 0;
@@ -1259,6 +1291,121 @@ function applyTuning(extras, cfg, rearTop, t) {
     const fPlate = new THREE.Mesh(pGeo, plateMat);
     fPlate.position.set(0, frontY, frontZ + 0.009);
     extras.add(fFrame, fPlate);
+  }
+
+  // 5. Stroboskop (Migalka), Oq FSO Vspishka va Tomdagi YPX Balka
+  extras.userData.strobe = null;
+  if (t.strobe && t.strobe !== 'none') {
+    const isFso = t.strobe === 'fso_white';
+    const isRoof = t.strobe === 'roof_vip';
+    const colLeft = isFso ? 0xffffff : 0x0066ff;
+    const colRight = isFso ? 0xe0f7ff : 0xff002b;
+
+    const leftMat = new THREE.MeshBasicMaterial({ color: colLeft, transparent: true, opacity: 1.0 });
+    const rightMat = new THREE.MeshBasicMaterial({ color: colRight, transparent: true, opacity: 1.0 });
+    const glowL = new THREE.MeshBasicMaterial({
+      map: GLOW_TEX,
+      color: colLeft,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const glowR = new THREE.MeshBasicMaterial({
+      map: GLOW_TEX,
+      color: colRight,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+
+    const stGroup = new THREE.Group();
+    const H = cfg.hei || 1.45;
+    const grilleY = Math.max(0.48, H * 0.36);
+    const grilleZ = L / 2 + 0.022;
+    const flareGeo = new THREE.PlaneGeometry(0.46, 0.28);
+
+    // A) Oblisovka (Old panjara) ichidagi 4 ta kuchli LED stroboskop / FSO modul
+    for (const dx of [-0.25, -0.13]) {
+      const led = new THREE.Mesh(box, leftMat);
+      led.scale.set(0.085, 0.036, 0.024);
+      led.position.set(dx, grilleY, grilleZ);
+      const fl = new THREE.Mesh(flareGeo, glowL);
+      fl.position.set(dx, grilleY, grilleZ + 0.015);
+      stGroup.add(led, fl);
+    }
+    for (const dx of [0.13, 0.25]) {
+      const led = new THREE.Mesh(box, rightMat);
+      led.scale.set(0.085, 0.036, 0.024);
+      led.position.set(dx, grilleY, grilleZ);
+      const fl = new THREE.Mesh(flareGeo, glowR);
+      fl.position.set(dx, grilleY, grilleZ + 0.015);
+      stGroup.add(led, fl);
+    }
+
+    // B) Old lobovoy oyna tepasi va orqa oynadagi ichki stroboskop
+    const visorY = H * 0.84;
+    const visorZ = L * 0.16;
+    const vLeft = new THREE.Mesh(box, leftMat);
+    vLeft.scale.set(0.18, 0.032, 0.03);
+    vLeft.position.set(-0.24, visorY, visorZ);
+    const vRight = new THREE.Mesh(box, rightMat);
+    vRight.scale.set(0.18, 0.032, 0.03);
+    vRight.position.set(0.24, visorY, visorZ);
+    stGroup.add(vLeft, vRight);
+
+    const rearVisorY = H * 0.80;
+    const rearVisorZ = -L * 0.24;
+    const rvL = new THREE.Mesh(box, leftMat);
+    rvL.scale.set(0.18, 0.032, 0.03);
+    rvL.position.set(-0.24, rearVisorY, rearVisorZ);
+    const rvR = new THREE.Mesh(box, rightMat);
+    rvR.scale.set(0.18, 0.032, 0.03);
+    rvR.position.set(0.24, rearVisorY, rearVisorZ);
+    stGroup.add(rvL, rvR);
+
+    // C) Tomdagi YPX / VIP Migalka Balkasi (roof_vip)
+    if (isRoof) {
+      const barY = H + 0.055;
+      const barZ = -0.04;
+      const baseBar = new THREE.Mesh(box, carbonMat);
+      baseBar.scale.set(W * 0.62, 0.045, 0.18);
+      baseBar.position.set(0, barY - 0.02, barZ);
+
+      const domeL = new THREE.Mesh(box, leftMat);
+      domeL.scale.set(W * 0.27, 0.06, 0.16);
+      domeL.position.set(-W * 0.16, barY + 0.015, barZ);
+
+      const domeR = new THREE.Mesh(box, rightMat);
+      domeR.scale.set(W * 0.27, 0.06, 0.16);
+      domeR.position.set(W * 0.16, barY + 0.015, barZ);
+
+      const roofGlowGeo = new THREE.PlaneGeometry(1.4, 1.4);
+      const rgL = new THREE.Mesh(roofGlowGeo, glowL);
+      rgL.rotation.x = -Math.PI / 2;
+      rgL.position.set(-W * 0.18, barY + 0.05, barZ);
+      const rgR = new THREE.Mesh(roofGlowGeo, glowR);
+      rgR.rotation.x = -Math.PI / 2;
+      rgR.position.set(W * 0.18, barY + 0.05, barZ);
+      stGroup.add(baseBar, domeL, domeR, rgL, rgR);
+    }
+
+    // D) Asfaltga tushadigan stroboskop yorug'lik aksi
+    const groundGeo = new THREE.PlaneGeometry(W * 1.45, L * 0.95);
+    const gL = new THREE.Mesh(groundGeo, glowL);
+    gL.rotation.x = -Math.PI / 2;
+    gL.position.set(-W * 0.42, 0.065, L * 0.48);
+    const gR = new THREE.Mesh(groundGeo, glowR);
+    gR.rotation.x = -Math.PI / 2;
+    gR.position.set(W * 0.42, 0.065, L * 0.48);
+    stGroup.add(gL, gR);
+
+    stGroup.visible = false;
+    extras.add(stGroup);
+    extras.userData.strobe = { group: stGroup, leftMat, rightMat, glowL, glowR };
   }
 }
 

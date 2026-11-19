@@ -135,6 +135,15 @@ export const TUNING = {
       { id: '#aa00ff', name: 'Ultra Binafsha', price: 6_000_000 },
     ],
   },
+  strobe: {
+    name: '🚨 Stroboskop (Migalka), FSO va SGU Tizimi [U / J]',
+    options: [
+      { id: 'none',      name: "Standart (Yo'q)", price: 0 },
+      { id: 'grille_rb', name: '🚨 Oblisovka Ko\'k-Qizil Stroboskop + SGU', price: 4_500_000 },
+      { id: 'fso_white', name: '⚡ Ikki Qavatli Oq FSO Vspishka + VIP SGU', price: 6_000_000 },
+      { id: 'roof_vip',  name: '🚓 Tomdagi YPX / VIP Migalka Balka + GAI Sirena', price: 9_000_000 },
+    ],
+  },
   engine: {
     name: 'Motor Yangilash (Dvigatel · V8 / V12 / W12)',
     options: [
