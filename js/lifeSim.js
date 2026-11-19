@@ -182,10 +182,46 @@ export const STORY_CAMPAIGN = [
 ];
 
 export const NPC_CONTACTS = [
-  { name: 'Rustam aka', role: 'Chilonzor mahalla', phone: '+998 90 101-22-33', msg: 'Har doim halol mehnat qil, uka!' },
-  { name: 'Usta Bahrom', role: 'Markaziy Avtoservis', phone: '+998 93 555-01-01', msg: 'V8 va V12 motorlar garajda tayyor!' },
-  { name: 'Lola', role: 'Tashkent City VIP', phone: '+998 99 777-88-99', msg: 'VIP haydovchi buyurtmalari ochiq.' },
-  { name: 'Timur', role: 'Tungi Poyga Klubi', phone: '+998 97 707-07-07', msg: 'Kechasi 1v1 va Drag poygada kutaman!' },
+  {
+    id: 'rustam',
+    name: 'Rustam aka',
+    role: 'Chilonzor Taksi Dispetcheri',
+    phone: '+998 90 101-22-33',
+    msg: 'Qo\'ng\'iroq qilsang, darhol yaqin joydan Taksi mijoz ulab beraman!',
+    btnLabel: '📞 Taksi buyurtma olish',
+  },
+  {
+    id: 'bahrom',
+    name: 'Usta Bahrom',
+    role: '24/7 Mobil Avtoservis & Benzin',
+    phone: '+998 93 555-01-01',
+    msg: 'Yo\'lda qolsang qo\'ng\'iroq qil: joyida 100% ta\'mir + to\'liq bak benzin (1 500 000 so\'m).',
+    btnLabel: '📞 Mobil Usta (1.5 mln)',
+  },
+  {
+    id: 'lola',
+    name: 'Lola',
+    role: 'Tashkent City VIP Menedjer',
+    phone: '+998 99 777-88-99',
+    msg: 'Biznes-klass va VIP mehmonlarni tashish buyurtmasini ulab beraman.',
+    btnLabel: '📞 VIP Buyurtma olish',
+  },
+  {
+    id: 'timur',
+    name: 'Timur',
+    role: 'Tungi Poyga Klubi',
+    phone: '+998 97 707-07-07',
+    msg: 'Qo\'ng\'iroq qil — hozirning o\'zida 1v1 Tungi Duel raqibini chiqaraman!',
+    btnLabel: '📞 1v1 Duel chaqirish',
+  },
+  {
+    id: 'evakuator',
+    name: 'Tezkor Evakuator 24/7',
+    role: 'Avtosalonga eltish xizmati',
+    phone: '+998 71 200-09-11',
+    msg: 'Mashinani darhol Markaziy Avtosalon va Garaj oldiga olib borish (1 000 000 so\'m).',
+    btnLabel: '📞 Evakuator (1 mln)',
+  },
 ];
 
 export function getActiveProperty() {
@@ -448,11 +484,15 @@ function renderPhone(body, ui, game) {
   } else if (currentPhoneApp === 'contacts') {
     const peers = onlineList();
     content = `
-      <div class="section-title">👥 Toshkent Kontaktlari</div>
+      <div class="section-title">👥 Toshkent Tezkor Xizmat Kontaktlari (GTA uslubida qo'ng'iroq)</div>
       <div class="list">
         ${NPC_CONTACTS.map((c) => `
-          <div class="row">
-            <div><b>👤 ${c.name}</b> <small>(${c.role}) · ${c.phone}</small><small style="display:block;color:#38bdf8">${c.msg}</small></div>
+          <div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:210px">
+              <b>👤 ${c.name}</b> <small>(${c.role}) · <span style="color:#fde047">${c.phone}</span></small>
+              <small style="display:block;color:#38bdf8">${c.msg}</small>
+            </div>
+            <button type="button" class="btn primary" data-call-npc="${c.id}">${c.btnLabel}</button>
           </div>
         `).join('')}
       </div>
@@ -614,6 +654,49 @@ function renderPhone(body, ui, game) {
     ui.closeModal();
     game.teleportTo((p.x || 0) + 4, (p.z || 0) + 4, p.h || 0);
     ui.toast(`📍 ${p.name || "Do'st"} yoniga o'tdingiz!`, 'ok');
+  }));
+
+  body.querySelectorAll('[data-call-npc]').forEach((b) => (b.onclick = () => {
+    const id = b.dataset.callNpc;
+    const hr = typeof game.hour === 'function' ? game.hour() : 22;
+    if (id === 'rustam') {
+      beep('ok');
+      ui.closeModal();
+      startMission('taxi', hr);
+      ui.toast('📞 Rustam aka: «Yangi Taksi mijozi lokatsiyasi GPS ga yuborildi!»', 'cash');
+    } else if (id === 'bahrom') {
+      const carInst = activeCar();
+      const cfg = carById(carInst.id);
+      if (!spend(1_500_000, 'Usta Bahrom: Mobil ta\'mir va to\'liq bak')) {
+        beep('err');
+        return ui.toast('Mobil usta xizmati uchun 1 500 000 so\'m kerak!', 'err');
+      }
+      carInst.damage = 0;
+      carInst.fuelL = cfg.tank || 60;
+      touch();
+      beep('cash');
+      ui.toast('📞 Usta Bahrom: «Mashinangiz 100% ta\'mirlandi va baki to\'ldirildi!»', 'ok');
+      renderPhone(body, ui, game);
+    } else if (id === 'lola') {
+      beep('ok');
+      ui.closeModal();
+      startMission('vip_driver', hr);
+      ui.toast('📞 Lola: «VIP mijoz sizni kutmoqda, GPS yo\'nalishiga qarang!»', 'cash');
+    } else if (id === 'timur') {
+      beep('go');
+      ui.closeModal();
+      startMission('duel', hr);
+      ui.toast('📞 Timur: «1v1 Tungi Duel raqibi ko\'chaga chiqdi! Gazni bosing!»', 'cash');
+    } else if (id === 'evakuator') {
+      if (!spend(1_000_000, 'Tezkor Evakuator xizmati')) {
+        beep('err');
+        return ui.toast('Evakuator uchun 1 000 000 so\'m kerak!', 'err');
+      }
+      beep('ok');
+      ui.closeModal();
+      game.tow?.();
+      ui.toast('📞 Evakuator: «Mashinangiz Markaziy Avtosalon oldiga olib kelindi!»', 'ok');
+    }
   }));
 
   const chatBtn = body.querySelector('#phChatSend');
