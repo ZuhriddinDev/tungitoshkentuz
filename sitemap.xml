@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
-    <loc>https://tungi-toshkent-3d.onrender.com/</loc>
-    <lastmod>2026-11-08</lastmod>
+    <loc>https://tungitoshkent.uz/</loc>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://tungitoshkent.uz/kirishbanner/Tungi%20Toshkent_%20Neonli%20Poyga%20Menyusi.png</image:loc>
+      <image:title>TUNGI TOSHKENT 3D — Online Multiplayer Driving Game</image:title>
+    </image:image>
   </url>
 </urlset>

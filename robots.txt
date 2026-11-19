@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /api/
 
-Sitemap: https://tungi-toshkent-3d.onrender.com/sitemap.xml
+Host: https://tungitoshkent.uz
+Sitemap: https://tungitoshkent.uz/sitemap.xml
