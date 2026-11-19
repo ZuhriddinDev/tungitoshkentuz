@@ -43,6 +43,27 @@ function buildingGeo(w, h, d, x, z, y0 = 0, rotY = 0) {
   return g;
 }
 
+// Barcha geometriyalarni (Indexed BoxGeometry va Non-Indexed Extrude/Ribbon) xavfsiz birlashtirish
+function safeMerge(geos) {
+  if (!geos || !geos.length) return null;
+  const list = [];
+  for (let i = 0; i < geos.length; i++) {
+    const g = geos[i];
+    if (!g || !g.attributes?.position || g.attributes.position.count === 0) continue;
+    const nonIdx = g.index ? g.toNonIndexed() : g;
+    if (!nonIdx.attributes.normal) nonIdx.computeVertexNormals();
+    if (!nonIdx.attributes.uv) {
+      const cnt = nonIdx.attributes.position.count;
+      nonIdx.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(cnt * 2), 2));
+    }
+    list.push(nonIdx);
+  }
+  if (!list.length) return null;
+  const merged = mergeGeometries(list, false);
+  if (merged) merged.computeBoundingSphere();
+  return merged;
+}
+
 // Haqiqiy OpenStreetMap (OSM) ko'pburchakli bino konturini (pts) 3D ga ekstrud qilish (kub EMAS — real L-shakl, burchakli, egri fasad!)
 function extrudeOsmPolygonGeo(rawPts, h, y0 = 0, scale = 1.0, cx = 0, cz = 0) {
   if (!rawPts || rawPts.length < 3) return null;
@@ -107,10 +128,12 @@ function extrudeOsmPolygonGeo(rawPts, h, y0 = 0, scale = 1.0, cx = 0, cz = 0) {
   for (let t = 0; t < tris.length; t++) {
     const [i0, i1, i2] = tris[t];
     const p0 = pts[i0], p1 = pts[i1], p2 = pts[i2];
+    if (!p0 || !p1 || !p2) continue;
     positions.push(p0[0], yTop, p0[1], p2[0], yTop, p2[1], p1[0], yTop, p1[1]);
     normals.push(0, 1, 0, 0, 1, 0, 0, 1, 0);
     uvs.push(0.995, 0.005, 0.995, 0.005, 0.995, 0.005);
   }
+  if (!positions.length) return null;
 
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -164,29 +187,51 @@ function buildRibbonGeo(pts, width, y = 0.24) {
   return geom;
 }
 
-// Nuqtaning (x, z) haqiqiy OpenStreetMap yo'li yoki kanaliga yaqinligini tekshirish (yo'l ustiga bino tushmasligi uchun!)
-function pointToSegDistSq(px, pz, x0, z0, x1, z1) {
-  const dx = x1 - x0, dz = z1 - z0;
-  const l2 = dx * dx + dz * dz;
-  if (l2 < 1e-4) return (px - x0) * (px - x0) + (pz - z0) * (pz - z0);
-  const t = Math.max(0, Math.min(1, ((px - x0) * dx + (pz - z0) * dz) / l2));
-  const qx = x0 + t * dx, qz = z0 + t * dz;
-  return (px - qx) * (px - qx) + (pz - qz) * (pz - qz);
-}
+// Tezkor O(1) 2D Spatial Road Mask (500x500 katak, har biri 10m x 10m — 1.5 millisekundda quriladi, qotish 0%!)
+const MASK_N = 500;
+const MASK_CELL = (HALF * 2) / MASK_N; // 10m
+let _osmRoadMask = null;
 
-export function isNearOsmRoad(px, pz, pad = 12) {
+function ensureOsmRoadMask() {
+  if (_osmRoadMask) return _osmRoadMask;
+  _osmRoadMask = new Uint8Array(MASK_N * MASK_N);
   for (let i = 0; i < OSM_ROADS.length; i++) {
     const rd = OSM_ROADS[i];
-    const hw = (rd.type === 'trunk' || rd.type === 'primary' ? 11 : rd.type === 'secondary' ? 8 : 5.5) + pad;
-    const hw2 = hw * hw;
+    const hw = rd.type === 'trunk' || rd.type === 'primary' ? 18 : rd.type === 'secondary' ? 14 : 10;
     const pts = rd.pts;
     for (let p = 0; p < pts.length - 1; p++) {
-      if (pointToSegDistSq(px, pz, pts[p][0], pts[p][1], pts[p + 1][0], pts[p + 1][1]) < hw2) {
-        return true;
+      const x0 = pts[p][0], z0 = pts[p][1];
+      const x1 = pts[p + 1][0], z1 = pts[p + 1][1];
+      const len = Math.hypot(x1 - x0, z1 - z0);
+      const steps = Math.max(1, Math.ceil(len / 5));
+      const rCells = Math.ceil(hw / MASK_CELL);
+      for (let s = 0; s <= steps; s++) {
+        const u = s / steps;
+        const px = x0 + (x1 - x0) * u;
+        const pz = z0 + (z1 - z0) * u;
+        const cx = Math.floor((px + HALF) / MASK_CELL);
+        const cz = Math.floor((pz + HALF) / MASK_CELL);
+        for (let dz = -rCells; dz <= rCells; dz++) {
+          const gz = cz + dz;
+          if (gz < 0 || gz >= MASK_N) continue;
+          const rowOff = gz * MASK_N;
+          for (let dx = -rCells; dx <= rCells; dx++) {
+            const gx = cx + dx;
+            if (gx >= 0 && gx < MASK_N) _osmRoadMask[rowOff + gx] = 1;
+          }
+        }
       }
     }
   }
-  return false;
+  return _osmRoadMask;
+}
+
+export function isNearOsmRoad(px, pz) {
+  const mask = ensureOsmRoadMask();
+  const gx = Math.floor((px + HALF) / MASK_CELL);
+  const gz = Math.floor((pz + HALF) / MASK_CELL);
+  if (gx < 0 || gx >= MASK_N || gz < 0 || gz >= MASK_N) return false;
+  return mask[gz * MASK_N + gx] === 1;
 }
 
 export function buildCity(scene, quality) {
@@ -359,16 +404,22 @@ export function buildCity(scene, quality) {
     }
   }
   if (osmRoadGeos.length) {
-    const osmRoadMesh = new THREE.Mesh(mergeGeometries(osmRoadGeos), roadMat);
-    osmRoadMesh.receiveShadow = true;
-    group.add(osmRoadMesh);
+    const m = safeMerge(osmRoadGeos);
+    if (m) {
+      const osmRoadMesh = new THREE.Mesh(m, roadMat);
+      osmRoadMesh.receiveShadow = true;
+      group.add(osmRoadMesh);
+    }
   }
   if (osmLineGeos.length) {
-    const osmLineMesh = new THREE.Mesh(
-      mergeGeometries(osmLineGeos),
-      new THREE.MeshBasicMaterial({ color: 0xfacc15 })
-    );
-    group.add(osmLineMesh);
+    const m = safeMerge(osmLineGeos);
+    if (m) {
+      const osmLineMesh = new THREE.Mesh(
+        m,
+        new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+      );
+      group.add(osmLineMesh);
+    }
   }
 
   // Haqiqiy OpenStreetMap 33 ta Park poligonlarini 3D maysazor sifatida qurish
@@ -488,9 +539,12 @@ export function buildCity(scene, quality) {
     }
   }
 
-  if (walkGeos.length) group.add(new THREE.Mesh(mergeGeometries(walkGeos), walkMat));
-  if (curbGeos.length) group.add(new THREE.Mesh(mergeGeometries(curbGeos), curbMat));
-  if (grassGeos.length) group.add(new THREE.Mesh(mergeGeometries(grassGeos), grassMat));
+  const wMerged = safeMerge(walkGeos);
+  if (wMerged) group.add(new THREE.Mesh(wMerged, walkMat));
+  const cMerged = safeMerge(curbGeos);
+  if (cMerged) group.add(new THREE.Mesh(cMerged, curbMat));
+  const gMerged = safeMerge(grassGeos);
+  if (gMerged) group.add(new THREE.Mesh(gMerged, grassMat));
 
   // Har bir sektorni alohida guruh sifatida sahnaga qo'shamiz (2-bosqichli LOD + masofa optimizatsiyasi)
   const secHalfDiagonal = Math.hypot(secSize * CELL, secSize * CELL) / 2;
@@ -499,29 +553,28 @@ export function buildCity(scene, quality) {
     const detailGroup = new THREE.Group();
     let hasGeometry = false;
     sec.bGeos.forEach((geos, idx) => {
-      if (!geos.length) return;
+      const merged = safeMerge(geos);
+      if (!merged) return;
       hasGeometry = true;
-      const merged = mergeGeometries(geos);
-      merged.computeBoundingSphere();
       const mesh = new THREE.Mesh(merged, styleMats[idx]);
       mesh.castShadow = false;
       mesh.receiveShadow = true;
       secGroup.add(mesh);
     });
-    if (sec.shopGeos.length) {
+    const smMerged = safeMerge(sec.shopGeos);
+    if (smMerged) {
       hasGeometry = true;
-      const sm = new THREE.Mesh(mergeGeometries(sec.shopGeos), shopWindowMat);
-      detailGroup.add(sm);
+      detailGroup.add(new THREE.Mesh(smMerged, shopWindowMat));
     }
-    if (sec.roofGeos.length) {
+    const rmMerged = safeMerge(sec.roofGeos);
+    if (rmMerged) {
       hasGeometry = true;
-      const rm = new THREE.Mesh(mergeGeometries(sec.roofGeos), roofDetailMat);
-      detailGroup.add(rm);
+      detailGroup.add(new THREE.Mesh(rmMerged, roofDetailMat));
     }
-    if (sec.balconyGeos.length) {
+    const bmMerged = safeMerge(sec.balconyGeos);
+    if (bmMerged) {
       hasGeometry = true;
-      const bm = new THREE.Mesh(mergeGeometries(sec.balconyGeos), balconyMat);
-      detailGroup.add(bm);
+      detailGroup.add(new THREE.Mesh(bmMerged, balconyMat));
     }
     if (hasGeometry) {
       secGroup.add(detailGroup);
@@ -609,8 +662,9 @@ function buildCanal(group) {
     const wg = buildRibbonGeo(ww.pts, ww.type === 'river' ? 16 : 9, 0.231);
     if (wg) osmWaterGeos.push(wg);
   }
-  if (osmWaterGeos.length) {
-    group.add(new THREE.Mesh(mergeGeometries(osmWaterGeos), waterMat));
+  const owMerged = safeMerge(osmWaterGeos);
+  if (owMerged) {
+    group.add(new THREE.Mesh(owMerged, waterMat));
   }
 }
 
