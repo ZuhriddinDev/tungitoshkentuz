@@ -1220,21 +1220,28 @@ async function boot() {
   const legalBody = $('legalBody');
   const LEGAL_CONTENT = {
     terms: {
-      title: '📜 Foydalanish shartlari',
+      title: '📜 Foydalanish shartlari — tungitoshkent.uz',
       html: `
-        <p><b>1. Umumiy qoidalar:</b> <b>TUNGI TOSHKENT 3D</b> — brauzerda ishlovchi bepul 3D multiplayer avtomobil simulyatori (2026-yil nashri). O‘yinga kirish orqali siz ushbu shartlarga rozilik bildirasiz.</p>
-        <p><b>2. Halol o‘yin (Fair Play):</b> Online xonalarda o‘yin balansini buzuvchi skriptlar, chetlar va boshqa o‘yinchilarga xalaqit beruvchi xatti-harakatlar taqiqlanadi.</p>
-        <p><b>3. Virtual iqtisodiyot:</b> O‘yin ichidagi barcha pullar (so‘m), mashinalar, garovlar va sovrinlar faqat virtual o‘yin jarayoniga tegishli bo‘lib, real pul qiymatiga ega emas.</p>
-        <p><b>4. Intellektual mulk:</b> Loyiha dizayni, kodi, 3D sahnalar va brending © 2026 TUNGI TOSHKENT 3D tomonidan himoyalangan.</p>
+        <p style="opacity:.75;font-size:12px;margin-bottom:10px">Oxirgi yangilanish: <b>2026-yil</b> · Rasmiy domen: <b>https://tungitoshkent.uz</b></p>
+        <p><b>1. Umumiy qoidalar:</b> <b>TUNGI TOSHKENT 3D</b> (<code>tungitoshkent.uz</code>) — brauzerda ishlovchi bepul 3D ochiq dunyo va multiplayer avtomobil simulyatori. Saytga kirish va o‘yindan foydalanish orqali siz ushbu Foydalanish shartlariga to‘liq rozilik bildirasiz.</p>
+        <p><b>2. Halol o‘yin (Fair Play) va xulq-atvor:</b> Online xonalarda uchinchi tomon chetlari, avtomatlashtiruvchi skriptlar, serverga ortiqcha yuklama (DDoS/spam), haqoratli so‘zlar va boshqa o‘yinchilarning o‘yin jarayonini qasddan buzish qat’iyan taqiqlanadi. Qoidabuzar hisoblar ogohlantirishsiz cheklanishi mumkin.</p>
+        <p><b>3. Virtual iqtisodiyot va garaj:</b> O‘yin ichidagi barcha valyuta (virtual so‘m), avtomobillar, tuning qismlari, poyga mukofotlari va VIP statuslar faqat o‘yin ichidagi virtual obyektlardir. Ular real pul qiymatiga ega emas, naqd pulga almashtirilmaydi va qaytarib olinmaydi.</p>
+        <p><b>4. Hududlar va qurilma talablari:</b> O‘yin kompyuter va mobil brauzerlarda ishlaydi. Ayrim maxsus 3D interyer hududlari (masalan, <b>KOKOBANGO CLUB</b>) grafik unumdorlik va boshqaruv qulayligi sababli faqat kompyuter (PC/noutbuk) qurilmalarida hamda o‘yin ichidagi belgilangan soatlarda ochiladi.</p>
+        <p><b>5. Texnik xizmat va uzilishlar:</b> Loyiha "boricha" (as-is) tamoyili asosida taqdim etiladi. Server yangilanishi, profilaktika yoki internet uzilishlari vaqtida o‘yin vaqtincha ishlamasligi mumkin.</p>
+        <p><b>6. Intellektual mulk:</b> Sayt dizayni, dasturiy kodi, original 3D sahnalari, xarita tuzilishi va <b>TUNGI TOSHKENT 3D</b> brendi mualliflik huquqi bilan himoyalangan (© 2026 TUNGI TOSHKENT 3D. Barcha huquqlar himoyalangan).</p>
+        <p><b>7. Aloqa:</b> Takliflar va murojaatlar uchun rasmiy Telegram kanalimiz: <a href="https://t.me/Tungitoshkent3d" target="_blank" rel="noopener noreferrer" style="color:#38bdf8">@Tungitoshkent3d</a>.</p>
       `,
     },
     privacy: {
-      title: '🔒 Maxfiylik siyosati',
+      title: '🔒 Maxfiylik siyosati — tungitoshkent.uz',
       html: `
-        <p><b>1. Yig‘iladigan ma’lumotlar:</b> O‘yinda siz kiritgan haydovchi ismi, avtomatik berilgan o‘yinchi ID kodi (<code>TT-...</code>), virtual garaj va balans serverda hamda brauzerning <code>localStorage</code> xotirasida saqlanadi.</p>
-        <p><b>2. Shaxsiy ma’lumotlar:</b> O‘yin ro‘yxatdan o‘tishda telefon raqami, email yoki bank karta ma’lumotlarini talab qilmaydi.</p>
-        <p><b>3. Real-vaqt aloqa:</b> Multiplayer rejimida faqat o‘yin ichidagi joylashuv, mashina holati va umumiy chat xabarlari xonadagi boshqa o‘yinchilarga uzatiladi.</p>
-        <p><b>4. Xavfsizlik:</b> Ma’lumotlar uchinchi shaxslarga sotilmaydi va faqat o‘yin jarayonini ta’minlash uchun ishlatiladi.</p>
+        <p style="opacity:.75;font-size:12px;margin-bottom:10px">Kuchga kirish sanasi: <b>2026-yil</b> · Rasmiy domen: <b>https://tungitoshkent.uz</b></p>
+        <p><b>1. Biz qaysi ma’lumotlarni saqlaymiz:</b> O‘yin jarayonini davom ettirish uchun faqat quyidagi minimal texnik ma’lumotlar saqlanadi: siz tanlagan haydovchi ismi (taxallus), avtomatik yaratilgan o‘yinchi ID kodi (<code>TT-...</code>), virtual garaj, balans, tuning va grafika sozlamalari.</p>
+        <p><b>2. Shaxsiy ma’lumotlar yig‘ilmaydi:</b> <code>tungitoshkent.uz</code> ro‘yxatdan o‘tishda ism-familiya, telefon raqami, elektron pochta, pasport yoki bank kartasi ma’lumotlarini talab qilmaydi va saqlamaydi.</p>
+        <p><b>3. Brauzer xotirasi (localStorage) va kesh:</b> O‘yin sozlamalari, ovoz darajasi va grafik sifat tanlovi qurilmangizdagi <code>localStorage</code> xotirasida saqlanadi. Brauzer ma’lumotlarini tozalash orqali ularni istalgan vaqtda o‘chirishingiz mumkin.</p>
+        <p><b>4. Real-vaqt multiplayer uzatishi:</b> Online rejimda WebSocket orqali faqat o‘yin ichidagi 3D koordinatalar, mashina ko‘rinishi, tezlik va umumiy xona chat xabarlari boshqa o‘yinchilarga real vaqtda ko‘rsatiladi.</p>
+        <p><b>5. Texnik jurnallar va xavfsizlik:</b> Server xavfsizligini ta’minlash (spam va hujumlardan himoya qilish) hamda xatolarni tuzatish uchun texnik so‘rov jurnallari vaqtincha qayta ishlanishi mumkin. Ma’lumotlar uchinchi shaxslarga sotilmaydi va reklama bazalariga berilmaydi.</p>
+        <p><b>6. Foydalanuvchi huquqlari va aloqa:</b> O‘yinchi hisobiga oid savollar yoki ma’lumotlarni o‘chirish bo‘yicha murojaatlar uchun rasmiy Telegram kanalimiz orqali bog‘lanishingiz mumkin: <a href="https://t.me/Tungitoshkent3d" target="_blank" rel="noopener noreferrer" style="color:#38bdf8">@Tungitoshkent3d</a>.</p>
       `,
     },
   };
