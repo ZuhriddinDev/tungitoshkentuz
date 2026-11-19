@@ -355,53 +355,8 @@ function drawBase() {
         g.roundRect(bx + bw * 0.12, by + bw * 0.14, bw * 0.76, bw * 0.44, 8);
         g.fill();
         g.stroke();
-      } else if (info.type === 'city' && !isEdge) {
-        // Shahar ichida turli me'moriy shakldagi (L-shakl, U-hovli, diagonal minora) bino izlari
-        const arch = Math.floor(hash2(j, kk, 9) * 4);
-        const pad = bw * 0.15;
-        g.fillStyle = '#23324a';
-        g.strokeStyle = 'rgba(148, 163, 184, 0.24)';
-        g.lineWidth = 1.0;
-
-        if (arch === 0) {
-          // L-shaklidagi majmua + hovli bog'i
-          g.beginPath();
-          g.moveTo(bx + pad, by + pad);
-          g.lineTo(bx + bw - pad, by + pad);
-          g.lineTo(bx + bw - pad, by + pad + bw * 0.22);
-          g.lineTo(bx + pad + bw * 0.24, by + pad + bw * 0.22);
-          g.lineTo(bx + pad + bw * 0.24, by + bw - pad);
-          g.lineTo(bx + pad, by + bw - pad);
-          g.closePath();
-          g.fill();
-          g.stroke();
-        } else if (arch === 1) {
-          // Burchakli biznes minoralar va dumaloq plaza
-          const r = bw * 0.14;
-          g.beginPath();
-          g.arc(bx + bw * 0.65, by + bw * 0.62, r, 0, Math.PI * 2);
-          g.fill();
-          g.stroke();
-          g.fillRect(bx + pad, by + pad, bw * 0.34, bw * 0.26);
-          g.strokeRect(bx + pad, by + pad, bw * 0.34, bw * 0.26);
-        } else if (arch === 2) {
-          // Diagonal burilgan zamonaviy binolar
-          g.save();
-          g.translate(bx + bw * 0.5, by + bw * 0.5);
-          g.rotate((hash2(j, kk, 3) - 0.5) * 0.45);
-          g.fillRect(-bw * 0.32, -bw * 0.24, bw * 0.64, bw * 0.18);
-          g.strokeRect(-bw * 0.32, -bw * 0.24, bw * 0.64, bw * 0.18);
-          g.fillRect(-bw * 0.24, bw * 0.06, bw * 0.48, bw * 0.18);
-          g.restore();
-        } else {
-          // Ikki qanotli mavze va yashil bog'cha
-          g.fillRect(bx + pad, by + pad, bw * 0.22, bw * 0.68);
-          g.strokeRect(bx + pad, by + pad, bw * 0.22, bw * 0.68);
-          g.fillRect(bx + bw - pad - bw * 0.24, by + pad + bw * 0.1, bw * 0.24, bw * 0.58);
-          g.strokeRect(bx + bw - pad - bw * 0.24, by + pad + bw * 0.1, bw * 0.24, bw * 0.58);
-        }
       } else if (isEdge) {
-        // Shahar chekkasida tabiiy yashil tepalik va daraxtzorlar (4-burchakli ramkani yo'qotadi!)
+        // Shahar chekkasida tabiiy yashil tepalik va daraxtzorlar
         g.fillStyle = 'rgba(22, 68, 46, 0.45)';
         for (let t = 0; t < 4; t++) {
           const tx = bx + (0.2 + 0.6 * hash2(j, kk, t + 5)) * bw;

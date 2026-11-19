@@ -195,13 +195,13 @@ export function buildCity(scene, quality) {
   const group = new THREE.Group();
   scene.add(group);
 
-  // Shahar tashqarisidagi yer
+  // Shahar asosiy zamini (yaxlit, 400 ta to'rtburchak quti va bordyur to'siqlarsiz!)
   const outer = new THREE.Mesh(
     new THREE.PlaneGeometry(10000, 10000),
-    new THREE.MeshStandardMaterial({ color: 0x33352b, roughness: 1 })
+    new THREE.MeshStandardMaterial({ color: 0x181e26, roughness: 0.94 })
   );
   outer.rotation.x = -Math.PI / 2;
-  outer.position.y = -0.05;
+  outer.position.y = -0.01;
   outer.receiveShadow = true;
   group.add(outer);
 
@@ -350,11 +350,11 @@ export function buildCity(scene, quality) {
     const rd = OSM_ROADS[rIdx];
     const isMajor = rd.type === 'trunk' || rd.type === 'primary';
     const isSec = rd.type === 'secondary';
-    const rWidth = isMajor ? 20 : isSec ? 14 : 9.5;
-    const rg = buildRibbonGeo(rd.pts, rWidth, 0.236);
+    const rWidth = isMajor ? 22 : isSec ? 15 : 10;
+    const rg = buildRibbonGeo(rd.pts, rWidth, 0.026);
     if (rg) osmRoadGeos.push(rg);
     if (isMajor || isSec) {
-      const lg = buildRibbonGeo(rd.pts, isMajor ? 0.45 : 0.28, 0.244);
+      const lg = buildRibbonGeo(rd.pts, isMajor ? 0.45 : 0.28, 0.036);
       if (lg) osmLineGeos.push(lg);
     }
   }
@@ -374,7 +374,7 @@ export function buildCity(scene, quality) {
   // Haqiqiy OpenStreetMap 33 ta Park poligonlarini 3D maysazor sifatida qurish
   for (let pIdx = 0; pIdx < OSM_PARKS.length; pIdx++) {
     const pk = OSM_PARKS[pIdx];
-    const pg = extrudeOsmPolygonGeo(pk.pts, 0.06, 0.225);
+    const pg = extrudeOsmPolygonGeo(pk.pts, 0.04, 0.012);
     if (pg) grassGeos.push(pg);
   }
 
@@ -389,9 +389,9 @@ export function buildCity(scene, quality) {
 
     const w = Math.max(10, Math.min(140, ob.w || 22));
     const d = Math.max(10, Math.min(140, ob.d || 20));
-    const rad = Math.min(w, d) * 0.35;
-    // Asosiy shoh ko'chalar va egri OSM yo'llari ustiga tushib qolmasligini tekshirish
-    if (onRoad(ob.cx, ob.cz) || onRoad(ob.cx - rad, ob.cz - rad) || onRoad(ob.cx + rad, ob.cz + rad) || isNearOsmRoad(ob.cx, ob.cz, 4)) continue;
+    const rad = Math.min(w, d) * 0.32;
+    // Asosiy shoh ko'chalar ustiga tushib qolmasligini tekshirish
+    if (onRoad(ob.cx, ob.cz) || onRoad(ob.cx - rad, ob.cz - rad) || onRoad(ob.cx + rad, ob.cz + rad)) continue;
 
     const bKey = `${bj},${bk}`;
     const curCount = osmCountByBlock.get(bKey) || 0;
@@ -405,104 +405,91 @@ export function buildCity(scene, quality) {
     const isShop = /retail|supermarket|mall|marketplace|shop/.test(kind);
     const si = isGlass ? (bIdx % 2 === 0 ? 3 : 4) : isPanel ? 2 : isShop ? 5 : bIdx % 2;
 
-    // 1. Binoning haqiqiy OpenStreetMap ko'pburchakli (polygon) konturini 3D ga ekstrud qilamiz!
-    const polyGeo = extrudeOsmPolygonGeo(ob.pts, h, 0.22);
+    // 1. Binoning o'z poligon trotuar poydevori + haqiqiy OpenStreetMap ko'pburchakli (polygon) konturi
+    const padGeo = extrudeOsmPolygonGeo(ob.pts, 0.18, 0.01, 1.12, ob.cx, ob.cz);
+    if (padGeo) walkGeos.push(padGeo);
+
+    const polyGeo = extrudeOsmPolygonGeo(ob.pts, h, 0.18);
     if (polyGeo) {
       sec.bGeos[si].push(polyGeo);
-      // Tom parapeti va pog'onali (stepped) me'moriy pentxaus / ustki qavat (binolar oddiy kub bo'lib qolmasligi uchun!)
-      const parapetGeo = extrudeOsmPolygonGeo(ob.pts, 0.75, h + 0.22, 1.02, ob.cx, ob.cz);
+      const parapetGeo = extrudeOsmPolygonGeo(ob.pts, 0.75, h + 0.18, 1.02, ob.cx, ob.cz);
       if (parapetGeo) sec.roofGeos.push(parapetGeo);
       if (h >= 18) {
         const tierH = Math.min(6.5, h * 0.22);
-        const upperTier = extrudeOsmPolygonGeo(ob.pts, tierH, h + 0.22, 0.72, ob.cx, ob.cz);
+        const upperTier = extrudeOsmPolygonGeo(ob.pts, tierH, h + 0.18, 0.72, ob.cx, ob.cz);
         if (upperTier) sec.bGeos[isGlass ? 3 : 1].push(upperTier);
-        const upperRoof = extrudeOsmPolygonGeo(ob.pts, 0.55, h + tierH + 0.22, 0.75, ob.cx, ob.cz);
+        const upperRoof = extrudeOsmPolygonGeo(ob.pts, 0.55, h + tierH + 0.18, 0.75, ob.cx, ob.cz);
         if (upperRoof) sec.roofGeos.push(upperRoof);
       }
       if (isShop || (!isGlass && bIdx % 2 === 0)) {
-        const plinth = extrudeOsmPolygonGeo(ob.pts, 3.4, 0.22, 1.03, ob.cx, ob.cz);
+        const plinth = extrudeOsmPolygonGeo(ob.pts, 3.4, 0.18, 1.03, ob.cx, ob.cz);
         if (plinth) sec.shopGeos.push(plinth);
       }
     } else {
       sec.bGeos[si].push(buildingGeo(w, h, d, ob.cx, ob.cz));
       addRoofDetail(sec, ob.cx, ob.cz, w, h, d, isGlass);
     }
-    addCollider(ob.cx - w * 0.46, ob.cz - d * 0.46, ob.cx + w * 0.46, ob.cz + d * 0.46, 'building');
+    addCollider(ob.cx - w * 0.44, ob.cz - d * 0.44, ob.cx + w * 0.44, ob.cz + d * 0.44, 'building');
   }
 
   for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
     const bx = blockC(j), bz = blockC(k), info = blockInfo(j, k);
     if (info.type === 'canal') continue;
 
-    // Trotuar va bordyur hoshiyasi
-    const wg = new THREE.BoxGeometry(BLOCK, 0.22, BLOCK).translate(bx, 0.11, bz);
-    scaleUV(wg, BLOCK / 4, BLOCK / 4);
-    walkGeos.push(wg);
-    curbGeos.push(
-      new THREE.BoxGeometry(BLOCK + 0.5, 0.26, 0.45).translate(bx, 0.13, bz - BLOCK / 2),
-      new THREE.BoxGeometry(BLOCK + 0.5, 0.26, 0.45).translate(bx, 0.13, bz + BLOCK / 2),
-      new THREE.BoxGeometry(0.45, 0.26, BLOCK).translate(bx - BLOCK / 2, 0.13, bz),
-      new THREE.BoxGeometry(0.45, 0.26, BLOCK).translate(bx + BLOCK / 2, 0.13, bz)
-    );
-
     if (info.type === 'park' || info.type === 'square' || info.type === 'minor' || info.type === 'magiccity') {
-      const gg = new THREE.BoxGeometry(BLOCK - 10, 0.3, BLOCK - 10).translate(bx, 0.15, bz);
+      const gg = new THREE.BoxGeometry(BLOCK - 14, 0.08, BLOCK - 14).translate(bx, 0.02, bz);
       scaleUV(gg, 10, 10);
       grassGeos.push(gg);
     }
     if (info.type !== 'city') continue;
 
-    // Agar bu kvartalda haqiqiy OSM binolari yetarli bo'lsa, ustidan eski kub binolarni qo'shmaymiz!
-    if ((osmCountByBlock.get(`${j},${k}`) || 0) >= 2) continue;
+    // Agar bu kvartalda haqiqiy OSM binolari mavjud bo'lsa, eski to'rtburchak kvartal binolarini umuman qo'shmaymiz!
+    if ((osmCountByBlock.get(`${j},${k}`) || 0) >= 1) continue;
 
     const sec = getSector(j, k);
     const center = 1 - Math.min(1, Math.hypot(bx, bz) / (HALF * 0.85));
 
-    // Tashqi kvartallarda: ko'p qanotli (L-shakl, U-hovli, pog'onali podium + minora) Toshkent arxitekturasi (hech qachon oddiy kub emas!)
+    // OSM qamrovidan tashqaridagi chekka kvartallarda: L-shakldagi va pog'onali Toshkent binolari (bino ostidagina trotuar bilan)
     const lots = 2;
-    const lot = (BLOCK - 18) / lots;
+    const lot = (BLOCK - 24) / lots;
     for (let a = 0; a < lots; a++) for (let b = 0; b < lots; b++) {
-      const x = bx - BLOCK / 2 + 9 + lot * (a + 0.5);
-      const z = bz - BLOCK / 2 + 9 + lot * (b + 0.5);
-      // Agar bu nuqtadan haqiqiy egri OSM yo'li o'tgan bo'lsa, yo'l ustiga bino qo'ymaymiz!
-      if (isNearOsmRoad(x, z, 22)) continue;
+      const x = bx - BLOCK / 2 + 12 + lot * (a + 0.5);
+      const z = bz - BLOCK / 2 + 12 + lot * (b + 0.5);
+      if (isNearOsmRoad(x, z, 20)) continue;
 
-      const isTower = sRnd() < 0.28 + center * 0.38;
+      const isTower = sRnd() < 0.25 + center * 0.35;
       const si = isTower ? (sRnd() < 0.55 ? 3 : 4) : Math.floor(sRnd() * 3);
-      const w = rnd(34, 52);
-      const d = rnd(20, 32);
-      const h = isTower ? rnd(36, 68 + center * 65) : rnd(18, 34);
-      const wingW = rnd(18, 28);
-      const wingD = rnd(28, 44);
+      const w = rnd(32, 48);
+      const d = rnd(18, 28);
+      const h = isTower ? rnd(36, 68 + center * 55) : rnd(18, 32);
+      const wingW = rnd(16, 24);
+      const wingD = rnd(24, 38);
+      const rotY = ((j * 7 + k * 13 + a * 3 + b) % 5 === 0) ? ((a - b) * 0.22) : 0;
 
-      // 1-qavat savdo kolonnadasi / granit podium + 2 qanotli L-shakldagi bino + pog'onali pentxaus
+      const pad = new THREE.BoxGeometry(w + 10, 0.16, d + 10);
+      if (rotY) pad.rotateY(rotY);
+      pad.translate(x, 0.08, z);
+      walkGeos.push(pad);
+
       const podH = 4.2;
-      sec.bGeos[5].push(buildingGeo(w + 3, podH, d + 3, x, z));
-      sec.shopGeos.push(new THREE.BoxGeometry(w * 0.85, 2.8, d + 3.4).translate(x, 1.8, z));
-      sec.roofGeos.push(new THREE.BoxGeometry(w + 4.2, 0.45, d + 4.2).translate(x, podH + 0.2, z));
+      sec.bGeos[5].push(buildingGeo(w + 2.4, podH, d + 2.4, x, z, 0.16, rotY));
+      sec.bGeos[si].push(buildingGeo(w, h - podH, d, x, z, podH + 0.16, rotY));
+      const wxOff = x + (a === 0 ? w * 0.32 : -w * 0.32);
+      const wzOff = z + (b === 0 ? d * 0.38 : -d * 0.38);
+      const wingH = (h - podH) * 0.8;
+      sec.bGeos[si].push(buildingGeo(wingW, wingH, wingD, wxOff, wzOff, podH + 0.16, rotY));
 
-      // Asosiy korpus + L-qanot korpus
-      sec.bGeos[si].push(buildingGeo(w, h - podH, d, x, z, podH));
-      const wxOff = x + (a === 0 ? w * 0.34 : -w * 0.34);
-      const wzOff = z + (b === 0 ? d * 0.42 : -d * 0.42);
-      const wingH = (h - podH) * 0.82;
-      sec.bGeos[si].push(buildingGeo(wingW, wingH, wingD, wxOff, wzOff, podH));
-
-      // Ustki pog'onali (stepped setback) pentxaus qavati va tom karnizlari
       const pentH = Math.max(4.5, h * 0.16);
-      sec.bGeos[isTower ? 3 : 1].push(buildingGeo(w * 0.68, pentH, d * 0.68, x, z, h));
-      addRoofDetail(sec, x, z, w, h, d, false);
-      addRoofDetail(sec, x, z, w * 0.68, h + pentH, d * 0.68, isTower);
-      addRoofDetail(sec, wxOff, wzOff, wingW, podH + wingH, wingD, false);
-      if (!isTower) addBalconies(sec, x, z, w * 0.65, h, d);
+      sec.bGeos[isTower ? 3 : 1].push(buildingGeo(w * 0.66, pentH, d * 0.66, x, z, h + 0.16, rotY));
+      addRoofDetail(sec, x, z, w * 0.66, h + pentH, d * 0.66, isTower);
+      if (!isTower && !rotY) addBalconies(sec, x, z, w * 0.62, h, d);
 
-      addCollider(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 'building');
-      addCollider(wxOff - wingW / 2, wzOff - wingD / 2, wxOff + wingW / 2, wzOff + wingD / 2, 'building');
+      addCollider(x - w * 0.48, z - d * 0.48, x + w * 0.48, z + d * 0.48, 'building');
     }
   }
 
-  group.add(new THREE.Mesh(mergeGeometries(walkGeos), walkMat));
-  group.add(new THREE.Mesh(mergeGeometries(curbGeos), curbMat));
+  if (walkGeos.length) group.add(new THREE.Mesh(mergeGeometries(walkGeos), walkMat));
+  if (curbGeos.length) group.add(new THREE.Mesh(mergeGeometries(curbGeos), curbMat));
   if (grassGeos.length) group.add(new THREE.Mesh(mergeGeometries(grassGeos), grassMat));
 
   // Har bir sektorni alohida guruh sifatida sahnaga qo'shamiz (2-bosqichli LOD + masofa optimizatsiyasi)

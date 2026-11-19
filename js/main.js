@@ -187,7 +187,7 @@ function endRental(silent) {
 function groundY(x, z) {
   if (onRoad(x, z)) return 0;
   const info = blockInfo(nearestBlock(x), nearestBlock(z));
-  return info.type === 'gas' || info.type === 'garage' ? 0.25 : info.type === 'park' || info.type === 'square' ? 0.3 : 0.22;
+  return info.type === 'gas' || info.type === 'garage' ? 0.18 : 0;
 }
 const nearestBlock = (v) => Math.max(0, Math.min(N - 1, Math.round((v - blockC(0)) / (blockC(1) - blockC(0)))));
 
