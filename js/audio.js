@@ -38,6 +38,7 @@ let masterVolume = 0.6;
 const bufferCache = new Map();
 const pendingLoads = new Map();
 const failedUrls = new Set();
+const FALLBACK_ENGINE_SRC = 'audio/engines/gentra_i4.mp3';
 
 export const SOUND_PROFILES = {
   spark_i3: {
@@ -851,8 +852,8 @@ export class RemoteAudioVoice {
 
   async initBuffer() {
     const prof = SOUND_PROFILES[this.key] || SOUND_PROFILES.gentra_i4;
-    if (!prof.src) return;
-    const buf = await getAudioBuffer(prof.src);
+    // Spark kabi sintez profillarida (src: null) masofadan jim qolmaslik uchun eng yaqin yozuv ishlatiladi
+    const buf = await getAudioBuffer(prof.src || FALLBACK_ENGINE_SRC);
     if (!buf || !ctx || this.disposed) return;
 
     this.source = ctx.createBufferSource();
@@ -992,3 +993,238 @@ export class RemoteAudioManager {
 }
 
 export const remoteAudio = new RemoteAudioManager();
+
+// ============================================================================
+// AI TRAFIK MASHINALARI (NPC) DVIGATEL OVOZI
+// Faqat eng yaqin MAX_TRAFFIC_VOICES ta mashinaga ovoz beriladi (havuz — qayta ishlatiladi).
+// Engil 'equalpower' panner, bitta filtr va umumiy dekodlangan bufer: CPU/xotira yuki minimal.
+// ============================================================================
+const TRAFFIC_GEARS = [0, 26, 56, 92, 136, 188, 420];
+const MAX_TRAFFIC_VOICES = 4;
+const TRAFFIC_HEAR_DIST = 75;
+
+class TrafficAudioVoice {
+  constructor() {
+    this.filter = ctx.createBiquadFilter();
+    this.filter.type = 'lowpass';
+    this.filter.frequency.value = 6000;
+    this.gain = ctx.createGain();
+    this.gain.gain.value = 0;
+    this.panner = ctx.createPanner();
+    this.panner.panningModel = 'equalpower';
+    this.panner.distanceModel = 'inverse';
+    this.panner.refDistance = 7;
+    this.panner.maxDistance = 90;
+    this.panner.rolloffFactor = 1.35;
+    this.filter.connect(this.gain);
+    this.gain.connect(this.panner);
+    this.panner.connect(masterGain);
+
+    this.owner = null;
+    this.key = '';
+    this.prof = SOUND_PROFILES.gentra_i4;
+    this.source = null;
+    this.token = 0;
+    this.smoothRpm = 0.2;
+    this.thr = 0;
+    this.lastV = 0;
+    this.lastDist = 0;
+  }
+
+  _stopSource() {
+    if (this.source) {
+      try { this.source.stop(); } catch (_) {}
+      try { this.source.disconnect(); } catch (_) {}
+      this.source = null;
+    }
+  }
+
+  async _setProfile(key) {
+    if (this.key === key && this.source) return;
+    this.key = key;
+    const token = ++this.token;
+    this._stopSource();
+    this.prof = SOUND_PROFILES[key] || SOUND_PROFILES.gentra_i4;
+    const buf = await getAudioBuffer(this.prof.src || FALLBACK_ENGINE_SRC);
+    // Kutish paytida voice boshqa mashinaga berilgan yoki bo'shatilgan bo'lishi mumkin
+    if (!buf || !ctx || token !== this.token || !this.owner) return;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.connect(this.filter);
+    src.start();
+    this.source = src;
+  }
+
+  assign(car, key, x, z) {
+    this.owner = car;
+    this.smoothRpm = 0.2;
+    this.thr = 0;
+    this.lastV = Math.abs(car.v || 0);
+    this.lastDist = 0;
+    const t = ctx.currentTime;
+    this.gain.gain.cancelScheduledValues(t);
+    this.gain.gain.setValueAtTime(0, t);
+    this.panner.positionX.setValueAtTime(x, t);
+    this.panner.positionY.setValueAtTime(0.6, t);
+    this.panner.positionZ.setValueAtTime(z, t);
+    this._setProfile(key);
+  }
+
+  release() {
+    this.owner = null;
+    this.token++;
+    this.key = '';
+    const t = ctx.currentTime;
+    this.gain.gain.cancelScheduledValues(t);
+    this.gain.gain.setTargetAtTime(0, t, 0.04);
+    // Qisqa fade-outdan keyin manbani to'xtatamiz (CPU tejash)
+    const old = this.source;
+    this.source = null;
+    if (old) {
+      setTimeout(() => {
+        try { old.stop(); } catch (_) {}
+        try { old.disconnect(); } catch (_) {}
+      }, 200);
+    }
+  }
+
+  update(car, dist, dt) {
+    if (!this.source) return;
+    const t = ctx.currentTime;
+    const prof = this.prof;
+    const speed = Math.abs(car.v || 0);
+    const kmh = speed * 3.6;
+
+    // Tezlanishdan gaz bosilishi miqdori (AI mashinalarda gaz pedali yo'q)
+    const accel = (speed - this.lastV) / Math.max(dt, 0.001);
+    this.lastV = speed;
+    const thrTarget = Math.max(0, Math.min(1, accel / 2.6));
+    this.thr += (thrTarget - this.thr) * Math.min(1, dt * 6);
+
+    // Vites asosida RPM (o'yinchi fizikasi bilan bir xil vites chegaralari)
+    let g = 1;
+    for (let i = 1; i < TRAFFIC_GEARS.length; i++) {
+      if (kmh <= TRAFFIC_GEARS[i]) { g = i; break; }
+    }
+    const gLo = TRAFFIC_GEARS[g - 1] * 0.78;
+    const gHi = Math.min(TRAFFIC_GEARS[g], (car.cfg?.maxSpeed || 200) * 1.05);
+    const ratio = Math.max(0, Math.min(1, (kmh - gLo) / Math.max(8, gHi - gLo)));
+    const targetRpm = kmh < 2 ? 0.18 : Math.max(0.16, Math.min(1, 0.22 + ratio * 0.68 + this.thr * 0.12));
+    this.smoothRpm += (targetRpm - this.smoothRpm) * Math.min(1, dt * 9);
+
+    // Doppler (kuzatuvchiga yaqinlashish/uzoqlashish)
+    let doppler = 1.0;
+    if (this.lastDist > 0 && dt > 0.001) {
+      const vRadial = (dist - this.lastDist) / dt;
+      doppler = THREE.MathUtils.clamp(1.0 - vRadial / 343.0, 0.84, 1.22);
+    }
+    this.lastDist = dist;
+
+    const isEV = !!prof.isElectric;
+    const rate = isEV
+      ? THREE.MathUtils.clamp((0.24 + (kmh / 220) * 1.7) * doppler, 0.2, 2.3)
+      : THREE.MathUtils.clamp((prof.pitchMul || 1.0) * (0.64 + this.smoothRpm * 0.98) * doppler, 0.45, 2.25);
+    this.source.playbackRate.setTargetAtTime(rate, t, 0.06);
+
+    let vol;
+    if (isEV) {
+      vol = kmh < 1 ? 0 : 0.05 + Math.min(0.1, kmh / 900);
+    } else {
+      const hybridAtten = prof.isHybrid && kmh < 20 && this.thr < 0.3 ? 0.55 : 1.0;
+      vol = (0.065 + this.thr * 0.07 + this.smoothRpm * 0.05) * (prof.gainMul || 1.0) * hybridAtten;
+    }
+    // Uzoqda qo'shimcha so'nish (havo yutilishi): yuqori chastotalar kamayadi
+    const fade = Math.max(0, 1 - dist / TRAFFIC_HEAR_DIST);
+    this.gain.gain.setTargetAtTime(Math.min(0.2, vol) * fade, t, 0.07);
+    this.filter.frequency.setTargetAtTime(THREE.MathUtils.clamp(9000 - dist * 95, 900, 9000), t, 0.1);
+
+    this.panner.positionX.setTargetAtTime(car.x || 0, t, 0.05);
+    this.panner.positionZ.setTargetAtTime(car.z || 0, t, 0.05);
+  }
+}
+
+export class TrafficAudioManager {
+  constructor() {
+    this.voices = [];
+    this._cand = [];
+    this._top = [];
+  }
+
+  _ensureVoices() {
+    if (this.voices.length > 0 || !ctx || !masterGain) return;
+    for (let i = 0; i < MAX_TRAFFIC_VOICES; i++) this.voices.push(new TrafficAudioVoice());
+  }
+
+  // cars === null — barcha ovozlarni o'chirish (masalan klub ichida)
+  update(cars, listenerPos, dt, camera = null) {
+    if (!ctx || !isStarted || !masterGain) return;
+    this._ensureVoices();
+    const voices = this.voices;
+
+    if (!cars || !isEngineRunning) {
+      for (let i = 0; i < voices.length; i++) if (voices[i].owner) voices[i].release();
+      return;
+    }
+
+    remoteAudio.updateListener(camera, listenerPos);
+
+    const cand = this._cand;
+    cand.length = 0;
+    const lx = listenerPos.x || 0;
+    const lz = listenerPos.z || 0;
+    const maxD2 = TRAFFIC_HEAR_DIST * TRAFFIC_HEAR_DIST;
+    for (let i = 0; i < cars.length; i++) {
+      const c = cars[i];
+      if (!c || !c.model || !c.model.group.visible) continue;
+      const dx = c.x - lx;
+      const dz = c.z - lz;
+      const d2 = dx * dx + dz * dz;
+      if (d2 > maxD2) continue;
+      c._audDist = Math.sqrt(d2);
+      cand.push(c);
+    }
+    cand.sort((a, b) => a._audDist - b._audDist);
+
+    const top = this._top;
+    top.length = 0;
+    const n = Math.min(MAX_TRAFFIC_VOICES, cand.length);
+    for (let i = 0; i < n; i++) top.push(cand[i]);
+
+    // 1) Endi eng yaqin ro'yxatda yo'q mashinalarning ovozini bo'shatish
+    for (let i = 0; i < voices.length; i++) {
+      const v = voices[i];
+      if (v.owner && top.indexOf(v.owner) === -1) v.release();
+    }
+    // 2) Yangi yaqinlashgan mashinalarga bo'sh ovoz berish va barchasini yangilash
+    for (let i = 0; i < top.length; i++) {
+      const car = top[i];
+      let v = null;
+      for (let j = 0; j < voices.length; j++) {
+        if (voices[j].owner === car) { v = voices[j]; break; }
+      }
+      if (!v) {
+        for (let j = 0; j < voices.length; j++) {
+          if (!voices[j].owner) { v = voices[j]; break; }
+        }
+        if (!v) continue;
+        const spec = getEngineSpec(car.cfg?.id);
+        const key = (spec && spec.audioProfile && SOUND_PROFILES[spec.audioProfile]) ? spec.audioProfile : 'gentra_i4';
+        v.assign(car, key, car.x, car.z);
+      }
+      v.update(car, car._audDist, dt);
+    }
+  }
+
+  disposeAll() {
+    for (const v of this.voices) {
+      v.owner = null;
+      v.token++;
+      v._stopSource();
+      try { v.panner.disconnect(); } catch (_) {}
+    }
+    this.voices.length = 0;
+  }
+}
+
+export const trafficAudio = new TrafficAudioManager();

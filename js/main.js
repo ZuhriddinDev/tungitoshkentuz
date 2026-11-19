@@ -27,7 +27,7 @@ import { Vehicle } from './physics.js';
 import { Traffic, Pedestrians } from './traffic.js';
 import { initInput, readDrive, onKey, setEnabled, applyControl, isTouch, cam } from './input.js';
 import { TireSmoke } from './smoke.js';
-import { initAudio, updateEngine, engineStart, engineOff, remoteAudio, thump, horn, beep, suspend } from './audio.js';
+import { initAudio, updateEngine, engineStart, engineOff, remoteAudio, trafficAudio, thump, horn, beep, suspend } from './audio.js';
 import { toggleAudioDiagnostic } from './audioDiagnostic.js';
 import { initMissions, updateMission, mission, rivals } from './missions.js';
 import { drawMinimap } from './map.js';
@@ -785,6 +785,7 @@ function step(dt, t) {
   }
 
   if (insideClub && playerChar && kokobango) {
+    trafficAudio.update(null); // Klub ichida shahar transporti ovozi eshitilmaydi
     const input = player.locked ? { throttle: 0, reverse: 0, steer: 0, boost: false, handbrake: true, drift: false } : readDrive();
     if (clubSeated && (input.throttle > 0.1 || input.reverse > 0.1 || Math.abs(input.steer) > 0.1)) {
       clubSeated = false;
@@ -918,6 +919,7 @@ function step(dt, t) {
   updateLandmarks(player.x, player.z);
   traffic.setNight(night, sky.hour);
   traffic.update(dt, t, player, peds);
+  trafficAudio.update(traffic.cars, player, dt, camera);
   peds.update(dt, t, player);
   updateMission(dt);
   for (const f of animated) f(t);
@@ -1141,6 +1143,7 @@ function returnToLobby() {
   }
   engineOff();
   remoteAudio.disposeAll();
+  trafficAudio.disposeAll();
   playing = false;
   paused = false;
   if (model) model.group.visible = false;
