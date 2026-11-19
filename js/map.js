@@ -404,14 +404,60 @@ function drawBase() {
     g.restore();
   }
 
-  // Amir Temur xiyoboni doiraviy halqasi
-  const skverX = (blockC(8) + HALF) * k;
+  // Amir Temur xiyoboni doiraviy halqasi (j=9, k=7)
+  const skverX = (blockC(9) + HALF) * k;
   const skverY = (blockC(7) + HALF) * k;
-  g.strokeStyle = '#38bdf8';
-  g.lineWidth = 2.5;
+  g.save();
+  g.fillStyle = 'rgba(22, 101, 52, 0.45)';
   g.beginPath();
-  g.arc(skverX, skverY, BLOCK * k * 0.36, 0, Math.PI * 2);
+  g.arc(skverX, skverY, BLOCK * k * 0.34, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = '#38bdf8';
+  g.lineWidth = 2.6;
+  g.beginPath();
+  g.arc(skverX, skverY, BLOCK * k * 0.38, 0, Math.PI * 2);
   g.stroke();
+
+  // Toshkent Metropoliteni bekatlari (Chilonzor / O'zbekiston / Yunusobod yo'llari)
+  const metroStations = [
+    { name: 'Chorsu', j: 2, k: 5, col: '#38bdf8' },
+    { name: 'Paxtakor', j: 5, k: 7, col: '#ef4444' },
+    { name: 'Mustaqillik', j: 7, k: 7, col: '#ef4444' },
+    { name: 'Amir Temur', j: 9, k: 7, col: '#ef4444' },
+    { name: 'Minor', j: 7, k: 4, col: '#22c55e' },
+    { name: 'Bodomzor', j: 8, k: 2, col: '#22c55e' },
+    { name: 'Milliy Bog\'', j: 4, k: 10, col: '#ef4444' },
+    { name: 'Chilonzor', j: 3, k: 12, col: '#ef4444' },
+    { name: 'Oybek', j: 9, k: 11, col: '#38bdf8' },
+  ];
+  g.font = `700 ${Math.round(S * 0.0085)}px "Segoe UI", Arial, sans-serif`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  for (const ms of metroStations) {
+    const mx = (roadC(ms.j) + HALF) * k;
+    const my = (roadC(ms.k) + HALF) * k;
+    g.fillStyle = '#090e1a';
+    g.beginPath();
+    g.arc(mx, my, 9, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = ms.col;
+    g.lineWidth = 2.2;
+    g.stroke();
+    g.fillStyle = ms.col;
+    g.fillText('M', mx, my + 0.5);
+    g.fillStyle = 'rgba(226, 232, 240, 0.78)';
+    g.fillText(ms.name, mx, my + 16);
+  }
+
+  // Kichik Halqa Yo'li konturi (Toshkent shahrining real halqa trassasi)
+  const khLeft = (roadC(1) + HALF) * k;
+  const khRight = (roadC(N - 1) + HALF) * k;
+  const khTop = (roadC(3) + HALF) * k;
+  const khBot = (roadC(N - 1) + HALF) * k;
+  g.strokeStyle = 'rgba(250, 204, 21, 0.28)';
+  g.lineWidth = 3.2;
+  g.strokeRect(khLeft, khTop, khRight - khLeft, khBot - khTop);
+  g.restore();
 
   baseCanvas = c;
 }

@@ -7,10 +7,10 @@ import { signalFor } from '../world/props.js';
 import { CHARACTER_GLB_CATALOG, CharacterAssetManager } from './characterAssetManager.js';
 
 const SIDEWALK_HALF = BLOCK / 2 - 2.1;
-const NEAR_GLB_DIST_SQ = 68 * 68;
-const CULL_DIST_SQ = 158 * 158;
-const RESPAWN_DIST_SQ = 360 * 360;
-const MAX_GLB_CLONES = 18;
+const NEAR_GLB_DIST_SQ = 54 * 54;
+const CULL_DIST_SQ = 148 * 148;
+const RESPAWN_DIST_SQ = 340 * 340;
+const MAX_GLB_CLONES = 10;
 
 const PERSONALITIES = [
   { id: 'stroll', baseSpeed: 1.15, pauseChance: 0.35, phoneBias: 0.45 },
@@ -144,10 +144,12 @@ export class PedestrianAIManager {
     if (this.lodBody.instanceColor) this.lodBody.instanceColor.needsUpdate = true;
 
     // Preload all 7 GLB character templates asynchronously and warm pool
+    const outfitTints = ['#ffffff', '#cbd5e1', '#fca5a5', '#93c5fd', '#fcd34d', '#d8b4fe', '#6ee7b7'];
     this.charAssets.preloadAll().then(() => {
       for (let i = 0; i < MAX_GLB_CLONES; i++) {
         const spec = CHARACTER_GLB_CATALOG[i % CHARACTER_GLB_CATALOG.length];
-        const inst = this.charAssets.createInstance(spec.id, 0.96 + (i % 4) * 0.025);
+        const tint = i >= CHARACTER_GLB_CATALOG.length ? outfitTints[i % outfitTints.length] : null;
+        const inst = this.charAssets.createInstance(spec.id, 0.96 + (i % 4) * 0.025, tint);
         if (inst) {
           inst.root.visible = false;
           this.scene.add(inst.root);
@@ -522,7 +524,11 @@ export class PedestrianAIManager {
               : 'idle';
           const timeScale = animName === 'walk' ? Math.max(0.6, ped.speed / 1.32) : animName === 'run' ? Math.max(0.8, ped.speed / 2.6) : 1.0;
           slot.inst.setAnimation(animName, timeScale, 0.22);
-          slot.inst.mixer.update(dt);
+          if (dSq < 30 * 30) {
+            slot.inst.mixer.update(dt);
+          } else if ((this._tick + i) % 2 === 0) {
+            slot.inst.mixer.update(dt * 2);
+          }
           continue;
         }
       }

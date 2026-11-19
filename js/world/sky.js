@@ -73,8 +73,8 @@ export function createSky(scene) {
         }
         float fbm(vec2 p) {
           float v = 0.0;
-          float a = 0.5;
-          for (int i = 0; i < 4; i++) {
+          float a = 0.52;
+          for (int i = 0; i < 3; i++) {
             v += a * noise(p);
             p = p * 2.04 + vec2(1.7, 9.2);
             a *= 0.5;

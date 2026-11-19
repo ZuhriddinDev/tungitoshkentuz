@@ -528,28 +528,48 @@ class LocalCarVoice {
       this.evSampleGain.gain.setTargetAtTime(0, t, 0.05);
     }
 
+    // 1. Realistik Idle Lope (to'xtab turganda silindrga mos jonli tebranish)
+    const cyl = spec?.cylinderCount || 4;
+    const isStandstill = kmh < 3.5 && throttle < 0.08;
+    const lopeHz = cyl >= 8 ? 11.5 : cyl >= 6 ? 14.5 : 17.0;
+    const lopeDepth = isStandstill ? (cyl >= 8 ? 0.14 : 0.07) : 0;
+    const idlePulse = 1 + Math.sin(t * lopeHz) * lopeDepth;
+
+    // 2. Launch Torque Growl (joyidan qo'zg'alganda kuchli tortish)
+    const launchBoost = kmh < 38 && throttle > 0.2 ? (1 - kmh / 38) * throttle * 0.34 : 0;
+
+    // 3. Engine Braking / Overrun (gazni qo'yib yuborganda va tormozlaganda)
+    const decelOverrun = throttle < 0.05 && kmh > 16 ? Math.min(0.28, (kmh / 180) * (braking ? 1.25 : 0.75)) : 0;
+
     const idleFactor = Math.max(0, 1 - kmh / 18) * (1 - throttle * 0.7);
-    this.idleGain.gain.setTargetAtTime(0.45 + idleFactor * 0.45, t, 0.05);
+    this.idleGain.gain.setTargetAtTime((0.48 + idleFactor * 0.52 + launchBoost * 0.5) * idlePulse, t, 0.045);
 
     const midFactor = Math.sin(Math.min(Math.PI, currentRpm * Math.PI));
-    this.midGain.gain.setTargetAtTime(0.35 + midFactor * 0.55, t, 0.05);
+    this.midGain.gain.setTargetAtTime(0.38 + midFactor * 0.58 + launchBoost * 0.65 + decelOverrun * 0.45, t, 0.045);
 
-    const highFactor = Math.max(0, currentRpm - 0.35) * (0.3 + 0.7 * currentLoad);
-    this.highGain.gain.setTargetAtTime(highFactor * 0.75, t, 0.05);
+    const highFactor = Math.max(0, currentRpm - 0.32) * (0.32 + 0.68 * currentLoad);
+    this.highGain.gain.setTargetAtTime(highFactor * 0.82 + decelOverrun * 0.25, t, 0.045);
 
     const filterHz = THREE.MathUtils.clamp(
-      prof.filterBase + currentRpm * (prof.filterMax - prof.filterBase) * (0.4 + 0.6 * currentLoad),
-      180,
+      prof.filterBase +
+        currentRpm * (prof.filterMax - prof.filterBase) * (0.42 + 0.58 * currentLoad) +
+        launchBoost * 420 +
+        decelOverrun * 350,
+      175,
       prof.filterMax
     );
-    this.dynamicFilter.frequency.setTargetAtTime(filterHz, t, 0.045);
+    this.dynamicFilter.frequency.setTargetAtTime(filterHz, t, 0.04);
 
     const hybridIceAtten = isHybrid && kmh < 22 && throttle < 0.3 ? 0.55 : 1.0;
-    const baseVol = (0.042 + currentLoad * 0.14 + currentRpm * 0.06) * (prof.gainMul || 1.0) * hybridIceAtten;
-    this.engineGain.gain.setTargetAtTime(baseVol, t, 0.045);
+    const baseVol =
+      (0.052 + currentLoad * 0.145 + currentRpm * 0.065 + launchBoost * 0.055 + decelOverrun * 0.03) *
+      idlePulse *
+      (prof.gainMul || 1.0) *
+      hybridIceAtten;
+    this.engineGain.gain.setTargetAtTime(baseVol, t, 0.04);
 
-    this.intakeFilter.frequency.setTargetAtTime(320 + currentRpm * 1700, t, 0.05);
-    this.intakeGain.gain.setTargetAtTime(currentLoad * currentRpm * 0.045, t, 0.05);
+    this.intakeFilter.frequency.setTargetAtTime(300 + currentRpm * 1850 + launchBoost * 450, t, 0.045);
+    this.intakeGain.gain.setTargetAtTime((currentLoad * currentRpm * 0.052) + launchBoost * 0.035, t, 0.045);
   }
 }
 

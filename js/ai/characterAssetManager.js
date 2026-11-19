@@ -259,7 +259,7 @@ export class CharacterAssetManager {
     return p;
   }
 
-  createInstance(specId, heightScale = 1.0) {
+  createInstance(specId, heightScale = 1.0, tintHex = null) {
     const tpl = this.templates.get(specId);
     if (!tpl) return null;
 
@@ -267,6 +267,22 @@ export class CharacterAssetManager {
     const s = tpl.normScale * heightScale;
     clone.scale.setScalar(s);
     clone.position.y = tpl.groundOffset * heightScale;
+
+    if (tintHex) {
+      clone.traverse((o) => {
+        if (!o.isMesh || !o.material) return;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        const nextMats = mats.map((m) => {
+          if (m && /body/i.test(m.name || '')) {
+            const cm = m.clone();
+            cm.color = cm.color ? cm.color.clone().lerp(new THREE.Color(tintHex), 0.28) : new THREE.Color(tintHex);
+            return cm;
+          }
+          return m;
+        });
+        o.material = Array.isArray(o.material) ? nextMats : nextMats[0];
+      });
+    }
 
     const mixer = new THREE.AnimationMixer(clone);
     const actions = {};

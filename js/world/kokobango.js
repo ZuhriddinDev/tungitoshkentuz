@@ -823,6 +823,22 @@ export function buildKokobangoClub(scene) {
   extWarmLight.position.set(cx, 4.85, cz - 27.5);
   exteriorGroup.add(extWarmLight);
 
+  // Hashamatli VIP Kirish Arkasi va 2 ta vertikal 3D neon totem ustuni
+  const archOuter = new THREE.Mesh(new THREE.TorusGeometry(6.8, 0.22, 10, 32, Math.PI), mGold);
+  archOuter.position.set(cx, 5.2, cz - 29.8);
+  const archNeon = new THREE.Mesh(new THREE.TorusGeometry(6.45, 0.12, 8, 32, Math.PI), mNeonPurple);
+  archNeon.position.set(cx, 5.2, cz - 29.85);
+  exteriorGroup.add(archOuter, archNeon);
+  for (const sx of [-1, 1]) {
+    const totem = new THREE.Mesh(new THREE.BoxGeometry(0.95, 7.6, 0.95), mObsidian);
+    totem.position.set(cx + sx * 9.6, 4.0, cz - 30.6);
+    const totemStrip = new THREE.Mesh(new THREE.BoxGeometry(0.18, 6.8, 1.02), sx < 0 ? mNeonCyan : mNeonPink);
+    totemStrip.position.set(cx + sx * 9.6, 4.0, cz - 30.6);
+    const totemCap = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.2, 1.15), mGold);
+    totemCap.position.set(cx + sx * 9.6, 7.85, cz - 30.6);
+    exteriorGroup.add(totem, totemStrip, totemCap);
+  }
+
   // Obodonlashtirish: ko'cha daraxtlari, gulzorlar va zamonaviy skameykalar
   const mTrunk = new THREE.MeshStandardMaterial({ color: 0x3b2a1e, roughness: 0.9 });
   const mLeaves = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.78 });
@@ -1333,9 +1349,9 @@ export function buildKokobangoClub(scene) {
     './Kokobango/LINGERIE_-_MOBILE_6e493ed3-9a3a-4fd2-8838-1cbdd654da8b.webp',
     './Kokobango/0253707-Black_media-2.webp',
     './Kokobango/images%20(4).jpg',
-    './Kokobango/images%20(5).jpg',
+    './Kokobango/girlshello.jpg',
     './Kokobango/images%20(6).jpg',
-    './Kokobango/istockphoto-2149007404-640x640.jpg',
+    './Kokobango/simongirls.webp',
     './Kokobango/images%20(7).jpg',
     './Kokobango/images%20(8).jpg',
     './Kokobango/b201cc79fa915d85d8dee700cb9955dd.jpg',
@@ -2690,6 +2706,8 @@ export function buildKokobangoClub(scene) {
 
     beatDropBoost: 0,
     prevDoorOpen: false,
+    _tileC1: new THREE.Color(),
+    _tileC2: new THREE.Color(),
     triggerBeatDrop() {
       this.beatDropBoost = 3.5;
     },
@@ -2700,13 +2718,17 @@ export function buildKokobangoClub(scene) {
       const isClubOpen = gameHour >= 0 && gameHour < 3;
 
       if (!isInside) {
-        parkedCarsGroup.visible = playerDistSq < 240 * 240;
+        parkedCarsGroup.visible = playerDistSq < 155 * 155;
+        const nearLights = isNight && playerDistSq < 130 * 130;
+        extLight.visible = nearLights;
+        extWarmLight.visible = nearLights;
         const nightFactor = isNight ? 1.0 : 0.14;
-        skyBeams[0].visible = isNight && playerDistSq < 600 * 600;
-        skyBeams[1].visible = isNight && playerDistSq < 600 * 600;
-        mNeonPurple.emissiveIntensity = isNight ? 2.8 : 0.3;
-        mNeonCyan.emissiveIntensity = isNight ? 2.6 : 0.3;
-        mNeonPink.emissiveIntensity = isNight ? 2.8 : 0.3;
+        skyBeams[0].visible = isNight && playerDistSq < 520 * 520;
+        skyBeams[1].visible = isNight && playerDistSq < 520 * 520;
+        const breath = isNight ? 2.5 + Math.sin(t * 2.2) * 0.45 : 0.3;
+        mNeonPurple.emissiveIntensity = breath;
+        mNeonCyan.emissiveIntensity = isNight ? 2.4 + Math.cos(t * 2.2) * 0.35 : 0.3;
+        mNeonPink.emissiveIntensity = breath;
         mWarmGlow.emissiveIntensity = isNight ? 1.6 : 0.25;
 
         // Osmon projektori va tashqi LED ekran faqat yaqin bo'lsa yangilanadi
@@ -2751,9 +2773,11 @@ export function buildKokobangoClub(scene) {
       // Interyer animatsiyalari (beat-synced)
       drawLedScreens(t, beat, true);
 
-      // Raqs maydoni plitkalari
-      const c1 = new THREE.Color().setHSL((t * 0.15) % 1, 0.85, 0.28 + beat * 0.28);
-      const c2 = new THREE.Color().setHSL((t * 0.15 + 0.35) % 1, 0.9, 0.22 + beat * 0.25);
+      // Raqs maydoni plitkalari va sahna nuri (GC-free beat-synced)
+      const c1 = this._tileC1.setHSL((t * 0.15) % 1, 0.88, 0.28 + beat * 0.30);
+      const c2 = this._tileC2.setHSL((t * 0.15 + 0.35) % 1, 0.92, 0.22 + beat * 0.26);
+      intStageLight.color.copy(c1);
+      intStageLight.intensity = 65 + beat * 55;
       for (const tile of danceTiles) {
         const checker = (Math.floor(tile.ix) + Math.floor(tile.iz)) % 2 === 0;
         tile.mat.color.copy(checker ? c1 : c2);

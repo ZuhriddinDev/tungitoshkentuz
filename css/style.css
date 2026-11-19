@@ -3903,6 +3903,64 @@ body.phone .club-prompt.hidden {
   }
 }
 
+/* ============================================================
+   HERO ENTRY V16 — ULTRA MODERN GLASSMORPHISM & CINEMATIC GLOW
+   ============================================================ */
+.hero-v15 .panel-glass {
+  background: linear-gradient(135deg, rgba(10, 14, 28, 0.78), rgba(16, 22, 44, 0.62)) !important;
+  border: 1px solid rgba(56, 189, 248, 0.28) !important;
+  box-shadow: 0 12px 32px rgba(2, 6, 23, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(18px) saturate(140%) !important;
+  border-radius: 16px !important;
+}
+
+.hero-v15 .lobby-logo {
+  background: linear-gradient(90deg, #ffffff 0%, #38bdf8 52%, #e879f9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  letter-spacing: 1.5px;
+  filter: drop-shadow(0 0 14px rgba(56, 189, 248, 0.45));
+}
+
+.hero-v15 .hero-year-pill {
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.22), rgba(245, 158, 11, 0.14));
+  border: 1px solid rgba(250, 204, 21, 0.55);
+  color: #fde047;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.22);
+}
+
+.hero-v15 .malibu-hero-badge {
+  background: linear-gradient(90deg, rgba(8, 12, 26, 0.78), rgba(22, 16, 46, 0.72));
+  border: 1px solid rgba(192, 132, 252, 0.36);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(14px);
+}
+
+.hero-v15 .hero-start-btn {
+  background: linear-gradient(135deg, #06b6d4 0%, #2563eb 52%, #9333ea 100%) !important;
+  border: 1px solid rgba(125, 211, 252, 0.65) !important;
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.45), 0 0 22px rgba(6, 182, 212, 0.35) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.hero-v15 .hero-start-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 14px 36px rgba(37, 99, 235, 0.6), 0 0 30px rgba(56, 189, 248, 0.55) !important;
+}
+
+.hero-v15 .hero-friends-btn {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 27, 75, 0.82)) !important;
+  border: 1px solid rgba(232, 121, 249, 0.48) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.5) !important;
+  transition: transform 0.2s ease, border-color 0.2s ease !important;
+}
+
+.hero-v15 .hero-friends-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(232, 121, 249, 0.85) !important;
+}
+
 
 
 

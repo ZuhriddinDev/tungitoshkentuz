@@ -7,10 +7,10 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 export const PRESETS = {
-  low:    { pr: 1.05, shadows: false, map: 512,  bloom: false, traffic: 4,  peds: 10 },
-  medium: { pr: 1.30, shadows: true,  map: 1024, bloom: false, traffic: 6,  peds: 16 },
-  high:   { pr: 1.55, shadows: true,  map: 2048, bloom: true,  traffic: 9,  peds: 24 },
-  ultra:  { pr: 2.00, shadows: true,  map: 2048, bloom: true,  traffic: 12, peds: 30 },
+  low:    { pr: 1.00, shadows: false, map: 512,  bloom: false, traffic: 4,  peds: 10 },
+  medium: { pr: 1.20, shadows: true,  map: 1024, bloom: false, traffic: 6,  peds: 14 },
+  high:   { pr: 1.35, shadows: true,  map: 1024, bloom: true,  traffic: 8,  peds: 20 },
+  ultra:  { pr: 1.65, shadows: true,  map: 2048, bloom: true,  traffic: 10, peds: 26 },
 };
 
 export const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
@@ -83,18 +83,18 @@ export function createRenderer(canvas, quality) {
       if (fpsWindow.length < 3) return;
       const avgFps = fpsWindow.reduce((a, b) => a + b, 0) / fpsWindow.length;
 
-      if (avgFps < 34 && now - lastAdaptAt > 6000) {
+      if (avgFps < 40 && now - lastAdaptAt > 4500) {
         if (preset?.bloom) {
           preset = { ...preset, bloom: false };
           autoAdaptedBloom = true;
           lastAdaptAt = now;
-        } else if (avgFps < 26 && preset?.shadows) {
+        } else if (avgFps < 28 && preset?.shadows) {
           preset = { ...preset, shadows: false };
           renderer.shadowMap.enabled = false;
           autoAdaptedShadow = true;
           lastAdaptAt = now;
         }
-      } else if ((autoAdaptedBloom || autoAdaptedShadow) && avgFps > 54 && now - lastAdaptAt > 10000) {
+      } else if ((autoAdaptedBloom || autoAdaptedShadow) && avgFps > 54 && now - lastAdaptAt > 9000) {
         if (autoAdaptedShadow) {
           autoAdaptedShadow = false;
           const origShadow = PRESETS[activeQuality]?.shadows ?? true;
@@ -129,10 +129,10 @@ export function createRenderer(canvas, quality) {
       scene.environment = envMap;
       composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
-      // Yarim o'lchamli kinematografik bloom (maksimal 800x540, silliq halo)
-      const bw = Math.min(800, Math.max(256, innerWidth >> 1));
-      const bh = Math.min(540, Math.max(256, innerHeight >> 1));
-      bloom = new UnrealBloomPass(new THREE.Vector2(bw, bh), 0.46, 0.62, 0.82);
+      // Tezkor yarim-chorak o'lchamli kinematografik bloom (maksimal 512x384 — 60 FPS uchun)
+      const bw = Math.min(512, Math.max(256, innerWidth >> 1));
+      const bh = Math.min(384, Math.max(192, innerHeight >> 1));
+      bloom = new UnrealBloomPass(new THREE.Vector2(bw, bh), 0.44, 0.60, 0.82);
       composer.addPass(bloom);
       composer.addPass(new OutputPass());
       R.apply(quality);

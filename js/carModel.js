@@ -519,7 +519,7 @@ function prepareGlbTemplate(origScene, cfg, spec) {
 }
 
 /** Shablonni klonlash va dinamik materiallarni har bir mashina uchun alohida nusxalash */
-function instantiateGlb(cached, spec, cfg) {
+function instantiateGlb(cached, spec, cfg, highSpec = true) {
   const root = cached.templateGroup.clone(true);
   const matClones = new Map();
   const paintMats = [];
@@ -546,7 +546,7 @@ function instantiateGlb(cached, spec, cfg) {
     if (isPaint.has(mName) || isRim.has(mName) || isHead.has(mName) || isTail.has(mName) || isGlassCandidate) {
       let cloned = matClones.get(o.material);
       if (!cloned) {
-        if (isPaint.has(mName) && !o.material.isMeshPhysicalMaterial) {
+        if (highSpec && isPaint.has(mName) && !o.material.isMeshPhysicalMaterial) {
           cloned = new THREE.MeshPhysicalMaterial({
             name: o.material.name,
             color: o.material.color ? o.material.color.clone() : new THREE.Color(0xffffff),
@@ -764,7 +764,7 @@ function loadGlb(id, cfg, priority = false) {
   const safeInstantiate = (cached) => {
     if (!cached) return null;
     try {
-      return instantiateGlb(cached, spec, cfg);
+      return instantiateGlb(cached, spec, cfg, priority);
     } catch (err) {
       console.warn(`[GLB] instantiateGlb xatosi (${id}):`, err);
       return null;
