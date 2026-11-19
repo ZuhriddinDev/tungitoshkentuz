@@ -57,13 +57,11 @@ export function buildCity(scene, quality) {
   outer.receiveShadow = true;
   group.add(outer);
 
-  // Yo'llar (PBR asfalt: map + bumpMap + ho'l dog'li roughnessMap)
+  // Yo'llar (tezkor PBR asfalt: map + ho'l dog'li roughnessMap)
   const asph = asphaltPBR();
   roadMat = new THREE.MeshStandardMaterial({
     map: asph.map,
     roughnessMap: asph.roughnessMap,
-    bumpMap: asph.bumpMap,
-    bumpScale: 0.045,
     roughness: 0.44,
     metalness: 0.28,
     envMapIntensity: 1.65,
@@ -137,18 +135,16 @@ export function buildCity(scene, quality) {
 
   const walkGeos = [], curbGeos = [], grassGeos = [];
   const styleMats = STYLES.map((s) => {
-    const { map, emissiveMap, roughnessMap, bumpMap } = facadeTextures(s.base, s.frame, s.glass, s.style);
+    const { map, emissiveMap, roughnessMap } = facadeTextures(s.base, s.frame, s.glass, s.style);
     const mat = new THREE.MeshStandardMaterial({
       map,
       emissiveMap,
       roughnessMap,
-      bumpMap,
-      bumpScale: s.style === 'glass' ? 0.03 : 0.14,
       emissive: 0xffffff,
       emissiveIntensity: 0,
       roughness: s.style === 'glass' ? 0.16 : 0.82,
       metalness: s.style === 'glass' ? 0.78 : 0.18,
-      envMapIntensity: s.style === 'glass' ? 2.05 : 1.05,
+      envMapIntensity: s.style === 'glass' ? 2.0 : 1.05,
     });
     nightMats.push({ mat, base: s.style === 'glass' ? 0.92 : 0.82 });
     return mat;
@@ -370,16 +366,11 @@ function scaleUV(g, su, sv) {
 export let waterMat;
 function buildCanal(group) {
   const cx = blockC(CANAL_COL), W = 32;
-  const wBump = waterBumpTexture();
-  waterMat = new THREE.MeshPhysicalMaterial({
+  waterMat = new THREE.MeshStandardMaterial({
     color: 0x07344d,
-    bumpMap: wBump,
-    bumpScale: 0.08,
-    roughness: 0.06,
-    metalness: 0.84,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.05,
-    envMapIntensity: 2.3,
+    roughness: 0.07,
+    metalness: 0.82,
+    envMapIntensity: 2.1,
     emissive: 0x021826,
   });
   const water = new THREE.Mesh(new THREE.PlaneGeometry(W, HALF * 2), waterMat);

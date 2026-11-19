@@ -5,7 +5,7 @@ import { N, BLOCK, ROAD, HALF, roadC, blockC, blockInfo, nearestRoad, POIS, LAND
 export { TASHKENT_DISTRICTS_OSM, districtAt };
 
 const IS_MOB = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900));
-const BASE_SIZE = IS_MOB ? 1280 : 2048;
+const BASE_SIZE = IS_MOB ? 1024 : 1280;
 let baseCanvas = null;
 
 // Katta xarita holati (Zoom, Pan, Filter, Tanlangan obyekt)

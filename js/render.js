@@ -7,10 +7,10 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 export const PRESETS = {
-  low:    { pr: 1.00, shadows: false, map: 512,  bloom: false, traffic: 4,  peds: 10 },
-  medium: { pr: 1.20, shadows: true,  map: 1024, bloom: false, traffic: 6,  peds: 14 },
-  high:   { pr: 1.35, shadows: true,  map: 1024, bloom: true,  traffic: 8,  peds: 20 },
-  ultra:  { pr: 1.65, shadows: true,  map: 2048, bloom: true,  traffic: 10, peds: 26 },
+  low:    { pr: 1.00, shadows: false, map: 512,  bloom: false, traffic: 4,  peds: 8 },
+  medium: { pr: 1.15, shadows: false, map: 1024, bloom: false, traffic: 6,  peds: 12 },
+  high:   { pr: 1.25, shadows: true,  map: 1024, bloom: false, traffic: 8,  peds: 16 },
+  ultra:  { pr: 1.50, shadows: true,  map: 2048, bloom: true,  traffic: 10, peds: 22 },
 };
 
 export const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);

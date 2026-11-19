@@ -22,18 +22,49 @@ function sample(h, idx) {
   return cA.set(a[idx]).lerp(cB.set(b[idx]), t).clone();
 }
 
+function createCloudTexture() {
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d');
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 42; i++) {
+    const x = Math.random() * S;
+    const y = Math.random() * S;
+    const r = 24 + Math.random() * 44;
+    for (const ox of [-S, 0, S]) {
+      for (const oy of [-S, 0, S]) {
+        const gr = g.createRadialGradient(x + ox, y + oy, 2, x + ox, y + oy, r);
+        gr.addColorStop(0, 'rgba(255,255,255,0.22)');
+        gr.addColorStop(0.55, 'rgba(255,255,255,0.08)');
+        gr.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = gr;
+        g.beginPath();
+        g.arc(x + ox, y + oy, r, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 export function createSky(scene) {
+  const cloudTex = createCloudTexture();
   const uniforms = {
     top: { value: new THREE.Color() },
     bottom: { value: new THREE.Color() },
     sunColor: { value: new THREE.Color(0xfff0d0) },
     sunDir: { value: new THREE.Vector3(0, 1, 0) },
+    uClouds: { value: cloudTex },
     uTime: { value: 0 },
     uNight: { value: 0 },
     uOvercast: { value: 0 },
   };
   const dome = new THREE.Mesh(
-    new THREE.SphereGeometry(4000, 36, 20),
+    new THREE.SphereGeometry(4000, 28, 14),
     new THREE.ShaderMaterial({
       uniforms,
       side: THREE.BackSide,
@@ -51,62 +82,31 @@ export function createSky(scene) {
         uniform vec3 bottom;
         uniform vec3 sunColor;
         uniform vec3 sunDir;
+        uniform sampler2D uClouds;
         uniform float uTime;
         uniform float uNight;
         uniform float uOvercast;
         varying vec3 vP;
-
-        float hash21(vec2 p) {
-          p = fract(p * vec2(123.34, 456.21));
-          p += dot(p, p + 45.32);
-          return fract(p.x * p.y);
-        }
-        float noise(vec2 p) {
-          vec2 i = floor(p);
-          vec2 f = fract(p);
-          f = f * f * (3.0 - 2.0 * f);
-          float a = hash21(i);
-          float b = hash21(i + vec2(1.0, 0.0));
-          float c = hash21(i + vec2(0.0, 1.0));
-          float d = hash21(i + vec2(1.0, 1.0));
-          return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-        }
-        float fbm(vec2 p) {
-          float v = 0.0;
-          float a = 0.52;
-          for (int i = 0; i < 3; i++) {
-            v += a * noise(p);
-            p = p * 2.04 + vec2(1.7, 9.2);
-            a *= 0.5;
-          }
-          return v;
-        }
 
         void main() {
           vec3 d = normalize(vP);
           float h = clamp(d.y * 1.55 + 0.05, 0.0, 1.0);
           vec3 col = mix(bottom, top, pow(h, 0.68));
 
-          // Mie quyosh halosi va shafaq nuri
           float sunAmt = max(dot(d, normalize(sunDir)), 0.0);
           float dayVis = (1.0 - uNight * 0.92) * (1.0 - uOvercast * 0.7);
-          col += sunColor * (pow(sunAmt, 14.0) * 0.32 + pow(sunAmt, 120.0) * 0.75) * dayVis;
+          col += sunColor * (pow(sunAmt, 14.0) * 0.30 + pow(sunAmt, 96.0) * 0.65) * dayVis;
 
-          // Tungi metropoliten ufq yorug'ligi (Toshkent shahar nuri)
-          float cityGlow = smoothstep(0.28, -0.02, d.y) * uNight;
-          col += vec3(0.16, 0.11, 0.24) * cityGlow * (0.75 + uOvercast * 0.6);
+          float cityGlow = smoothstep(0.26, -0.02, d.y) * uNight;
+          col += vec3(0.15, 0.10, 0.22) * cityGlow * (0.75 + uOvercast * 0.55);
 
-          // Procedural harakatlanuvchi bulutlar (faqat ufqdan yuqorida)
-          if (d.y > 0.02) {
-            vec2 uv = d.xz / (d.y + 0.22) * 1.35 + vec2(uTime * 0.008, uTime * 0.004);
-            float n = fbm(uv);
-            float cover = mix(0.56, 0.28, uOvercast);
-            float cloud = smoothstep(cover, cover + 0.34, n) * smoothstep(0.02, 0.18, d.y);
-            vec3 dayCloud = mix(vec3(0.95, 0.97, 1.0), sunColor, pow(sunAmt, 4.0) * 0.55);
-            vec3 nightCloud = vec3(0.11, 0.14, 0.25);
-            vec3 cCol = mix(dayCloud, nightCloud, uNight);
-            cCol = mix(cCol, vec3(0.32, 0.36, 0.44), uOvercast * 0.55 * (1.0 - uNight));
-            col = mix(col, cCol, cloud * (0.68 + uOvercast * 0.25));
+          if (d.y > 0.03) {
+            vec2 uv = d.xz / (d.y + 0.25) * 0.32 + vec2(uTime * 0.004, uTime * 0.002);
+            float n = texture2D(uClouds, uv).r;
+            float cloud = smoothstep(mix(0.32, 0.12, uOvercast), 0.78, n) * smoothstep(0.03, 0.20, d.y);
+            vec3 dayCloud = mix(vec3(0.94, 0.96, 1.0), sunColor, pow(sunAmt, 4.0) * 0.5);
+            vec3 cCol = mix(dayCloud, vec3(0.11, 0.14, 0.24), uNight);
+            col = mix(col, cCol, cloud * (0.58 + uOvercast * 0.28));
           }
 
           gl_FragColor = vec4(col, 1.0);
