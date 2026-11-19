@@ -15,9 +15,9 @@ const DIRS = [
   [0, 1],
   [0, -1],
 ];
-const CULL_DIST_SQ = 175 * 175;
-const NEAR_PHYS_DIST_SQ = 92 * 92;
-const RESPAWN_DIST_SQ = 480 * 480;
+const CULL_DIST_SQ = 135 * 135;
+const NEAR_PHYS_DIST_SQ = 75 * 75;
+const RESPAWN_DIST_SQ = 420 * 420;
 
 const TAXI_COLOR = '#f9d71c';
 const PALETTE = [
@@ -39,24 +39,13 @@ const DRIVER_PROFILES = [
   { id: 'cautious', speedMul: 0.78, headway: 2.1, maxLatG: 4.0, accelMul: 0.75 },
 ];
 
-// Build verified registry of city-appropriate GLB vehicles from CARS + GLB_SPECS
+// Yengil va tez yuklanadigan 5 ta Toshkent shahar avtomobili (qotish va shader-compile spike bo'lmasligi uchun)
 const CITY_CANDIDATES = [
   'gentra',
   'spark',
-  'nexia2',
-  'malibu',
   'kia_k5',
-  'byd_han',
-  'e55',
-  'mercedes',
-  'bmwx7',
-  'bmw2018',
-  'bmw',
-  'lc300',
-  'challenger',
-  'm4gts',
-  'escalade',
-  'maybach',
+  'malibu',
+  'nexia2',
 ];
 
 export function buildCityVehicleRegistry() {

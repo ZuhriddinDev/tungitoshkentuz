@@ -924,7 +924,9 @@ function step(dt, t) {
   updateLandmarks(player.x, player.z);
   traffic.setNight(night, sky.hour);
   traffic.update(dt, t, player, peds);
-  trafficAudio.update(traffic.cars, player, dt, camera);
+  if ((frames & 3) === 0) {
+    trafficAudio.update(traffic.cars, player, dt * 4, camera);
+  }
   peds.update(dt, t, player);
   updateMission(dt);
   for (const f of animated) f(t);
@@ -975,7 +977,7 @@ function step(dt, t) {
 }
 
 const clock = new THREE.Clock();
-let fps = 60, frames = 0, fpsT = 0, hudT = 0, mapT = 0, peerHudT = 0, perfT = 0, posSaveTimer = 0;
+let fps = 60, frames = 0, fpsT = 0, hudT = 0, mapT = 0, peerHudT = 0, perfT = 0, posSaveTimer = 0, smoothDt = 1 / 60;
 
 function updatePerfAuditPanel(rawDt) {
   if (!perfAuditVisible) return;
@@ -1085,7 +1087,9 @@ function loop() {
     fpsT = 0;
     R.reportFps?.(fps);
   }
-  const dt = Math.min(raw, 0.1);
+  const clampedRaw = Math.min(raw, 0.05);
+  smoothDt += (clampedRaw - smoothDt) * 0.22;
+  const dt = smoothDt;
 
   if (perfAuditVisible && (perfT += raw) > 0.25) {
     perfT = 0;

@@ -2757,13 +2757,13 @@ export function buildKokobangoClub(scene) {
       const isClubOpen = gameHour >= 0 && gameHour < 3;
 
       if (!isInside) {
-        parkedCarsGroup.visible = playerDistSq < 155 * 155;
-        const nearLights = isNight && playerDistSq < 130 * 130;
+        parkedCarsGroup.visible = playerDistSq < 110 * 110;
+        const nearLights = isNight && playerDistSq < 105 * 105;
         extLight.visible = nearLights;
         extWarmLight.visible = nearLights;
         const nightFactor = isNight ? 1.0 : 0.14;
-        skyBeams[0].visible = isNight && playerDistSq < 520 * 520;
-        skyBeams[1].visible = isNight && playerDistSq < 520 * 520;
+        skyBeams[0].visible = isNight && playerDistSq < 420 * 420;
+        skyBeams[1].visible = isNight && playerDistSq < 420 * 420;
         const breath = isNight ? 2.5 + Math.sin(t * 2.2) * 0.45 : 0.3;
         mNeonPurple.emissiveIntensity = breath;
         mNeonCyan.emissiveIntensity = isNight ? 2.4 + Math.cos(t * 2.2) * 0.35 : 0.3;
@@ -2771,7 +2771,7 @@ export function buildKokobangoClub(scene) {
         mWarmGlow.emissiveIntensity = isNight ? 1.6 : 0.25;
 
         // Osmon projektori va tashqi LED ekran faqat yaqin bo'lsa yangilanadi
-        if (playerDistSq < 600 * 600) {
+        if (playerDistSq < 420 * 420) {
           if (isNight) {
             skyBeams[0].rotation.z = Math.sin(t * 0.65) * 0.38;
             skyBeams[0].rotation.x = Math.cos(t * 0.5) * 0.25;
@@ -2781,7 +2781,7 @@ export function buildKokobangoClub(scene) {
           extLight.intensity = (2.6 + Math.sin(t * 4) * 0.8) * nightFactor;
           extWarmLight.intensity = 2.4 * nightFactor;
         }
-        if (playerDistSq < 180 * 180) {
+        if (playerDistSq < 115 * 115) {
           drawLedScreens(t, 0.5, false, gameHour);
           for (const npc of exteriorNpcs) npc.update(dt, t, 0);
           const doorOpenNow = isClubOpen && playerDistSq < 55 * 55;

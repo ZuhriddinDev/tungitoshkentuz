@@ -8,9 +8,9 @@ import { CHARACTER_GLB_CATALOG, CharacterAssetManager } from './characterAssetMa
 
 const SIDEWALK_HALF = BLOCK / 2 - 2.1;
 const NEAR_GLB_DIST_SQ = 38 * 38;
-const CULL_DIST_SQ = 140 * 140;
-const RESPAWN_DIST_SQ = 320 * 320;
-const MAX_GLB_CLONES = 4;
+const CULL_DIST_SQ = 115 * 115;
+const RESPAWN_DIST_SQ = 280 * 280;
+const MAX_GLB_CLONES = 0;
 
 const PERSONALITIES = [
   { id: 'stroll', baseSpeed: 1.15, pauseChance: 0.35, phoneBias: 0.45 },
@@ -142,28 +142,6 @@ export class PedestrianAIManager {
       this.list.push(ped);
     }
     if (this.lodBody.instanceColor) this.lodBody.instanceColor.needsUpdate = true;
-
-    // Sekin-asta, o'yinni qotirmasdan 4 ta eng yengil GLB personajni kechiktirib yuklash
-    const outfitTints = ['#ffffff', '#cbd5e1', '#fca5a5', '#93c5fd'];
-    const lightSpecs = [
-      CHARACTER_GLB_CATALOG[6], // Male_Adult_09.glb (800KB)
-      CHARACTER_GLB_CATALOG[0], // Female_Adult_04.glb
-      CHARACTER_GLB_CATALOG[3], // Female_Adult_17.glb
-      CHARACTER_GLB_CATALOG[1], // Female_Adult_08.glb
-    ];
-    setTimeout(async () => {
-      for (let i = 0; i < MAX_GLB_CLONES; i++) {
-        const spec = lightSpecs[i % lightSpecs.length];
-        if (!spec) continue;
-        await this.charAssets.loadTemplate(spec);
-        const inst = this.charAssets.createInstance(spec.id, 0.96 + (i % 4) * 0.025, i > 0 ? outfitTints[i] : null);
-        if (inst) {
-          inst.root.visible = false;
-          this.scene.add(inst.root);
-          this.glbPool.push({ inst, ownerId: -1 });
-        }
-      }
-    }, 2500);
   }
 
   setEnvironment(night, gameHour = 22) {
