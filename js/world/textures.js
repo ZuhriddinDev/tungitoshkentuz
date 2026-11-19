@@ -8,7 +8,7 @@ function canvas(w, h) {
   return [c, c.getContext('2d')];
 }
 
-// Bino fasadi: rang + tungi deraza emissive + roughness + me'moriy relyef (bumpMap)
+// Bino fasadi: Real Toshkent me'morchiligi (Travertin, Yangi Hi-Tech Novostroyka, Chilonzor Panel Dom, Tashkent City Oyna Fasad)
 export function facadeTextures(base, frame, glass, style = 'grid') {
   const S = 512, cols = 8, rows = 16;
   const [c, g] = canvas(S, S);
@@ -20,109 +20,140 @@ export function facadeTextures(base, frame, glass, style = 'grid') {
   g.fillRect(0, 0, S, S);
   ge.fillStyle = '#000';
   ge.fillRect(0, 0, S, S);
-  gr.fillStyle = style === 'glass' ? '#363636' : '#d2d2d2';
+  gr.fillStyle = style === 'glass' ? '#20242c' : '#c8c8c8';
   gr.fillRect(0, 0, S, S);
-  gb.fillStyle = '#909090';
+  gb.fillStyle = '#888888';
   gb.fillRect(0, 0, S, S);
 
-  // Tabiiy travertin / marmar / beton mikro-faktura
-  for (let i = 0; i < 2400; i++) {
+  // Tabiiy Toshkent travertin / granit / beton plita choklari va mikro-faktura
+  for (let i = 0; i < 3200; i++) {
     const x = Math.random() * S;
     const y = Math.random() * S;
-    g.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.04)';
-    g.fillRect(x, y, 3, 2);
-    gb.fillStyle = i % 2 === 0 ? '#a4a4a4' : '#7a7a7a';
+    g.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.045)';
+    g.fillRect(x, y, 4, 2);
+    gb.fillStyle = i % 2 === 0 ? '#9e9e9e' : '#747474';
     gb.fillRect(x, y, 2, 2);
   }
 
   const cw = S / cols, ch = S / rows;
+  // Vertikal me'moriy pilyastrlar (ustunlar)
+  for (let x = 0; x <= cols; x++) {
+    const px = x * cw;
+    g.fillStyle = 'rgba(255,255,255,0.07)';
+    g.fillRect(px - 2, 0, 2, S);
+    g.fillStyle = 'rgba(0,0,0,0.18)';
+    g.fillRect(px, 0, 2.5, S);
+    gb.fillStyle = '#b8b8b8';
+    gb.fillRect(px - 2, 0, 4, S);
+  }
+
   for (let y = 0; y < rows; y++) {
-    // Har qavat orasidagi me'moriy gorizontal karniz (slab edge)
     const fy = y * ch;
-    g.fillStyle = 'rgba(0,0,0,0.22)';
-    g.fillRect(0, fy, S, 2.5);
-    g.fillStyle = 'rgba(255,255,255,0.10)';
-    g.fillRect(0, fy + 2.5, S, 1.5);
-    gb.fillStyle = '#c8c8c8';
-    gb.fillRect(0, fy, S, 3);
+    const isGroundFloor = y === rows - 1;
+    // Qavatlar orasidagi beton plita va karniz relyefi
+    g.fillStyle = 'rgba(0,0,0,0.32)';
+    g.fillRect(0, fy, S, 3);
+    g.fillStyle = 'rgba(255,255,255,0.14)';
+    g.fillRect(0, fy + 3, S, 2);
+    gb.fillStyle = '#d4d4d4';
+    gb.fillRect(0, fy, S, 4);
 
     for (let x = 0; x < cols; x++) {
       const wx = x * cw, wy = fy;
       if (style === 'glass') {
-        // Zamonaviy ko'p qavatli oyna fasad (curtain wall) + diagonal osmon refleksi
+        // Tashkent City / Biznes-Markaz panoramali oyna fasadi + ichki ofis shift chiroqlari
         const grad = g.createLinearGradient(wx, wy, wx + cw, wy + ch);
         grad.addColorStop(0, glass);
-        grad.addColorStop(0.55, '#1b3554');
-        grad.addColorStop(1, '#0e1d30');
+        grad.addColorStop(0.5, '#162c46');
+        grad.addColorStop(1, '#091524');
         g.fillStyle = grad;
-        g.fillRect(wx + 2, wy + 2, cw - 4, ch - 3);
-        g.fillStyle = 'rgba(210,235,255,0.13)';
-        g.beginPath();
-        g.moveTo(wx + 3, wy + 3);
-        g.lineTo(wx + cw * 0.58, wy + 3);
-        g.lineTo(wx + cw * 0.25, wy + ch - 3);
-        g.lineTo(wx + 3, wy + ch - 3);
-        g.closePath();
-        g.fill();
-        // Alyuminiy mullion romi
+        g.fillRect(wx + 2.5, wy + 2.5, cw - 5, ch - 4);
+
+        // Oyna bo'linmasi (transom & mullion)
         g.fillStyle = frame;
-        g.fillRect(wx, wy, cw, 2.2);
-        g.fillRect(wx, wy, 2.2, ch);
-        gr.fillStyle = '#121212';
-        gr.fillRect(wx + 2, wy + 2, cw - 4, ch - 3);
-        gb.fillStyle = '#404040';
-        gb.fillRect(wx + 2, wy + 2, cw - 4, ch - 3);
+        g.fillRect(wx, wy, cw, 2.8);
+        g.fillRect(wx, wy, 2.8, ch);
+        g.fillStyle = 'rgba(255,255,255,0.16)';
+        g.fillRect(wx + 3, wy + ch * 0.68, cw - 6, 1.2);
+
+        gr.fillStyle = '#0e1014';
+        gr.fillRect(wx + 2.5, wy + 2.5, cw - 5, ch - 4);
+        gb.fillStyle = '#383838';
+        gb.fillRect(wx + 2.5, wy + 2.5, cw - 5, ch - 4);
       } else {
-        // Chuqur deraza o'rni, rom, tokcha va ichki xona chuqurligi
-        g.fillStyle = 'rgba(0,0,0,0.34)';
-        g.fillRect(wx + cw * 0.14, wy + ch * 0.16, cw * 0.72, ch * 0.68);
+        // Real Toshkent turar-joy / novostroyka / ma'muriy bino derazasi + balkon panjarasi
+        const padX = isGroundFloor ? cw * 0.10 : cw * 0.14;
+        const padY = isGroundFloor ? ch * 0.12 : ch * 0.15;
+        const ww = cw - padX * 2;
+        const wh = ch - padY * 1.85;
+
+        // Tashqi chuqur soya (window recess)
+        g.fillStyle = 'rgba(0,0,0,0.45)';
+        g.fillRect(wx + padX - 1.5, wy + padY - 1.5, ww + 3, wh + 3);
+        // Deraza romi
         g.fillStyle = frame;
-        g.fillRect(wx + cw * 0.17, wy + ch * 0.19, cw * 0.66, ch * 0.62);
-        const wGrad = g.createLinearGradient(wx, wy + ch * 0.24, wx, wy + ch * 0.76);
-        wGrad.addColorStop(0, '#0f1722');
-        wGrad.addColorStop(0.5, glass);
-        wGrad.addColorStop(1, '#1e2c3a');
+        g.fillRect(wx + padX, wy + padY, ww, wh);
+        // Oyna qatlami
+        const wGrad = g.createLinearGradient(wx, wy + padY, wx, wy + padY + wh);
+        wGrad.addColorStop(0, '#0a1018');
+        wGrad.addColorStop(0.55, glass);
+        wGrad.addColorStop(1, '#1a2736');
         g.fillStyle = wGrad;
-        g.fillRect(wx + cw * 0.21, wy + ch * 0.24, cw * 0.58, ch * 0.52);
+        g.fillRect(wx + padX + 2.2, wy + padY + 2.2, ww - 4.4, wh - 4.4);
 
-        // Deraza bo'linmasi (mullions)
+        // Ikki tabaqali deraza romi va fortochka chiziqlari
         g.fillStyle = frame;
-        g.fillRect(wx + cw * 0.49, wy + ch * 0.23, cw * 0.035, ch * 0.54);
-        g.fillRect(wx + cw * 0.20, wy + ch * 0.44, cw * 0.60, ch * 0.035);
+        g.fillRect(wx + cw * 0.485, wy + padY + 1, cw * 0.035, wh - 2);
+        g.fillRect(wx + padX + 1, wy + padY + wh * 0.36, ww - 2, ch * 0.035);
 
-        // Deraza tokchasi (window sill highlight)
-        g.fillStyle = 'rgba(255,255,255,0.22)';
-        g.fillRect(wx + cw * 0.15, wy + ch * 0.80, cw * 0.70, ch * 0.055);
-
-        gr.fillStyle = '#181818';
-        gr.fillRect(wx + cw * 0.21, wy + ch * 0.24, cw * 0.58, ch * 0.52);
-        gb.fillStyle = '#303030';
-        gb.fillRect(wx + cw * 0.17, wy + ch * 0.19, cw * 0.66, ch * 0.62);
-        gb.fillStyle = '#e0e0e0';
-        gb.fillRect(wx + cw * 0.15, wy + ch * 0.80, cw * 0.70, ch * 0.06);
+        // Fransuz balkoni / panjara chizig'i va deraza tokchasi
+        g.fillStyle = 'rgba(255,255,255,0.28)';
+        g.fillRect(wx + padX - 2, wy + padY + wh, ww + 4, 2.2);
 
         if (style === 'panel') {
-          g.fillStyle = 'rgba(0,0,0,0.18)';
+          // Chilonzor / Yunusobod panel uylari choklari va konditsioner tashqi bloki
+          g.fillStyle = 'rgba(0,0,0,0.25)';
           g.fillRect(wx, wy + ch - 2, cw, 2);
-          g.fillRect(wx + cw - 1.5, wy, 1.5, ch);
-          gb.fillStyle = '#555555';
-          gb.fillRect(wx, wy + ch - 2, cw, 2);
+          g.fillRect(wx + cw - 2, wy, 2, ch);
+          if ((x + y * 3) % 5 === 0 && !isGroundFloor) {
+            g.fillStyle = '#d8dee6';
+            g.fillRect(wx + cw * 0.68, wy + padY + wh + 1.5, cw * 0.20, ch * 0.13);
+            g.fillStyle = '#334155';
+            g.fillRect(wx + cw * 0.70, wy + padY + wh + 2.2, cw * 0.08, ch * 0.09);
+          }
         }
+
+        gr.fillStyle = '#14181f';
+        gr.fillRect(wx + padX + 2, wy + padY + 2, ww - 4, wh - 4);
+        gb.fillStyle = '#282828';
+        gb.fillRect(wx + padX, wy + padY, ww, wh);
+        gb.fillStyle = '#e6e6e6';
+        gb.fillRect(wx + padX - 2, wy + padY + wh, ww + 4, 2.5);
       }
 
-      // Tunda jonli yonadigan derazalar (issiq uy nuri, ofis oq/moviy nuri, parda soyasi)
-      if (Math.random() < 0.36) {
-        const warm = ['#ffd479', '#ffebb3', '#fff5dc', '#cbe8ff', '#ffb066', '#9eefff'][Math.floor(Math.random() * 6)];
-        const ex = style === 'glass' ? wx + 3 : wx + cw * 0.22;
-        const ey = style === 'glass' ? wy + 3 : wy + ch * 0.25;
-        const ew = style === 'glass' ? cw - 6 : cw * 0.56;
-        const eh = style === 'glass' ? ch - 6 : ch * 0.50;
+      // Tunda tabiiy ichki xona va ofis yoritilishi (shift chirog'i + parda silueti)
+      const litChance = isGroundFloor ? 0.68 : style === 'glass' ? 0.48 : 0.42;
+      if (Math.random() < litChance) {
+        const warmPalette = style === 'glass'
+          ? ['#e0f2fe', '#bae6fd', '#fef3c7', '#fde68a', '#f0f9ff']
+          : ['#ffd885', '#ffe7a3', '#fff2cc', '#ffbe73', '#d8f0ff'];
+        const warm = warmPalette[Math.floor(Math.random() * warmPalette.length)];
+        const ex = style === 'glass' ? wx + 3 : wx + cw * 0.17;
+        const ey = style === 'glass' ? wy + 3 : wy + ch * 0.18;
+        const ew = style === 'glass' ? cw - 6 : cw * 0.66;
+        const eh = style === 'glass' ? ch - 6 : ch * 0.56;
         const eg = ge.createLinearGradient(ex, ey, ex, ey + eh);
         eg.addColorStop(0, warm);
-        eg.addColorStop(1, '#3b2410');
+        eg.addColorStop(0.7, warm);
+        eg.addColorStop(1, '#4a2c12');
         ge.fillStyle = eg;
-        ge.globalAlpha = 0.58 + Math.random() * 0.40;
+        ge.globalAlpha = 0.65 + Math.random() * 0.35;
         ge.fillRect(ex, ey, ew, eh);
+        // Ichki xona pardasi yoki bo'linmasi soyasi
+        if (Math.random() < 0.5) {
+          ge.fillStyle = 'rgba(10, 14, 22, 0.55)';
+          ge.fillRect(ex + ew * 0.68, ey, ew * 0.32, eh);
+        }
         ge.globalAlpha = 1;
       }
     }

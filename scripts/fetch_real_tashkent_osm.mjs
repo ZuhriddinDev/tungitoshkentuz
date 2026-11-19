@@ -30,14 +30,14 @@ function simplifyPolyline(pts, tol = 14) {
 }
 
 const query = `
-[out:json][timeout:30];
+[out:json][timeout:45];
 (
-  way["highway"~"^(trunk|primary|secondary|tertiary)$"](41.280,69.215,41.345,69.310);
+  way["highway"~"^(trunk|primary|secondary|tertiary)$"](41.278,69.212,41.348,69.312);
+  way["highway"="residential"]["name"](41.288,69.225,41.338,69.300);
   way["waterway"~"^(river|canal)$"](41.275,69.210,41.350,69.315);
-  way["natural"="water"](41.285,69.225,41.342,69.305);
-  way["leisure"="park"](41.285,69.225,41.342,69.305);
-  way["building"]["name"](41.290,69.225,41.340,69.305);
-  way["building"]["building:levels"](41.302,69.242,41.325,69.288);
+  way["natural"="water"](41.280,69.215,41.345,69.310);
+  way["leisure"="park"](41.280,69.215,41.345,69.310);
+  way["building"](41.292,69.230,41.335,69.296);
 );
 out body geom qt;
 `;
@@ -45,9 +45,8 @@ out body geom qt;
 async function main() {
   console.log('[OSM] Querying Overpass API for Central Tashkent...');
   const endpoints = [
-    'https://overpass.kumi.systems/api/interpreter',
-    'https://overpass-api.de/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    'https://overpass-api.de/api/interpreter',
   ];
 
   let data = null;
@@ -169,9 +168,9 @@ async function main() {
     }
   }
 
-  // Sort buildings by area/importance and keep top 950 real OSM buildings for fast 60 FPS browser loading
-  buildings.sort((a, b) => (b.name ? 5000 : 0) + b.h * 50 + b.w * b.d - ((a.name ? 5000 : 0) + a.h * 50 + a.w * a.d));
-  const selectedBuildings = buildings.slice(0, 950);
+  // Sort buildings by importance, height, and footprint area; keep top 2600 real OSM buildings
+  buildings.sort((a, b) => (b.name ? 4000 : 0) + b.h * 45 + b.w * b.d - ((a.name ? 4000 : 0) + a.h * 45 + a.w * a.d));
+  const selectedBuildings = buildings.slice(0, 2600);
 
   console.log(`[OSM] Extracted:
   - Roads: ${roads.length} segments (${totalRoadKm.toFixed(1)} km)

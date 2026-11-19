@@ -4,7 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, POIS, addCollider } from './layout.js';
 import { signTexture, ADS } from './textures.js';
 import { GLOW_TEX } from '../carModel.js';
-import { nightMats } from './city.js';
+import { nightMats, isNearOsmRoad } from './city.js';
 
 const box = new THREE.BoxGeometry(1, 1, 1);
 const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v3 = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
@@ -100,6 +100,7 @@ export function buildProps(scene, quality) {
   for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
     const info = blockInfo(j, k), bx = blockC(j), bz = blockC(k);
     const add = (x, z, s = 1) => {
+      if (isNearOsmRoad(x, z, 6)) return;
       const ch = getChunk(x, z);
       const rRot = (treeIdx * 1.618) % 6.28;
       ch.trunks.push({ x, y: 1.65 * s, z, sx: 0.34 * s, sy: 3.3 * s, sz: 0.34 * s, r: rRot });

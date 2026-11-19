@@ -3,9 +3,9 @@
 // Anhor kanali va sektorlar bo'yicha bosqichma-bosqich ko'rinish (LOD / Frustum Culling)
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, addCollider, CANAL_COL, MAIN_ROADS_X, MAIN_ROADS_Z } from './layout.js';
+import { N, BLOCK, ROAD, CELL, HALF, roadC, blockC, blockInfo, addCollider, CANAL_COL, MAIN_ROADS_X, MAIN_ROADS_Z, onRoad } from './layout.js';
 import { facadeTextures, asphaltPBR, tileTexture, grassTexture, waterBumpTexture } from './textures.js';
-import { OSM_BUILDINGS } from './tashkentRealGis.js';
+import { OSM_ROADS, OSM_WATERWAYS, OSM_LAKES, OSM_PARKS, OSM_BUILDINGS } from './tashkentRealGis.js';
 
 export const nightMats = []; // { mat, base, day } — tunda yorug'ligi oshadigan materiallar
 export const citySectors = []; // { group, detailGroup, cx, cz, radius } — masofa bo'yicha 2-bosqichli LOD
@@ -29,7 +29,7 @@ const STYLES = [
   { base: '#9e826c', frame: '#594435', glass: '#2d2622', style: 'panel', w: 1.1 }, // 5: Savdo markazi / do'kon va kafelar
 ];
 
-function buildingGeo(w, h, d, x, z, y0 = 0) {
+function buildingGeo(w, h, d, x, z, y0 = 0, rotY = 0) {
   const g = new THREE.BoxGeometry(w, h, d);
   const uv = g.attributes.uv;
   const faceDims = [[d, h], [d, h], null, null, [w, h], [w, h]];
@@ -38,8 +38,155 @@ function buildingGeo(w, h, d, x, z, y0 = 0) {
     if (!fd) uv.setXY(i, 0.995, 0.005);
     else uv.setXY(i, uv.getX(i) * Math.max(1, Math.round(fd[0] / 3.2)) / 8, uv.getY(i) * Math.max(1, Math.round(fd[1] / 3.2)) / 16);
   }
+  if (rotY) g.rotateY(rotY);
   g.translate(x, y0 + h / 2, z);
   return g;
+}
+
+// Haqiqiy OpenStreetMap (OSM) ko'pburchakli bino konturini (pts) 3D ga ekstrud qilish (kub EMAS — real L-shakl, burchakli, egri fasad!)
+function extrudeOsmPolygonGeo(rawPts, h, y0 = 0, scale = 1.0, cx = 0, cz = 0) {
+  if (!rawPts || rawPts.length < 3) return null;
+  const pts = [];
+  for (let i = 0; i < rawPts.length; i++) {
+    const px = scale === 1.0 ? rawPts[i][0] : cx + (rawPts[i][0] - cx) * scale;
+    const pz = scale === 1.0 ? rawPts[i][1] : cz + (rawPts[i][1] - cz) * scale;
+    if (pts.length === 0 || Math.hypot(px - pts[pts.length - 1][0], pz - pts[pts.length - 1][1]) > 0.4) {
+      pts.push([px, pz]);
+    }
+  }
+  if (pts.length > 2 && Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) < 0.4) {
+    pts.pop();
+  }
+  if (pts.length < 3) return null;
+
+  // Maydon ishorasini tekshirish (tashqi normal to'g'ri chiqishi uchun)
+  let area2 = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % pts.length];
+    area2 += a[0] * b[1] - b[0] * a[1];
+  }
+  if (area2 < 0) pts.reverse();
+
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+  const yBot = y0;
+  const yTop = y0 + h;
+  const vTop = Math.max(1, Math.round(h / 3.2)) / 16;
+
+  let distAcc = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [x0, z0] = pts[i];
+    const [x1, z1] = pts[(i + 1) % pts.length];
+    const dx = x1 - x0;
+    const dz = z1 - z0;
+    const segLen = Math.hypot(dx, dz);
+    if (segLen < 0.2) continue;
+    const nx = dz / segLen;
+    const nz = -dx / segLen;
+    const u0 = Math.round(distAcc / 3.2) / 8;
+    const u1 = u0 + Math.max(1, Math.round(segLen / 3.2)) / 8;
+    distAcc += segLen;
+
+    // 2 ta uchburchak (devor kvadrati)
+    positions.push(
+      x0, yBot, z0,  x1, yBot, z1,  x1, yTop, z1,
+      x0, yBot, z0,  x1, yTop, z1,  x0, yTop, z0
+    );
+    for (let k = 0; k < 6; k++) normals.push(nx, 0, nz);
+    uvs.push(
+      u0, 0,    u1, 0,    u1, vTop,
+      u0, 0,    u1, vTop, u0, vTop
+    );
+  }
+
+  // Tom qopqog'i (Ear-clipping / ShapeUtils triangulyatsiyasi)
+  const contour = pts.map(([px, pz]) => new THREE.Vector2(px, pz));
+  const tris = THREE.ShapeUtils.triangulateShape(contour, []);
+  for (let t = 0; t < tris.length; t++) {
+    const [i0, i1, i2] = tris[t];
+    const p0 = pts[i0], p1 = pts[i1], p2 = pts[i2];
+    positions.push(p0[0], yTop, p0[1], p2[0], yTop, p2[1], p1[0], yTop, p1[1]);
+    normals.push(0, 1, 0, 0, 1, 0, 0, 1, 0);
+    uvs.push(0.995, 0.005, 0.995, 0.005, 0.995, 0.005);
+  }
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  return geom;
+}
+
+// 3D Egri OpenStreetMap yo'llari va kanallari uchun lenta (Ribbon) geometriyasi
+function buildRibbonGeo(pts, width, y = 0.24) {
+  if (!pts || pts.length < 2) return null;
+  const hw = width * 0.5;
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+  let dist = 0;
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, z0] = pts[i];
+    const [x1, z1] = pts[i + 1];
+    const dx = x1 - x0;
+    const dz = z1 - z0;
+    const len = Math.hypot(dx, dz);
+    if (len < 0.5) continue;
+    const nx = -dz / len;
+    const nz = dx / len;
+
+    const axL = x0 + nx * hw, azL = z0 + nz * hw;
+    const axR = x0 - nx * hw, azR = z0 - nz * hw;
+    const bxL = x1 + nx * hw, bzL = z1 + nz * hw;
+    const bxR = x1 - nx * hw, bzR = z1 - nz * hw;
+    const v0 = dist / 10;
+    const v1 = (dist + len) / 10;
+    dist += len;
+
+    positions.push(
+      axL, y, azL,  axR, y, azR,  bxR, y, bzR,
+      axL, y, azL,  bxR, y, bzR,  bxL, y, bzL
+    );
+    for (let k = 0; k < 6; k++) normals.push(0, 1, 0);
+    uvs.push(
+      0, v0,  width / 10, v0,  width / 10, v1,
+      0, v0,  width / 10, v1,  0, v1
+    );
+  }
+  if (!positions.length) return null;
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  return geom;
+}
+
+// Nuqtaning (x, z) haqiqiy OpenStreetMap yo'li yoki kanaliga yaqinligini tekshirish (yo'l ustiga bino tushmasligi uchun!)
+function pointToSegDistSq(px, pz, x0, z0, x1, z1) {
+  const dx = x1 - x0, dz = z1 - z0;
+  const l2 = dx * dx + dz * dz;
+  if (l2 < 1e-4) return (px - x0) * (px - x0) + (pz - z0) * (pz - z0);
+  const t = Math.max(0, Math.min(1, ((px - x0) * dx + (pz - z0) * dz) / l2));
+  const qx = x0 + t * dx, qz = z0 + t * dz;
+  return (px - qx) * (px - qx) + (pz - qz) * (pz - qz);
+}
+
+export function isNearOsmRoad(px, pz, pad = 12) {
+  for (let i = 0; i < OSM_ROADS.length; i++) {
+    const rd = OSM_ROADS[i];
+    const hw = (rd.type === 'trunk' || rd.type === 'primary' ? 11 : rd.type === 'secondary' ? 8 : 5.5) + pad;
+    const hw2 = hw * hw;
+    const pts = rd.pts;
+    for (let p = 0; p < pts.length - 1; p++) {
+      if (pointToSegDistSq(px, pz, pts[p][0], pts[p][1], pts[p + 1][0], pts[p + 1][1]) < hw2) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 export function buildCity(scene, quality) {
@@ -196,15 +343,91 @@ export function buildCity(scene, quality) {
     }
   }
 
-  // Real OpenStreetMap (ODbL) 695 ta Toshkent binolarini kvartallar bo'yicha indekslash
-  const osmByBlock = new Map();
+  // 1) 704 ta Haqiqiy OpenStreetMap (ODbL) Egri Yo'llari (66.7 km), 139 ta Kanal, 12 ta Ko'l va 33 ta Parkni 3D Sahnada Qurish!
+  const osmRoadGeos = [];
+  const osmLineGeos = [];
+  for (let rIdx = 0; rIdx < OSM_ROADS.length; rIdx++) {
+    const rd = OSM_ROADS[rIdx];
+    const isMajor = rd.type === 'trunk' || rd.type === 'primary';
+    const isSec = rd.type === 'secondary';
+    const rWidth = isMajor ? 20 : isSec ? 14 : 9.5;
+    const rg = buildRibbonGeo(rd.pts, rWidth, 0.236);
+    if (rg) osmRoadGeos.push(rg);
+    if (isMajor || isSec) {
+      const lg = buildRibbonGeo(rd.pts, isMajor ? 0.45 : 0.28, 0.244);
+      if (lg) osmLineGeos.push(lg);
+    }
+  }
+  if (osmRoadGeos.length) {
+    const osmRoadMesh = new THREE.Mesh(mergeGeometries(osmRoadGeos), roadMat);
+    osmRoadMesh.receiveShadow = true;
+    group.add(osmRoadMesh);
+  }
+  if (osmLineGeos.length) {
+    const osmLineMesh = new THREE.Mesh(
+      mergeGeometries(osmLineGeos),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+    );
+    group.add(osmLineMesh);
+  }
+
+  // Haqiqiy OpenStreetMap 33 ta Park poligonlarini 3D maysazor sifatida qurish
+  for (let pIdx = 0; pIdx < OSM_PARKS.length; pIdx++) {
+    const pk = OSM_PARKS[pIdx];
+    const pg = extrudeOsmPolygonGeo(pk.pts, 0.06, 0.225);
+    if (pg) grassGeos.push(pg);
+  }
+
+  // Real OpenStreetMap (ODbL) 1793 ta Toshkent binolarini haqiqiy poligon konturlari (pts) bilan 3D sahnada qurish!
+  const osmCountByBlock = new Map();
   for (let bIdx = 0; bIdx < OSM_BUILDINGS.length; bIdx++) {
-    const b = OSM_BUILDINGS[bIdx];
-    const bj = Math.max(0, Math.min(N - 1, Math.round((b.cx + HALF - ROAD - BLOCK / 2) / CELL)));
-    const bk = Math.max(0, Math.min(N - 1, Math.round((b.cz + HALF - ROAD - BLOCK / 2) / CELL)));
+    const ob = OSM_BUILDINGS[bIdx];
+    const bj = Math.max(0, Math.min(N - 1, Math.round((ob.cx + HALF - ROAD - BLOCK / 2) / CELL)));
+    const bk = Math.max(0, Math.min(N - 1, Math.round((ob.cz + HALF - ROAD - BLOCK / 2) / CELL)));
+    const info = blockInfo(bj, bk);
+    if (info.type !== 'city') continue;
+
+    const w = Math.max(10, Math.min(140, ob.w || 22));
+    const d = Math.max(10, Math.min(140, ob.d || 20));
+    const rad = Math.min(w, d) * 0.35;
+    // Asosiy shoh ko'chalar va egri OSM yo'llari ustiga tushib qolmasligini tekshirish
+    if (onRoad(ob.cx, ob.cz) || onRoad(ob.cx - rad, ob.cz - rad) || onRoad(ob.cx + rad, ob.cz + rad) || isNearOsmRoad(ob.cx, ob.cz, 4)) continue;
+
     const bKey = `${bj},${bk}`;
-    if (!osmByBlock.has(bKey)) osmByBlock.set(bKey, []);
-    osmByBlock.get(bKey).push(b);
+    const curCount = osmCountByBlock.get(bKey) || 0;
+    osmCountByBlock.set(bKey, curCount + 1);
+
+    const sec = getSector(bj, bk);
+    const h = Math.max(10, Math.min(135, ob.h || (ob.lvl ? ob.lvl * 3.5 : 14 + ((bIdx * 7) % 5) * 4.5)));
+    const kind = String(ob.kind || '').toLowerCase();
+    const isGlass = /office|commercial|hotel|bank|civic|university/.test(kind) || h >= 36;
+    const isPanel = /apartments|residential|dormitory/.test(kind);
+    const isShop = /retail|supermarket|mall|marketplace|shop/.test(kind);
+    const si = isGlass ? (bIdx % 2 === 0 ? 3 : 4) : isPanel ? 2 : isShop ? 5 : bIdx % 2;
+
+    // 1. Binoning haqiqiy OpenStreetMap ko'pburchakli (polygon) konturini 3D ga ekstrud qilamiz!
+    const polyGeo = extrudeOsmPolygonGeo(ob.pts, h, 0.22);
+    if (polyGeo) {
+      sec.bGeos[si].push(polyGeo);
+      // Tom parapeti va pog'onali (stepped) me'moriy pentxaus / ustki qavat (binolar oddiy kub bo'lib qolmasligi uchun!)
+      const parapetGeo = extrudeOsmPolygonGeo(ob.pts, 0.75, h + 0.22, 1.02, ob.cx, ob.cz);
+      if (parapetGeo) sec.roofGeos.push(parapetGeo);
+      if (h >= 18) {
+        const tierH = Math.min(6.5, h * 0.22);
+        const upperTier = extrudeOsmPolygonGeo(ob.pts, tierH, h + 0.22, 0.72, ob.cx, ob.cz);
+        if (upperTier) sec.bGeos[isGlass ? 3 : 1].push(upperTier);
+        const upperRoof = extrudeOsmPolygonGeo(ob.pts, 0.55, h + tierH + 0.22, 0.75, ob.cx, ob.cz);
+        if (upperRoof) sec.roofGeos.push(upperRoof);
+      }
+      if (isShop || (!isGlass && bIdx % 2 === 0)) {
+        const plinth = extrudeOsmPolygonGeo(ob.pts, 3.4, 0.22, 1.03, ob.cx, ob.cz);
+        if (plinth) sec.shopGeos.push(plinth);
+      }
+    } else {
+      sec.bGeos[si].push(buildingGeo(w, h, d, ob.cx, ob.cz));
+      addRoofDetail(sec, ob.cx, ob.cz, w, h, d, isGlass);
+    }
+    addCollider(ob.cx - w * 0.46, ob.cz - d * 0.46, ob.cx + w * 0.46, ob.cz + d * 0.46, 'building');
   }
 
   for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
@@ -229,114 +452,52 @@ export function buildCity(scene, quality) {
     }
     if (info.type !== 'city') continue;
 
+    // Agar bu kvartalda haqiqiy OSM binolari yetarli bo'lsa, ustidan eski kub binolarni qo'shmaymiz!
+    if ((osmCountByBlock.get(`${j},${k}`) || 0) >= 2) continue;
+
     const sec = getSector(j, k);
     const center = 1 - Math.min(1, Math.hypot(bx, bz) / (HALF * 0.85));
 
-    // 0) Agar ushbu kvartalda haqiqiy OpenStreetMap (OSM) binolari mavjud bo'lsa, ularni haqiqiy o'lcham va balandlikda quramiz!
-    const realOsmList = osmByBlock.get(`${j},${k}`);
-    if (realOsmList && realOsmList.length > 0) {
-      const maxPerBlock = Math.min(realOsmList.length, 10);
-      for (let m = 0; m < maxPerBlock; m++) {
-        const ob = realOsmList[m];
-        const w = Math.max(12, Math.min(BLOCK * 0.42, ob.w || 24));
-        const d = Math.max(12, Math.min(BLOCK * 0.42, ob.d || 22));
-        const h = Math.max(8, Math.min(130, ob.h || (ob.lvl ? ob.lvl * 3.5 : 14 + (m % 4) * 5)));
-        const minBx = bx - BLOCK / 2 + w / 2 + 5;
-        const maxBx = bx + BLOCK / 2 - w / 2 - 5;
-        const minBz = bz - BLOCK / 2 + d / 2 + 5;
-        const maxBz = bz + BLOCK / 2 - d / 2 - 5;
-        const x = Math.max(minBx, Math.min(maxBx, ob.cx));
-        const z = Math.max(minBz, Math.min(maxBz, ob.cz));
+    // Tashqi kvartallarda: ko'p qanotli (L-shakl, U-hovli, pog'onali podium + minora) Toshkent arxitekturasi (hech qachon oddiy kub emas!)
+    const lots = 2;
+    const lot = (BLOCK - 18) / lots;
+    for (let a = 0; a < lots; a++) for (let b = 0; b < lots; b++) {
+      const x = bx - BLOCK / 2 + 9 + lot * (a + 0.5);
+      const z = bz - BLOCK / 2 + 9 + lot * (b + 0.5);
+      // Agar bu nuqtadan haqiqiy egri OSM yo'li o'tgan bo'lsa, yo'l ustiga bino qo'ymaymiz!
+      if (isNearOsmRoad(x, z, 22)) continue;
 
-        const kind = String(ob.kind || '').toLowerCase();
-        const isGlass = /office|commercial|hotel|bank|civic/.test(kind) || h >= 38;
-        const isPanel = /apartments|residential|dormitory/.test(kind);
-        const isShop = /retail|supermarket|mall|marketplace|shop/.test(kind);
-        const si = isGlass ? (m % 2 === 0 ? 3 : 4) : isPanel ? 2 : isShop ? 5 : m % 2;
+      const isTower = sRnd() < 0.28 + center * 0.38;
+      const si = isTower ? (sRnd() < 0.55 ? 3 : 4) : Math.floor(sRnd() * 3);
+      const w = rnd(34, 52);
+      const d = rnd(20, 32);
+      const h = isTower ? rnd(36, 68 + center * 65) : rnd(18, 34);
+      const wingW = rnd(18, 28);
+      const wingD = rnd(28, 44);
 
-        sec.bGeos[si].push(buildingGeo(w, h, d, x, z));
-        addRoofDetail(sec, x, z, w, h, d, isGlass);
-        if (isPanel || si === 0) addBalconies(sec, x, z, w * 0.6, h, d);
-        if (isShop || (!isGlass && m % 3 === 0)) {
-          sec.shopGeos.push(new THREE.BoxGeometry(w * 0.72, 2.6, d + 0.3).translate(x, 1.6, z));
-        }
-        addCollider(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 'building');
-      }
-      if (realOsmList.length >= 3) {
-        const courtGrass = new THREE.BoxGeometry(BLOCK - 42, 0.26, BLOCK - 42).translate(bx, 0.13, bz);
-        scaleUV(courtGrass, 5, 5);
-        grassGeos.push(courtGrass);
-        continue;
-      }
-    }
+      // 1-qavat savdo kolonnadasi / granit podium + 2 qanotli L-shakldagi bino + pog'onali pentxaus
+      const podH = 4.2;
+      sec.bGeos[5].push(buildingGeo(w + 3, podH, d + 3, x, z));
+      sec.shopGeos.push(new THREE.BoxGeometry(w * 0.85, 2.8, d + 3.4).translate(x, 1.8, z));
+      sec.roofGeos.push(new THREE.BoxGeometry(w + 4.2, 0.45, d + 4.2).translate(x, podH + 0.2, z));
 
-    // Kvartal ichida: hovlili ko'p qavatli mavze, biznes-markaz yoki savdo do'konlari
-    const blockArchetype = sRnd();
+      // Asosiy korpus + L-qanot korpus
+      sec.bGeos[si].push(buildingGeo(w, h - podH, d, x, z, podH));
+      const wxOff = x + (a === 0 ? w * 0.34 : -w * 0.34);
+      const wzOff = z + (b === 0 ? d * 0.42 : -d * 0.42);
+      const wingH = (h - podH) * 0.82;
+      sec.bGeos[si].push(buildingGeo(wingW, wingH, wingD, wxOff, wzOff, podH));
 
-    if (blockArchetype < 0.28 && center < 0.65) {
-      // 1) Toshkent mahalla / ko'p qavatli hovli ("Dom" + yashil ichki hovli)
-      const h1 = rnd(16, 30), h2 = rnd(16, 30);
-      const si = sRnd() < 0.6 ? 2 : 0;
-      // Shimoliy va janubiy uzun korpuslar
-      const wLong = BLOCK - 22, dLong = 14;
-      sec.bGeos[si].push(buildingGeo(wLong, h1, dLong, bx, bz - BLOCK / 2 + 14));
-      addRoofDetail(sec, bx, bz - BLOCK / 2 + 14, wLong, h1, dLong, false);
-      addBalconies(sec, bx, bz - BLOCK / 2 + 14, wLong * 0.42, h1, dLong);
-      addCollider(bx - wLong / 2, bz - BLOCK / 2 + 14 - dLong / 2, bx + wLong / 2, bz - BLOCK / 2 + 14 + dLong / 2, 'building');
+      // Ustki pog'onali (stepped setback) pentxaus qavati va tom karnizlari
+      const pentH = Math.max(4.5, h * 0.16);
+      sec.bGeos[isTower ? 3 : 1].push(buildingGeo(w * 0.68, pentH, d * 0.68, x, z, h));
+      addRoofDetail(sec, x, z, w, h, d, false);
+      addRoofDetail(sec, x, z, w * 0.68, h + pentH, d * 0.68, isTower);
+      addRoofDetail(sec, wxOff, wzOff, wingW, podH + wingH, wingD, false);
+      if (!isTower) addBalconies(sec, x, z, w * 0.65, h, d);
 
-      sec.bGeos[si].push(buildingGeo(wLong, h2, dLong, bx, bz + BLOCK / 2 - 14));
-      addRoofDetail(sec, bx, bz + BLOCK / 2 - 14, wLong, h2, dLong, false);
-      addBalconies(sec, bx, bz + BLOCK / 2 - 14, wLong * 0.42, h2, dLong);
-      addCollider(bx - wLong / 2, bz + BLOCK / 2 - 14 - dLong / 2, bx + wLong / 2, bz + BLOCK / 2 - 14 + dLong / 2, 'building');
-
-      // Ichki yashil hovli maysazori
-      const courtGrass = new THREE.BoxGeometry(BLOCK - 36, 0.28, BLOCK - 44).translate(bx, 0.14, bz);
-      scaleUV(courtGrass, 5, 5);
-      grassGeos.push(courtGrass);
-
-      // Yon do'kon / dorixona / minimarket
-      const sw = 12, sd = 24, sh = 5.5;
-      sec.bGeos[5].push(buildingGeo(sw, sh, sd, bx - BLOCK / 2 + 13, bz));
-      sec.shopGeos.push(new THREE.BoxGeometry(0.4, 2.8, sd - 3).translate(bx - BLOCK / 2 + 13 - sw / 2 - 0.1, 1.8, bz));
-      addCollider(bx - BLOCK / 2 + 13 - sw / 2, bz - sd / 2, bx - BLOCK / 2 + 13 + sw / 2, bz + sd / 2, 'building');
-    } else {
-      // 2) Aralash shahar kvartali: ofislar, podiumli minoralar, do'konlar va uylar
-      const lots = sRnd() < 0.48 ? 2 : 3;
-      const lot = (BLOCK - 12) / lots;
-      for (let a = 0; a < lots; a++) for (let b = 0; b < lots; b++) {
-        if (sRnd() > 0.88) continue;
-        const isTower = sRnd() < 0.22 + center * 0.42;
-        const si = isTower ? (sRnd() < 0.55 ? 3 : 4) : Math.floor(sRnd() * 3);
-        const w = rnd(lot * 0.58, lot * 0.86) * STYLES[si].w ** 0.1;
-        const d = rnd(lot * 0.58, lot * 0.86);
-        const h = isTower
-          ? rnd(34, 65 + center * 85)
-          : si === 2
-          ? rnd(16, 34)
-          : rnd(9, 22 + center * 26);
-        const x = bx - BLOCK / 2 + 6 + lot * (a + 0.5);
-        const z = bz - BLOCK / 2 + 6 + lot * (b + 0.5);
-
-        if (isTower && h > 48 && sRnd() < 0.65) {
-          // Pog'onali zamonaviy osmono'par bino (podium + minora + tom shpili)
-          const podH = rnd(8, 13);
-          sec.bGeos[1].push(buildingGeo(w * 1.15, podH, d * 1.15, x, z));
-          sec.bGeos[si].push(buildingGeo(w * 0.78, h - podH, d * 0.78, x, z, podH));
-          addRoofDetail(sec, x, z, w * 0.78, h, d * 0.78, true);
-          addCollider(x - (w * 1.15) / 2, z - (d * 1.15) / 2, x + (w * 1.15) / 2, z + (d * 1.15) / 2, 'building');
-        } else {
-          sec.bGeos[si].push(buildingGeo(w, h, d, x, z));
-          addRoofDetail(sec, x, z, w, h, d, isTower);
-          if ((si === 0 || si === 2) && sRnd() < 0.5) addBalconies(sec, x, z, w * 0.65, h, d);
-          addCollider(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 'building');
-        }
-
-        // Birinchi qavatda yorug' do'kon vitrinasi va kirish soyaboni (ko'cha yuzida)
-        if (!isTower && sRnd() < 0.45) {
-          sec.shopGeos.push(new THREE.BoxGeometry(w * 0.75, 2.6, d + 0.3).translate(x, 1.6, z));
-          sec.roofGeos.push(new THREE.BoxGeometry(w * 0.78, 0.25, d + 1.8).translate(x, 3.2, z));
-        }
-      }
+      addCollider(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 'building');
+      addCollider(wxOff - wingW / 2, wzOff - wingD / 2, wxOff + wingW / 2, wzOff + wingD / 2, 'building');
     }
   }
 
@@ -448,6 +609,22 @@ function buildCanal(group) {
       rails.push(new THREE.BoxGeometry(W + 4, 1.15, 0.4).translate(cx, 0.58, roadC(i) + s * (ROAD / 2 - 0.2)));
   group.add(new THREE.Mesh(mergeGeometries(banks), bankMat));
   group.add(new THREE.Mesh(mergeGeometries([...walls, ...rails]), stone));
+
+  // Haqiqiy OpenStreetMap (ODbL) 12 ta Ko'l va 139 ta Kanal o'zanlarini 3D sahnada suv qatlami sifatida qurish
+  const osmWaterGeos = [];
+  for (let i = 0; i < OSM_LAKES.length; i++) {
+    const lk = OSM_LAKES[i];
+    const lg = extrudeOsmPolygonGeo(lk.pts, 0.04, 0.232);
+    if (lg) osmWaterGeos.push(lg);
+  }
+  for (let i = 0; i < OSM_WATERWAYS.length; i++) {
+    const ww = OSM_WATERWAYS[i];
+    const wg = buildRibbonGeo(ww.pts, ww.type === 'river' ? 16 : 9, 0.231);
+    if (wg) osmWaterGeos.push(wg);
+  }
+  if (osmWaterGeos.length) {
+    group.add(new THREE.Mesh(mergeGeometries(osmWaterGeos), waterMat));
+  }
 }
 
 // GTA 5 uslubidagi tabiiy Toshkent relefi: Chimyon/Tyan-Shan tog' tizmasi, Chirchiq daryosi va Toshkent dengizi qirg'og'i
