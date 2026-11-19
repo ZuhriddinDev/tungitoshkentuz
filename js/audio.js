@@ -198,6 +198,16 @@ export const SOUND_PROFILES = {
     filterBase: 300,
     filterMax: 4500,
   },
+  w12_tt: {
+    src: 'audio/engines/w12.mp3',
+    baseFreq: 38,
+    pitchMul: 0.94,
+    gainMul: 1.18,
+    turbo: true,
+    burble: 0.85,
+    filterBase: 240,
+    filterMax: 3900,
+  },
   porsche_f6: {
     src: 'audio/engines/porsche_f6.mp3',
     baseFreq: 40,
@@ -720,9 +730,11 @@ export function updateEngine(rpm, throttle, pitch = 1, slip = 0, kmh = 0, opts =
   const carId = opts.carId || '';
   if (carId) currentCarId = carId;
   const spec = carId ? getEngineSpec(carId) : null;
-  const soundKey = (spec && spec.audioProfile && SOUND_PROFILES[spec.audioProfile])
-    ? spec.audioProfile
-    : (opts.sound || 'gentra_i4');
+  const soundKey = (opts.soundOverride && SOUND_PROFILES[opts.soundOverride])
+    ? opts.soundOverride
+    : (spec && spec.audioProfile && SOUND_PROFILES[spec.audioProfile])
+      ? spec.audioProfile
+      : (opts.sound || 'gentra_i4');
   const braking = !!opts.braking;
   const gear = opts.gear || 1;
   const isInterior = !!opts.isInterior;

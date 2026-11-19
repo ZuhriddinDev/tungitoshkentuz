@@ -3,7 +3,7 @@
 import { queryColliders, onRoad, HALF } from './world/layout.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const ENGINE_MUL = [1, 1.10, 1.20, 1.32];
+const ENGINE_MUL = [1, 1.10, 1.20, 1.32, 1.42, 1.54, 1.65];
 const TURBO_MUL  = [1, 1.12, 1.25];
 const ACCEL_MUL  = [1, 1.12, 1.24];
 const BRAKE_MUL  = [1, 1.18, 1.35];

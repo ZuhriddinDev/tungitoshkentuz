@@ -885,9 +885,12 @@ function step(dt, t) {
   model.update(signedDist, vehicle.steer, vehicle.pitch || 0, vehicle.roll || 0, vehicle.wheelSusp);
   model.setBrake(vehicle.braking);
 
+  const engLvl = vehicle.inst?.engine || 0;
+  const soundOverride = engLvl === 4 ? 'amg_v8' : engLvl === 5 ? 'lambo_v12' : engLvl === 6 ? 'w12_tt' : null;
   updateEngine(vehicle.rpm, input.throttle, vehicle.cfg.pitch, vehicle.slip, vehicle.kmh, {
     carId: vehicle.cfg.id,
     sound: vehicle.cfg.sound,
+    soundOverride,
     braking: vehicle.braking,
     gear: vehicle.gear,
     isInterior: camState.mode === 3,
